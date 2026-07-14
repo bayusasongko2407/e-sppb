@@ -58,15 +58,20 @@ Berhasil meremediasi temuan Prioritas 0 (Keamanan dan Blocker Build):
 7. **Pint, PHPStan, Tests**: Seluruh Quality Gate lulus dengan status OK.
 8. **ADR-001**: Proposal perbaikan schema (K-04, K-05, T-07) disusun sebagai blocker masuk FASE R1.
 
-## Next Steps (FASE R1)
 
-Fase berikutnya adalah tahap penjaminan integritas workflow dan perbaikan schema sesuai proposal ADR-001 (menunggu persetujuan):
 
-Fase berikutnya adalah tahap penjaminan mutu menyeluruh (Quality Assurance):
-1. **Unit & Feature Testing:** Eksekusi pengujian untuk WorkflowService.
-2. **End-to-End Workflow Testing:** Uji siklus dari Draft → Submit → BAT Approval → Manager Approval → Goods Release → Completed.
-3. **Concurrency/Idempotency Testing:** Uji respons sistem saat ada double-submit command (klik ganda).
-4. **Security Testing:** Uji policy untuk mencegah persetujuan tanpa hak akses / manipulasi Plant lain.
+## Ringkasan FASE R1 (Selesai)
+
+Berhasil melaksanakan tahap penjaminan mutu menyeluruh (Quality Assurance) dan integritas workflow:
+1. **Schema Remediation:** Constraints K-04, K-05, T-07 dari ADR-001 telah diimplementasikan penuh. Long index names disesuaikan dan Check Constraints ditambahkan via migrations.
+2. **Unit & Feature Testing:** Dibuat `WorkflowServiceTest` dengan 6 test case yang mencakup pengujian queuesubmission, assign approvers, authorization, delegasi, dan idempotency.
+3. **End-to-End Testing:** Dibuat `SppbEndToEndTest` yang menguji siklus lengkap (Draft → Submit → Manager Approval → BAT Approval → Approved).
+4. **Security Testing:** WorkflowService memverifikasi bahwa actor yang melakukan approval adalah approver yang sah (atau delegated approver).
+5. **Quality Gate:** PHPStan level maksimal dan 15 test suite berlalu dengan status hijau (OK).
+
+## Next Steps
+
+Lanjutkan ke iterasi pengembangan berikutnya (FASE 6 / Peluncuran).
 
 ## Credentials
 - Rahasia (seperti kredensial database) hanya boleh berada di dalam file `.env`. Rotasi kredensial merupakan tindakan eksternal wajib yang harus dilakukan oleh pemilik sistem.

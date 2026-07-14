@@ -11,14 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
+        Schema::disableForeignKeyConstraints();
+
         Schema::create('workflow_templates', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique();
             $table->string('code', 30);
             $table->string('name', 150);
             $table->unsignedInteger('version')->default(1);
-            $table->foreignId('plant_id')->nullable();
-            $table->foreignId('department_id')->nullable();
+            $table->foreignId('plant_id')->nullable()->constrained();
+            $table->foreignId('department_id')->nullable()->constrained();
             $table->string('document_type', 30)->default('SPPB');
             $table->text('description')->nullable();
             $table->boolean('is_active')->default(true)->index();
@@ -28,6 +30,8 @@ return new class extends Migration
             $table->index(['document_type', 'plant_id', 'department_id', 'is_active'], 'idx_wf_templates_resolver');
             $table->timestamps();
         });
+
+        Schema::enableForeignKeyConstraints();
     }
 
     /**

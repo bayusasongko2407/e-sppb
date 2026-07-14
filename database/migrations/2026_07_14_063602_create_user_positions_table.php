@@ -11,10 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
+        Schema::disableForeignKeyConstraints();
+
         Schema::create('user_positions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id');
-            $table->foreignId('position_id');
+            $table->foreignId('user_id')->constrained();
+            $table->foreignId('position_id')->constrained();
             $table->boolean('is_primary')->default(false)->index();
             $table->boolean('is_active')->default(true)->index();
             $table->timestamp('valid_from')->nullable();
@@ -23,6 +25,8 @@ return new class extends Migration
             $table->index(['position_id', 'is_active']);
             $table->timestamps();
         });
+
+        Schema::enableForeignKeyConstraints();
     }
 
     /**

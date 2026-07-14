@@ -11,10 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
+        Schema::disableForeignKeyConstraints();
+
         Schema::create('attachments', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique();
-            $table->foreignId('sppb_header_id');
+            $table->foreignId('sppb_header_id')->constrained();
             $table->string('original_name', 255);
             $table->string('stored_name', 255)->unique();
             $table->string('disk', 50)->default('private');
@@ -24,14 +26,15 @@ return new class extends Migration
             $table->string('extension', 20);
             $table->unsignedBigInteger('file_size');
             $table->char('checksum_sha256', 64)->index();
-            $table->foreignId('uploaded_by');
+            $table->foreignId('uploader_id')->constrained('users');
             $table->string('scan_status', 20)->default('PENDING')->index();
-            $table->foreignId('uploader_id');
             $table->index(['sppb_header_id', 'created_at']);
-            $table->index('uploaded_by');
+            $table->index('uploader_id');
             $table->timestamps();
             $table->softDeletes();
         });
+
+        Schema::enableForeignKeyConstraints();
     }
 
     /**

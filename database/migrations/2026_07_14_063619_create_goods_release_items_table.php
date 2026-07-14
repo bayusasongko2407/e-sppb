@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -11,10 +12,12 @@ return new class extends Migration
      */
     public function up(): void
     {
+        Schema::disableForeignKeyConstraints();
+
         Schema::create('goods_release_items', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('goods_release_id');
-            $table->foreignId('sppb_detail_id');
+            $table->foreignId('goods_release_id')->constrained();
+            $table->foreignId('sppb_detail_id')->constrained();
             $table->decimal('quantity_requested', 18, 2);
             $table->decimal('quantity_released', 18, 2);
             $table->decimal('quantity_received', 18, 2)->default(0);
@@ -26,6 +29,20 @@ return new class extends Migration
             $table->index('sppb_detail_id');
             $table->timestamps();
         });
+
+        if (DB::getDriverName() !== 'sqlite') {
+
+            DB::statement('ALTER TABLE goods_release_items ADD CONSTRAINT chk_gr_items_req CHECK (quantity_requested >= 0)');
+
+        }
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement('ALTER TABLE goods_release_items ADD CONSTRAINT chk_gr_items_rel CHECK (quantity_released >= 0)');
+        }
+        if (DB::getDriverName() !== 'sqlite') {
+            DB::statement('ALTER TABLE goods_release_items ADD CONSTRAINT chk_gr_items_rec CHECK (quantity_received >= 0)');
+        }
+
+        Schema::enableForeignKeyConstraints();
     }
 
     /**

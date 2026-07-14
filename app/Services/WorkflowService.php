@@ -271,7 +271,7 @@ final class WorkflowService implements WorkflowServiceContract
                 // Step selesai
                 $step->status = WorkflowInstanceStepStatus::APPROVED->value;
                 $step->acted_at = now();
-                $step->acted_by = $data->actorId;
+                $step->acted_by_id = $data->actorId;
                 $step->save();
 
                 // Cari step berikutnya
@@ -377,7 +377,7 @@ final class WorkflowService implements WorkflowServiceContract
 
             $step->status = WorkflowInstanceStepStatus::REJECTED->value;
             $step->acted_at = now();
-            $step->acted_by = $data->actorId;
+            $step->acted_by_id = $data->actorId;
             $step->remarks = $data->remarks;
             $step->save();
 
@@ -438,7 +438,7 @@ final class WorkflowService implements WorkflowServiceContract
 
             $step->status = WorkflowInstanceStepStatus::REVISION_REQUESTED->value;
             $step->acted_at = now();
-            $step->acted_by = $data->actorId;
+            $step->acted_by_id = $data->actorId;
             $step->remarks = $data->remarks;
             $step->save();
 

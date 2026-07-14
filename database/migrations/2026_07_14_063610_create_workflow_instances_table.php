@@ -11,11 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
+        Schema::disableForeignKeyConstraints();
+
         Schema::create('workflow_instances', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique();
-            $table->foreignId('workflow_template_id');
-            $table->foreignId('sppb_header_id');
+            $table->foreignId('workflow_template_id')->constrained();
+            $table->foreignId('sppb_header_id')->constrained();
             $table->unsignedInteger('template_version');
             $table->unsignedInteger('revision_no')->default(0);
             $table->string('status', 30)->default('QUEUED')->index();
@@ -28,6 +30,8 @@ return new class extends Migration
             $table->index(['status', 'current_sequence']);
             $table->timestamps();
         });
+
+        Schema::enableForeignKeyConstraints();
     }
 
     /**

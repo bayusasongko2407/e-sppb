@@ -11,12 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
+        Schema::disableForeignKeyConstraints();
+
         Schema::create('sppb_status_logs', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('sppb_header_id');
-            $table->foreignId('workflow_instance_id')->nullable();
-            $table->foreignId('workflow_instance_step_id')->nullable();
-            $table->foreignId('actor_id')->nullable();
+            $table->foreignId('sppb_header_id')->constrained();
+            $table->foreignId('workflow_instance_id')->nullable()->constrained();
+            $table->foreignId('workflow_instance_step_id')->nullable()->constrained();
+            $table->foreignId('actor_id')->nullable()->constrained('users');
             $table->uuid('command_uuid')->nullable();
             $table->string('action', 40)->index();
             $table->string('from_status', 30)->nullable();
@@ -29,6 +31,8 @@ return new class extends Migration
             $table->index(['command_uuid', 'action']);
             $table->timestamps();
         });
+
+        Schema::enableForeignKeyConstraints();
     }
 
     /**

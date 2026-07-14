@@ -11,19 +11,23 @@ return new class extends Migration
      */
     public function up(): void
     {
+        Schema::disableForeignKeyConstraints();
+
         Schema::create('workflow_delegations', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('delegator_id');
-            $table->foreignId('delegate_id');
-            $table->foreignId('plant_id')->nullable();
+            $table->foreignId('delegator_id')->constrained('users');
+            $table->foreignId('delegate_id')->constrained('users');
+            $table->foreignId('plant_id')->nullable()->constrained();
             $table->timestamp('starts_at');
             $table->timestamp('ends_at');
             $table->text('reason');
             $table->boolean('is_active')->default(true);
-            $table->index(['delegator_id', 'starts_at', 'ends_at', 'is_active'], 'idx_wf_delegations_search');
-            $table->index(['delegate_id', 'starts_at', 'ends_at', 'is_active'], 'idx_wf_delegates_search');
+            $table->index(['delegator_id', 'starts_at', 'ends_at', 'is_active'], 'idx_wf_delegator_active');
+            $table->index(['delegate_id', 'starts_at', 'ends_at', 'is_active'], 'idx_wf_delegate_active');
             $table->timestamps();
         });
+
+        Schema::enableForeignKeyConstraints();
     }
 
     /**

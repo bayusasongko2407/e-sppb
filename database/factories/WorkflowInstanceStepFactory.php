@@ -28,10 +28,9 @@ class WorkflowInstanceStepFactory extends Factory
             'activated_at' => fake()->dateTime(),
             'due_at' => fake()->dateTime(),
             'acted_at' => fake()->dateTime(),
-            'acted_by' => User::factory(),
+            'acted_by_id' => User::factory(),
             'remarks' => fake()->text(),
             'lock_version' => fake()->randomNumber(),
-            'acted_by_id' => User::factory(),
         ];
     }
 }

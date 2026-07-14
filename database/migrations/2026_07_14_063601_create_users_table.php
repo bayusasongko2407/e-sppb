@@ -11,11 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
+        Schema::disableForeignKeyConstraints();
+
         Schema::create('users', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('plant_id')->nullable();
-            $table->foreignId('department_id')->nullable();
-            $table->foreignId('manager_id')->nullable();
+            $table->foreignId('plant_id')->nullable()->constrained();
+            $table->foreignId('department_id')->nullable()->constrained();
+            $table->foreignId('manager_id')->nullable()->constrained('users');
             $table->string('nik', 30)->unique();
             $table->string('name', 150);
             $table->string('email', 191)->nullable()->unique();
@@ -30,6 +32,8 @@ return new class extends Migration
             $table->index('manager_id');
             $table->timestamps();
         });
+
+        Schema::enableForeignKeyConstraints();
     }
 
     /**

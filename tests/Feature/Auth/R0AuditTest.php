@@ -26,10 +26,10 @@ class R0AuditTest extends TestCase
     public function test_attachment_relation_to_uploaded_by_user()
     {
         $user = User::factory()->create();
-        $attachment = Attachment::factory()->create(['uploaded_by' => $user->id]);
+        $attachment = Attachment::factory()->create(['uploader_id' => $user->id]);
 
-        $this->assertEquals($user->id, $attachment->uploadedBy->id);
-        $this->assertInstanceOf(User::class, $attachment->uploadedBy);
+        $this->assertEquals($user->id, $attachment->uploader->id);
+        $this->assertInstanceOf(User::class, $attachment->uploader);
     }
 
     public function test_login_with_email()

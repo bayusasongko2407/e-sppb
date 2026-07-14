@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-$targetDir = __DIR__ . '/../docs/reference-images/menu-modules';
+$targetDir = __DIR__.'/../docs/reference-images/menu-modules';
 
 if (! is_dir($targetDir)) {
     mkdir($targetDir, 0775, true);
@@ -243,7 +243,7 @@ function wrapText(string $text, int $limit = 54): array
     $line = '';
 
     foreach ($words as $word) {
-        $candidate = trim($line . ' ' . $word);
+        $candidate = trim($line.' '.$word);
         if (mb_strlen($candidate) > $limit && $line !== '') {
             $lines[] = $line;
             $line = $word;
@@ -289,34 +289,34 @@ function renderModule(array $module): string
     $subtitleLines = wrapText($module['subtitle'], 66);
     $subtitleSvg = '';
     foreach ($subtitleLines as $index => $line) {
-        $subtitleSvg .= '<text x="72" y="' . (184 + ($index * 30)) . "\" class=\"subtitle\">" . esc($line) . '</text>';
+        $subtitleSvg .= '<text x="72" y="'.(184 + ($index * 30)).'" class="subtitle">'.esc($line).'</text>';
     }
 
     $statsSvg = '';
     foreach ($module['stats'] as $index => $stat) {
         $x = 72 + ($index * 240);
         $statsSvg .= "<rect x=\"$x\" y=\"278\" width=\"204\" height=\"94\" rx=\"24\" class=\"stat\"/>";
-        $statsSvg .= "<circle cx=\"" . ($x + 38) . "\" cy=\"324\" r=\"14\" fill=\"" . esc($accent) . "\" opacity=\"0.18\"/>";
-        $statsSvg .= "<text x=\"" . ($x + 64) . "\" y=\"316\" class=\"stat-label\">Area</text>";
-        $statsSvg .= "<text x=\"" . ($x + 64) . "\" y=\"346\" class=\"stat-value\">" . esc($stat) . '</text>';
+        $statsSvg .= '<circle cx="'.($x + 38).'" cy="324" r="14" fill="'.esc($accent).'" opacity="0.18"/>';
+        $statsSvg .= '<text x="'.($x + 64).'" y="316" class="stat-label">Area</text>';
+        $statsSvg .= '<text x="'.($x + 64).'" y="346" class="stat-value">'.esc($stat).'</text>';
     }
 
     $flowSvg = '';
     foreach ($module['flow'] as $index => $step) {
         $x = 78 + ($index * 238);
-        $flowSvg .= "<circle cx=\"$x\" cy=\"508\" r=\"30\" fill=\"" . esc($accent) . "\"/>";
-        $flowSvg .= '<text x="' . $x . "\" y=\"518\" text-anchor=\"middle\" class=\"flow-no\">" . ($index + 1) . '</text>';
-        $flowSvg .= '<text x="' . ($x + 46) . "\" y=\"500\" class=\"flow-text\">" . esc($step) . '</text>';
+        $flowSvg .= "<circle cx=\"$x\" cy=\"508\" r=\"30\" fill=\"".esc($accent).'"/>';
+        $flowSvg .= '<text x="'.$x.'" y="518" text-anchor="middle" class="flow-no">'.($index + 1).'</text>';
+        $flowSvg .= '<text x="'.($x + 46).'" y="500" class="flow-text">'.esc($step).'</text>';
         if ($index < count($module['flow']) - 1) {
-            $flowSvg .= '<path d="M' . ($x + 148) . ' 508h62" class="flow-line"/>';
+            $flowSvg .= '<path d="M'.($x + 148).' 508h62" class="flow-line"/>';
         }
     }
 
     $notesSvg = '';
     foreach ($module['notes'] as $index => $note) {
         $y = 648 + ($index * 42);
-        $notesSvg .= "<circle cx=\"96\" cy=\"$y\" r=\"7\" fill=\"" . esc($accent) . "\"/>";
-        $notesSvg .= "<text x=\"118\" y=\"" . ($y + 7) . "\" class=\"note\">" . esc($note) . '</text>';
+        $notesSvg .= "<circle cx=\"96\" cy=\"$y\" r=\"7\" fill=\"".esc($accent).'"/>';
+        $notesSvg .= '<text x="118" y="'.($y + 7).'" class="note">'.esc($note).'</text>';
     }
 
     return <<<SVG
@@ -367,7 +367,7 @@ SVG;
 }
 
 foreach ($modules as $module) {
-    file_put_contents($targetDir . '/' . $module['file'], renderModule($module));
+    file_put_contents($targetDir.'/'.$module['file'], renderModule($module));
 }
 
 $readme = "# Referensi Gambar Menu dan Modul E-SPPB\n\n";
@@ -376,7 +376,7 @@ $readme .= "| File | Group | Modul |\n";
 $readme .= "| --- | --- | --- |\n";
 
 foreach ($modules as $module) {
-    $readme .= '| [`' . $module['file'] . '`](' . $module['file'] . ') | ' . $module['group'] . ' | ' . $module['title'] . " |\n";
+    $readme .= '| [`'.$module['file'].'`]('.$module['file'].') | '.$module['group'].' | '.$module['title']." |\n";
 }
 
-file_put_contents($targetDir . '/README.md', $readme);
+file_put_contents($targetDir.'/README.md', $readme);

@@ -25,9 +25,8 @@ class AttachmentFactory extends Factory
             'extension' => fake()->regexify('[A-Za-z0-9]{20}'),
             'file_size' => fake()->randomNumber(),
             'checksum_sha256' => fake()->randomLetter(),
-            'uploaded_by' => User::factory(),
-            'scan_status' => fake()->regexify('[A-Za-z0-9]{20}'),
             'uploader_id' => User::factory(),
+            'scan_status' => fake()->regexify('[A-Za-z0-9]{20}'),
         ];
     }
 }

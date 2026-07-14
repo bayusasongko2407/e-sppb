@@ -11,13 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
+        Schema::disableForeignKeyConstraints();
+
         Schema::create('workflow_commands', function (Blueprint $table) {
             $table->id();
             $table->uuid('command_uuid')->unique();
             $table->string('command_type', 50);
             $table->string('aggregate_type', 100);
             $table->unsignedBigInteger('aggregate_id');
-            $table->foreignId('actor_id');
+            $table->foreignId('actor_id')->constrained('users');
             $table->json('payload')->nullable();
             $table->string('status', 20)->default('QUEUED')->index();
             $table->unsignedInteger('attempts')->default(0);
@@ -28,6 +30,8 @@ return new class extends Migration
             $table->index(['actor_id', 'created_at']);
             $table->timestamps();
         });
+
+        Schema::enableForeignKeyConstraints();
     }
 
     /**

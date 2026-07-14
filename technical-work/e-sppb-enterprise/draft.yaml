@@ -8,7 +8,7 @@ models:
       hasMany: Department, Location, User, Asset, WorkflowTemplate, WorkflowDelegation, SppbHeader, RunningNumber
 
   Department:
-    plant_id: id
+    plant_id: id foreign restrictOnDelete
     code: string:20
     name: string:150
     description: text nullable
@@ -21,7 +21,7 @@ models:
       hasMany: User, WorkflowTemplate, SppbHeader
 
   Location:
-    plant_id: id
+    plant_id: id foreign restrictOnDelete
     code: string:20
     name: string:150 index
     address: text nullable
@@ -51,9 +51,9 @@ models:
       hasMany: UserPosition, WorkflowStep
 
   User:
-    plant_id: id nullable
-    department_id: id nullable
-    manager_id: id nullable
+    plant_id: id nullable foreign restrictOnDelete
+    department_id: id nullable foreign restrictOnDelete
+    manager_id: id nullable foreign restrictOnDelete
     nik: string:30 unique
     name: string:150
     email: string:191 nullable unique
@@ -72,8 +72,8 @@ models:
       hasMany: UserPosition, User:subordinates, WorkflowStepApprover, WorkflowDelegation:delegationsGiven, WorkflowDelegation:delegationsReceived, SppbHeader:requests, Attachment:uploads, Notification, ActivityLog
 
   UserPosition:
-    user_id: id
-    position_id: id
+    user_id: id foreign cascadeOnDelete
+    position_id: id foreign restrictOnDelete
     is_primary: boolean default:false index
     is_active: boolean default:true index
     valid_from: timestamp nullable
@@ -88,7 +88,7 @@ models:
     code: string:30 unique
     name: string:200
     specification: text nullable
-    unit_id: id
+    unit_id: id foreign restrictOnDelete
     # item_type di sini adalah kategori ITEM (bukan kategori aset)
     # Contoh: CONSUMABLE, EQUIPMENT, MATERIAL, SPARE_PART, dll.
     item_category: string:50 nullable index
@@ -102,11 +102,11 @@ models:
   Asset:
     # item_id DIHAPUS: aset berdiri sendiri, bukan turunan item
     # serial_number DIHAPUS: digantikan oleh barcode sebagai identifier unik
-    plant_id: id nullable
+    plant_id: id nullable foreign restrictOnDelete
     # location_id tetap sebagai FK ke tabel locations
     # asset_location_name & asset_location_address: snapshot text saat aset disimpan
     # (denormalisasi dari sistem eksternal / saat data berubah)
-    location_id: id nullable
+    location_id: id nullable foreign restrictOnDelete
     asset_location_name: string:255 nullable
     asset_location_address: text nullable
     barcode: string:100 unique
@@ -125,8 +125,8 @@ models:
     code: string:30
     name: string:150
     version: unsignedInteger default:1
-    plant_id: id nullable
-    department_id: id nullable
+    plant_id: id nullable foreign restrictOnDelete
+    department_id: id nullable foreign restrictOnDelete
     document_type: string:30 default:SPPB
     description: text nullable
     is_active: boolean default:true index
@@ -140,13 +140,13 @@ models:
       hasMany: WorkflowStep, WorkflowInstance
 
   WorkflowStep:
-    workflow_template_id: id
+    workflow_template_id: id foreign cascadeOnDelete
     sequence: unsignedInteger
     code: string:30
     name: string:150
     approver_type: string:30
-    approver_user_id: id nullable
-    approver_position_id: id nullable
+    approver_user_id: id nullable foreign restrictOnDelete
+    approver_position_id: id nullable foreign restrictOnDelete
     approver_role: string:100 nullable
     approval_mode: string:20 default:ANY
     minimum_approvals: unsignedInteger default:1
@@ -164,9 +164,9 @@ models:
       hasMany: WorkflowInstanceStep
 
   WorkflowDelegation:
-    delegator_id: id
-    delegate_id: id
-    plant_id: id nullable
+    delegator_id: id foreign restrictOnDelete
+    delegate_id: id foreign restrictOnDelete
+    plant_id: id nullable foreign restrictOnDelete
     starts_at: timestamp
     ends_at: timestamp
     reason: text
@@ -181,15 +181,15 @@ models:
     uuid: uuid unique
     document_number: string:50 nullable unique
     # UI: plant_id dropdown sesuai hak akses user
-    plant_id: id
+    plant_id: id foreign restrictOnDelete
     # UI: department_id autofill berdasarkan departemen user login
-    department_id: id
+    department_id: id foreign restrictOnDelete
     # UI: requester_id autofill nama user login
-    requester_id: id
+    requester_id: id foreign restrictOnDelete
     # UI: origin_location_id dropdown difilter berdasarkan plant yang dipilih
-    origin_location_id: id
+    origin_location_id: id foreign restrictOnDelete
     # UI: destination_location_id semua lokasi, tidak boleh sama dengan origin
-    destination_location_id: id
+    destination_location_id: id foreign restrictOnDelete
     # Diganti dari project_name menjadi needed_name
     needed_name: string:255 nullable
     legacy_fppb_hash: char:64 nullable
@@ -200,9 +200,9 @@ models:
     is_urgent: boolean default:false index
     status: string:30 default:DRAFT index
     revision_no: unsignedInteger default:0
-    current_workflow_instance_id: id nullable
+    current_workflow_instance_id: id nullable foreign restrictOnDelete
     current_step_sequence: unsignedInteger nullable
-    current_approver_id: id nullable
+    current_approver_id: id nullable foreign restrictOnDelete
     lock_version: unsignedInteger default:0
     submitted_at: timestamp nullable
     approved_at: timestamp nullable
@@ -222,14 +222,14 @@ models:
       hasMany: SppbDetail, WorkflowInstance, SppbStatusLog, Attachment, GoodsRelease
 
   SppbDetail:
-    sppb_header_id: id
+    sppb_header_id: id foreign cascadeOnDelete
     line_no: unsignedInteger
     # barcode_confirmed: jika true → UI dropdown dari tabel assets
     #                   jika false → UI dropdown dari tabel items
     barcode_confirmed: boolean default:false
     # item_id & asset_id: dua FK nullable, hanya salah satu terisi
-    item_id: id nullable
-    asset_id: id nullable
+    item_id: id nullable foreign restrictOnDelete
+    asset_id: id nullable foreign restrictOnDelete
     # reference_code: denormalisasi kode untuk tampilan UI (barcode aset / kode item)
     reference_code: string:100 nullable index
     is_from_master: boolean default:false
@@ -237,7 +237,7 @@ models:
     # item_name diganti menjadi item_asset_name (netral untuk item maupun aset)
     item_asset_name: string:200
     # unit_id tetap sebagai FK, unit_name dihapus (ambil dari relasi)
-    unit_id: id
+    unit_id: id foreign restrictOnDelete
     quantity: decimal:18,2
     # remarks: dapat auto-fill dari specification item jika item dipilih
     #          kosong otomatis jika aset yang dipilih (dapat diedit manual)
@@ -260,8 +260,8 @@ models:
 
   WorkflowInstance:
     uuid: uuid unique
-    workflow_template_id: id
-    sppb_header_id: id
+    workflow_template_id: id foreign cascadeOnDelete
+    sppb_header_id: id foreign cascadeOnDelete
     template_version: unsignedInteger
     revision_no: unsignedInteger default:0
     status: string:30 default:QUEUED index
@@ -278,8 +278,8 @@ models:
       hasMany: WorkflowInstanceStep, SppbStatusLog
 
   WorkflowInstanceStep:
-    workflow_instance_id: id
-    workflow_step_id: id nullable
+    workflow_instance_id: id foreign cascadeOnDelete
+    workflow_step_id: id nullable foreign restrictOnDelete
     sequence: unsignedInteger
     code: string:30
     name: string:150
@@ -291,20 +291,20 @@ models:
     activated_at: timestamp nullable
     due_at: timestamp nullable index
     acted_at: timestamp nullable
-    acted_by: id nullable
+    acted_by_id: id nullable foreign restrictOnDelete
     remarks: text nullable
     lock_version: unsignedInteger default:0
     indexes:
       - unique: workflow_instance_id, sequence
       - index: status, due_at
     relationships:
-      belongsTo: WorkflowInstance, WorkflowStep, User:acted_by
+      belongsTo: WorkflowInstance, WorkflowStep, User:actedBy
       hasMany: WorkflowStepApprover, SppbStatusLog
 
   WorkflowStepApprover:
-    workflow_instance_step_id: id
-    approver_id: id
-    delegated_from_id: id nullable
+    workflow_instance_step_id: id foreign cascadeOnDelete
+    approver_id: id foreign restrictOnDelete
+    delegated_from_id: id nullable foreign restrictOnDelete
     status: string:20 default:QUEUED index
     acted_at: timestamp nullable
     remarks: text nullable
@@ -319,7 +319,7 @@ models:
     command_type: string:50
     aggregate_type: string:100
     aggregate_id: unsignedBigInteger
-    actor_id: id
+    actor_id: id foreign restrictOnDelete
     payload: json nullable
     status: string:20 default:QUEUED index
     attempts: unsignedInteger default:0
@@ -333,10 +333,10 @@ models:
       belongsTo: User:actor
 
   SppbStatusLog:
-    sppb_header_id: id
-    workflow_instance_id: id nullable
-    workflow_instance_step_id: id nullable
-    actor_id: id nullable
+    sppb_header_id: id foreign cascadeOnDelete
+    workflow_instance_id: id nullable foreign cascadeOnDelete
+    workflow_instance_step_id: id nullable foreign cascadeOnDelete
+    actor_id: id nullable foreign restrictOnDelete
     command_uuid: uuid nullable
     action: string:40 index
     from_status: string:30 nullable
@@ -353,7 +353,7 @@ models:
 
   Attachment:
     uuid: uuid unique
-    sppb_header_id: id
+    sppb_header_id: id foreign cascadeOnDelete
     # sppb_detail_id DIHAPUS: attachment hanya pada level sppb_header
     original_name: string:255
     stored_name: string:255 unique
@@ -364,17 +364,17 @@ models:
     extension: string:20
     file_size: unsignedBigInteger
     checksum_sha256: char:64 index
-    uploaded_by: id
+    uploader_id: id foreign restrictOnDelete
     scan_status: string:20 default:PENDING index
     softDeletes: true
     indexes:
       - index: sppb_header_id, created_at
-      - index: uploaded_by
+      - index: uploader_id
     relationships:
       belongsTo: SppbHeader, User:uploader
 
   ActivityLog:
-    actor_id: id nullable
+    actor_id: id nullable foreign restrictOnDelete
     module: string:50
     action: string:50
     subject_type: string:100 nullable
@@ -393,10 +393,10 @@ models:
       belongsTo: User:actor
 
   RunningNumber:
-    plant_id: id
+    plant_id: id foreign restrictOnDelete
     # department_id: ditambahkan untuk mendukung format nomor berbasis departemen
     # Format masa depan: SPPB/[PLANT_CODE]/[DEPT_CODE]/[YEAR]/[SEQ]
-    department_id: id nullable
+    department_id: id nullable foreign restrictOnDelete
     document_type: string:30
     period_key: string:12
     prefix: string:30
@@ -413,22 +413,22 @@ models:
   GoodsRelease:
     uuid: uuid unique
     release_number: string:50 unique
-    sppb_header_id: id
+    sppb_header_id: id foreign cascadeOnDelete
     release_sequence: unsignedInteger
     is_manual: boolean default:false
-    created_by: id
+    created_by_id: id foreign restrictOnDelete
     sender_name: string:255
     sender_address: text nullable
     receiver_name: string:255
     receiver_address: text nullable
-    sender_user_id: id nullable
-    receiver_user_id: id nullable
+    sender_user_id: id nullable foreign restrictOnDelete
+    receiver_user_id: id nullable foreign restrictOnDelete
     driver_name: string:100 nullable
     vehicle_number: string:50 nullable
     expedition_name: string:100 nullable
     delivery_date: date nullable
     received_at: timestamp nullable
-    received_by: id nullable
+    received_by_id: id nullable foreign restrictOnDelete
     status: string:20 default:DRAFT index
     notes: text nullable
     verification_hash: char:64 unique
@@ -436,12 +436,12 @@ models:
       - unique: sppb_header_id, release_sequence
       - index: status, delivery_date
     relationships:
-      belongsTo: SppbHeader, User:created_by, User:sender_user_id, User:receiver_user_id, User:received_by
+      belongsTo: SppbHeader, User:createdBy, User:senderUser, User:receiverUser, User:receivedBy
       hasMany: GoodsReleaseItem
 
   GoodsReleaseItem:
-    goods_release_id: id
-    sppb_detail_id: id
+    goods_release_id: id foreign cascadeOnDelete
+    sppb_detail_id: id foreign cascadeOnDelete
     quantity_requested: decimal:18,2
     quantity_released: decimal:18,2
     quantity_received: decimal:18,2 default:0
@@ -456,7 +456,7 @@ models:
       belongsTo: GoodsRelease, SppbDetail
 
   Notification:
-    user_id: id
+    user_id: id foreign cascadeOnDelete
     notification_type: string:30
     title: string:200
     message: longText

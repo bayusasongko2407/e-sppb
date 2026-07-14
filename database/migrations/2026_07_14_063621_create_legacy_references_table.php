@@ -11,6 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
+        Schema::disableForeignKeyConstraints();
+
         Schema::create('legacy_references', function (Blueprint $table) {
             $table->id();
             $table->string('source_system', 50);
@@ -24,6 +26,8 @@ return new class extends Migration
             $table->index(['target_type', 'target_id']);
             $table->timestamps();
         });
+
+        Schema::enableForeignKeyConstraints();
     }
 
     /**

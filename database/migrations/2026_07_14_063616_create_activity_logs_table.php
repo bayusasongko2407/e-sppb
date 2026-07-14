@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
+        Schema::disableForeignKeyConstraints();
+
         Schema::create('activity_logs', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('actor_id')->nullable();
+            $table->foreignId('actor_id')->nullable()->constrained('users');
             $table->string('module', 50);
             $table->string('action', 50);
             $table->string('subject_type', 100)->nullable();
@@ -29,6 +31,8 @@ return new class extends Migration
             $table->index(['module', 'action', 'created_at']);
             $table->timestamps();
         });
+
+        Schema::enableForeignKeyConstraints();
     }
 
     /**

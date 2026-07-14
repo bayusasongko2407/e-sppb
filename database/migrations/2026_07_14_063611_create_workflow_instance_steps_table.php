@@ -11,10 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
+        Schema::disableForeignKeyConstraints();
+
         Schema::create('workflow_instance_steps', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('workflow_instance_id');
-            $table->foreignId('workflow_step_id')->nullable();
+            $table->foreignId('workflow_instance_id')->constrained();
+            $table->foreignId('workflow_step_id')->nullable()->constrained();
             $table->unsignedInteger('sequence');
             $table->string('code', 30);
             $table->string('name', 150);
@@ -26,14 +28,15 @@ return new class extends Migration
             $table->timestamp('activated_at')->nullable();
             $table->timestamp('due_at')->nullable()->index();
             $table->timestamp('acted_at')->nullable();
-            $table->foreignId('acted_by')->nullable();
+            $table->foreignId('acted_by_id')->nullable()->constrained('users');
             $table->text('remarks')->nullable();
             $table->unsignedInteger('lock_version')->default(0);
-            $table->foreignId('acted_by_id');
             $table->unique(['workflow_instance_id', 'sequence']);
             $table->index(['status', 'due_at']);
             $table->timestamps();
         });
+
+        Schema::enableForeignKeyConstraints();
     }
 
     /**

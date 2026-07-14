@@ -6,7 +6,6 @@ use App\Models\Department;
 use App\Models\Location;
 use App\Models\Plant;
 use App\Models\User;
-use App\Models\WorkflowInstance;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class SppbHeaderFactory extends Factory

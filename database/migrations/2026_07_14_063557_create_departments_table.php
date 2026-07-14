@@ -11,9 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
+        Schema::disableForeignKeyConstraints();
+
         Schema::create('departments', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('plant_id');
+            $table->foreignId('plant_id')->constrained();
             $table->string('code', 20);
             $table->string('name', 150);
             $table->text('description')->nullable();
@@ -22,6 +24,8 @@ return new class extends Migration
             $table->index(['plant_id', 'is_active']);
             $table->timestamps();
         });
+
+        Schema::enableForeignKeyConstraints();
     }
 
     /**

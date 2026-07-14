@@ -32,10 +32,9 @@ class WorkflowInstanceStep extends Model
         'activated_at',
         'due_at',
         'acted_at',
-        'acted_by',
+        'acted_by_id',
         'remarks',
         'lock_version',
-        'acted_by_id',
     ];
 
     /**
@@ -55,9 +54,8 @@ class WorkflowInstanceStep extends Model
             'activated_at' => 'timestamp',
             'due_at' => 'timestamp',
             'acted_at' => 'timestamp',
-            'acted_by' => 'integer',
-            'lock_version' => 'integer',
             'acted_by_id' => 'integer',
+            'lock_version' => 'integer',
         ];
     }
 
@@ -73,7 +71,7 @@ class WorkflowInstanceStep extends Model
 
     public function actedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'acted_by');
+        return $this->belongsTo(User::class, 'acted_by_id');
     }
 
     public function stepApprovers(): HasMany

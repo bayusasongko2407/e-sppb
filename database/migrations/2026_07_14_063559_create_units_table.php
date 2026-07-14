@@ -11,6 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
+        Schema::disableForeignKeyConstraints();
+
         Schema::create('units', function (Blueprint $table) {
             $table->id();
             $table->string('code', 20)->unique();
@@ -19,6 +21,8 @@ return new class extends Migration
             $table->boolean('is_active')->default(true)->index();
             $table->timestamps();
         });
+
+        Schema::enableForeignKeyConstraints();
     }
 
     /**

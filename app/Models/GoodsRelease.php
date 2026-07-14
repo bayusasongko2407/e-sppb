@@ -22,7 +22,7 @@ class GoodsRelease extends Model
         'sppb_header_id',
         'release_sequence',
         'is_manual',
-        'created_by',
+        'created_by_id',
         'sender_name',
         'sender_address',
         'receiver_name',
@@ -34,14 +34,12 @@ class GoodsRelease extends Model
         'expedition_name',
         'delivery_date',
         'received_at',
-        'received_by',
+        'received_by_id',
         'status',
         'notes',
         'verification_hash',
-        'created_by_id',
         'sender_user_id_id',
         'receiver_user_id_id',
-        'received_by_id',
     ];
 
     /**
@@ -56,16 +54,14 @@ class GoodsRelease extends Model
             'sppb_header_id' => 'integer',
             'release_sequence' => 'integer',
             'is_manual' => 'boolean',
-            'created_by' => 'integer',
+            'created_by_id' => 'integer',
             'sender_user_id' => 'integer',
             'receiver_user_id' => 'integer',
             'delivery_date' => 'date',
             'received_at' => 'timestamp',
-            'received_by' => 'integer',
-            'created_by_id' => 'integer',
+            'received_by_id' => 'integer',
             'sender_user_id_id' => 'integer',
             'receiver_user_id_id' => 'integer',
-            'received_by_id' => 'integer',
         ];
     }
 

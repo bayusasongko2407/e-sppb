@@ -11,15 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
+        Schema::disableForeignKeyConstraints();
+
         Schema::create('workflow_steps', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('workflow_template_id');
+            $table->foreignId('workflow_template_id')->constrained();
             $table->unsignedInteger('sequence');
             $table->string('code', 30);
             $table->string('name', 150);
             $table->string('approver_type', 30);
-            $table->foreignId('approver_user_id')->nullable();
-            $table->foreignId('approver_position_id')->nullable();
+            $table->foreignId('approver_user_id')->nullable()->constrained('users');
+            $table->foreignId('approver_position_id')->nullable()->constrained('positions');
             $table->string('approver_role', 100)->nullable();
             $table->string('approval_mode', 20)->default('ANY');
             $table->unsignedInteger('minimum_approvals')->default(1);
@@ -33,6 +35,8 @@ return new class extends Migration
             $table->index('approver_user_id');
             $table->timestamps();
         });
+
+        Schema::enableForeignKeyConstraints();
     }
 
     /**

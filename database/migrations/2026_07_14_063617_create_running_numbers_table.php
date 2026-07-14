@@ -11,10 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
+        Schema::disableForeignKeyConstraints();
+
         Schema::create('running_numbers', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('plant_id');
-            $table->foreignId('department_id')->nullable();
+            $table->foreignId('plant_id')->constrained();
+            $table->foreignId('department_id')->nullable()->constrained();
             $table->string('document_type', 30);
             $table->string('period_key', 12);
             $table->string('prefix', 30);
@@ -26,6 +28,8 @@ return new class extends Migration
             $table->index(['document_type', 'period_key', 'is_active']);
             $table->timestamps();
         });
+
+        Schema::enableForeignKeyConstraints();
     }
 
     /**

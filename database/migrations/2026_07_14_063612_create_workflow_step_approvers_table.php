@@ -11,18 +11,22 @@ return new class extends Migration
      */
     public function up(): void
     {
+        Schema::disableForeignKeyConstraints();
+
         Schema::create('workflow_step_approvers', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('workflow_instance_step_id');
-            $table->foreignId('approver_id');
-            $table->foreignId('delegated_from_id')->nullable();
+            $table->foreignId('workflow_instance_step_id')->constrained();
+            $table->foreignId('approver_id')->constrained('users');
+            $table->foreignId('delegated_from_id')->nullable()->constrained('users');
             $table->string('status', 20)->default('QUEUED')->index();
             $table->timestamp('acted_at')->nullable();
             $table->text('remarks')->nullable();
-            $table->unique(['workflow_instance_step_id', 'approver_id'], 'uq_wf_step_approver');
+            $table->unique(['workflow_instance_step_id', 'approver_id'], 'idx_wf_step_approver_unique');
             $table->index(['approver_id', 'status']);
             $table->timestamps();
         });
+
+        Schema::enableForeignKeyConstraints();
     }
 
     /**

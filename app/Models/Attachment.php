@@ -30,9 +30,8 @@ class Attachment extends Model
         'extension',
         'file_size',
         'checksum_sha256',
-        'uploaded_by',
-        'scan_status',
         'uploader_id',
+        'scan_status',
     ];
 
     /**
@@ -46,7 +45,6 @@ class Attachment extends Model
             'id' => 'integer',
             'sppb_header_id' => 'integer',
             'file_size' => 'integer',
-            'uploaded_by' => 'integer',
             'uploader_id' => 'integer',
         ];
     }
@@ -63,6 +61,6 @@ class Attachment extends Model
 
     public function uploadedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'uploaded_by');
+        return $this->belongsTo(User::class, 'uploader_id');
     }
 }

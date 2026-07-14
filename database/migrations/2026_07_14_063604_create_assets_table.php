@@ -11,10 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
+        Schema::disableForeignKeyConstraints();
+
         Schema::create('assets', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('plant_id')->nullable();
-            $table->foreignId('location_id')->nullable();
+            $table->foreignId('plant_id')->nullable()->constrained();
+            $table->foreignId('location_id')->nullable()->constrained();
             $table->string('asset_location_name', 255)->nullable();
             $table->text('asset_location_address')->nullable();
             $table->string('barcode', 100)->unique();
@@ -25,6 +27,8 @@ return new class extends Migration
             $table->index(['plant_id', 'location_id', 'status', 'is_active']);
             $table->timestamps();
         });
+
+        Schema::enableForeignKeyConstraints();
     }
 
     /**

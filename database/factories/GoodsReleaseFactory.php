@@ -19,7 +19,7 @@ class GoodsReleaseFactory extends Factory
             'sppb_header_id' => SppbHeader::factory(),
             'release_sequence' => fake()->randomNumber(),
             'is_manual' => fake()->boolean(),
-            'created_by' => User::factory(),
+            'created_by_id' => User::factory(),
             'sender_name' => fake()->regexify('[A-Za-z0-9]{255}'),
             'sender_address' => fake()->text(),
             'receiver_name' => fake()->regexify('[A-Za-z0-9]{255}'),
@@ -31,14 +31,12 @@ class GoodsReleaseFactory extends Factory
             'expedition_name' => fake()->regexify('[A-Za-z0-9]{100}'),
             'delivery_date' => fake()->date(),
             'received_at' => fake()->dateTime(),
-            'received_by' => User::factory(),
+            'received_by_id' => User::factory(),
             'status' => fake()->regexify('[A-Za-z0-9]{20}'),
             'notes' => fake()->text(),
             'verification_hash' => fake()->randomLetter(),
-            'created_by_id' => User::factory(),
             'sender_user_id_id' => User::factory(),
             'receiver_user_id_id' => User::factory(),
-            'received_by_id' => User::factory(),
         ];
     }
 }

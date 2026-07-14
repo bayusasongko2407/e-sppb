@@ -1,0 +1,182 @@
+models:
+
+  SppbHeader:
+
+    company_id: id
+
+    plant_id: id
+
+    department_id: id
+
+    requester_id: id
+
+    workflow_instance_id: id nullable
+
+    current_workflow_step: integer nullable
+
+    current_approver_id: id nullable
+
+    document_uuid: uuid unique
+
+    document_number: string:50 unique
+
+    request_date: date
+
+    origin_location_id: id
+
+    destination_location_id: id
+
+    requester_name: string:150
+
+    purpose: longtext
+
+    status: enum:DRAFT,SUBMITTED,WAITING_BAT,WAITING_MANAGER,APPROVED,REJECTED,CANCELLED default:DRAFT
+
+    notes: longtext nullable
+
+    revision_no: integer default:0
+
+    revision_reason: longtext nullable
+
+    total_items: integer default:0
+
+    total_quantity: decimal:18,2 default:0
+
+    attachment_count: integer default:0
+
+    submitted_at: timestamp nullable
+
+    approved_at: timestamp nullable
+
+    approved_by: id nullable
+
+    rejected_at: timestamp nullable
+
+    rejected_by: id nullable
+
+    cancelled_at: timestamp nullable
+
+    cancelled_by: id nullable
+
+    pdf_generated_at: timestamp nullable
+
+    pdf_generated_by: id nullable
+
+    indexes:
+      - index: company_id
+      - index: plant_id
+      - index: department_id
+      - index: requester_id
+      - index: workflow_instance_id
+      - index: current_workflow_step
+      - index: current_approver_id
+      - index: approved_by
+      - index: rejected_by
+      - index: cancelled_by
+      - index: pdf_generated_by
+      - index: origin_location_id
+      - index: destination_location_id
+      - index: status
+      - index: request_date
+      - unique: requester_id
+
+    relationships:
+      belongsTo: Company,
+                 Plant,
+                 Department,
+                 WorkflowInstance,
+                 User:requester,
+                 User:currentApprover,
+                 User:approvedBy,
+                 User:rejectedBy,
+                 User:cancelledBy,
+                 User:pdfGeneratedBy,
+                 Location:originLocation,
+                 Location:destinationLocation
+
+      hasMany: SppbDetail,
+               Attachment,
+               SppbStatusLog,
+               DocumentValidation
+
+
+
+  SppbDetail:
+
+    sppb_header_id: id
+
+    line_no: integer
+
+    asset_id: id nullable
+
+    item_id: id nullable
+
+    item_type: enum:ASSET,NON_ASSET
+
+    barcode: string:100 nullable
+
+    item_code: string:30 nullable
+
+    item_name: string:200
+
+    specification: longtext nullable
+
+    unit_id: id
+
+    unit_name: string:100
+
+    quantity: decimal:18,2
+
+    approved_quantity: decimal:18,2 nullable
+
+    delivered_quantity: decimal:18,2 nullable
+
+    remarks: longtext nullable
+
+    indexes:
+      - unique: sppb_header_id, line_no
+      - index: sppb_header_id
+      - index: asset_id
+      - index: item_id
+      - index: barcode
+      - index: unit_id
+      - index: item_type
+
+    relationships:
+      belongsTo: SppbHeader,
+                 Asset,
+                 Item,
+                 Unit
+
+      hasMany: Attachment
+
+
+
+  SppbStatusLog:
+
+    sppb_header_id: id
+
+    workflow_step_id: id nullable
+
+    user_id: id nullable
+
+    action: string:30
+
+    status: enum:DRAFT,SUBMITTED,WAITING_BAT,WAITING_MANAGER,APPROVED,REJECTED,CANCELLED
+
+    remarks: longtext nullable
+
+    logged_at: timestamp
+
+    indexes:
+      - index: sppb_header_id
+      - index: workflow_step_id
+      - index: user_id
+      - index: action
+      - index: status
+      - index: logged_at
+
+    relationships:
+      belongsTo: SppbHeader,
+                 WorkflowStep,
+                 User

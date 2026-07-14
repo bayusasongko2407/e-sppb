@@ -1,0 +1,57 @@
+models:
+
+  User:
+
+    company_id: id nullable
+
+    plant_id: id nullable
+
+    department_id: id nullable
+
+    nik: string:30 unique
+
+    name: string:150
+
+    email: string nullable unique
+
+    email_verified_at: timestamp nullable
+
+    password: string
+
+    remember_token: rememberToken
+
+    last_login_at: timestamp nullable
+
+    is_active: boolean default:true
+
+    indexes:
+      - index: company_id
+      - index: plant_id
+      - index: department_id
+      - index: is_active
+
+    relationships:
+      belongsTo: Company, Plant, Department
+      hasMany: UserPosition, Attachment, SppbHeader:request, WorkflowInstanceStep:approval, Notification, ActivityLog
+
+
+
+  UserPosition:
+
+    user_id: id
+
+    position_id: id
+
+    is_primary: boolean default:false
+
+    is_active: boolean default:true
+
+    indexes:
+      - unique: user_id, position_id
+      - index: user_id
+      - index: position_id
+      - index: is_primary
+      - index: is_active
+
+    relationships:
+      belongsTo: User, Position

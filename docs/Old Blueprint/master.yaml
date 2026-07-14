@@ -1,0 +1,74 @@
+models:
+
+  Company:
+    code: string:20 unique
+    name: string:150
+    description: text nullable
+    is_active: boolean default:true
+
+    indexes:
+      - index: is_active
+
+    relationships:
+      hasMany: Plant, User
+
+  Plant:
+    company_id: id
+    code: string:20
+    name: string:150
+    description: text nullable
+    is_active: boolean default:true
+
+    indexes:
+      - unique: company_id, code
+      - index: company_id
+      - index: is_active
+
+    relationships:
+      belongsTo: Company
+      hasMany: Department, User
+
+  Department:
+    plant_id: id
+    code: string:20
+    name: string:150
+    description: text nullable
+    is_active: boolean default:true
+
+    indexes:
+      - unique: plant_id, code
+      - index: plant_id
+      - index: is_active
+
+    relationships:
+      belongsTo: Plant
+      hasMany: User
+
+  Location:
+    code: string:20 unique
+    name: string:150
+    address: text nullable
+    description: text nullable
+    is_active: boolean default:true
+
+    indexes:
+      - index: name
+      - index: is_active
+
+  Unit:
+    code: string:20 unique
+    name: string:100
+    description: text nullable
+    is_active: boolean default:true
+
+    indexes:
+      - index: is_active
+
+  Position:
+    code: string:20 unique
+    name: string:100
+    description: text nullable
+    is_active: boolean default:true
+
+    indexes:
+      - index: is_active

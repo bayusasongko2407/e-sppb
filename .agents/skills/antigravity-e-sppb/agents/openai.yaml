@@ -1,0 +1,4 @@
+interface:
+  display_name: "Antigravity E-SPPB"
+  short_description: "Implementasi E-SPPB sesuai blueprint beku"
+  default_prompt: "Gunakan $antigravity-e-sppb untuk mengerjakan fase E-SPPB berikutnya sesuai blueprint beku dan Filament v5."

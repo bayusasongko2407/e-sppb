@@ -1,0 +1,36 @@
+models:
+
+  Attachment:
+
+    sppb_header_id: id
+
+    sppb_detail_id: id nullable
+
+    original_name: string:255
+
+    stored_name: string:255 unique
+
+    disk: string:50 default:private
+
+    directory: string:255
+
+    path: string:500
+
+    mime_type: string:100
+
+    extension: string:20
+
+    file_size: bigint
+
+    checksum: string:64 nullable
+
+    uploaded_by: id
+
+    indexes:
+      - index: sppb_header_id
+      - index: sppb_detail_id
+      - index: uploaded_by
+      - index: checksum
+
+    relationships:
+      belongsTo: SppbHeader, SppbDetail, User

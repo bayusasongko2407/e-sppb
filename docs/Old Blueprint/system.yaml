@@ -1,0 +1,196 @@
+models:
+
+  RunningNumber:
+
+    company_id: id nullable
+
+    plant_id: id nullable
+
+    document_type: string:30
+
+    prefix: string:20
+
+    reset_type: enum:NONE,YEARLY,MONTHLY default:YEARLY
+
+    digit: integer default:6
+
+    last_number: integer default:0
+
+    is_active: boolean default:true
+
+    indexes:
+      - unique: company_id, plant_id, document_type
+      - index: company_id
+      - index: plant_id
+      - index: document_type
+      - index: is_active
+
+    relationships:
+      belongsTo: Company, Plant
+
+
+
+  WorkflowTemplate:
+
+    code: string:30 unique
+
+    name: string:150
+
+    description: text nullable
+
+    is_active: boolean default:true
+
+    indexes:
+      - index: is_active
+
+    relationships:
+      hasMany: WorkflowStep, WorkflowInstance
+
+
+
+  WorkflowStep:
+
+    workflow_template_id: id
+
+    sequence: integer
+
+    position_id: id
+
+    step_name: string:150
+
+    is_final: boolean default:false
+
+    indexes:
+      - unique: workflow_template_id, sequence
+      - index: workflow_template_id
+      - index: position_id
+
+    relationships:
+      belongsTo: WorkflowTemplate, Position
+      hasMany: WorkflowInstanceStep
+
+
+
+  WorkflowInstance:
+
+    workflow_template_id: id
+
+    reference_type: string:50
+
+    reference_uuid: uuid
+
+    current_step: integer default:1
+
+    status: enum:DRAFT,IN_PROGRESS,APPROVED,REJECTED,CANCELLED
+
+    started_at: timestamp nullable
+
+    finished_at: timestamp nullable
+
+    indexes:
+      - index: workflow_template_id
+      - index: reference_type
+      - index: reference_uuid
+      - index: status
+
+    relationships:
+      belongsTo: WorkflowTemplate
+      hasMany: WorkflowInstanceStep
+
+
+
+  WorkflowInstanceStep:
+
+    workflow_instance_id: id
+
+    workflow_step_id: id
+
+    approver_id: id
+
+    status: enum:PENDING,APPROVED,REJECTED,SKIPPED
+
+    remarks: text nullable
+
+    approved_at: timestamp nullable
+
+    indexes:
+      - index: workflow_instance_id
+      - index: workflow_step_id
+      - index: approver_id
+      - index: status
+
+    relationships:
+      belongsTo: WorkflowInstance, WorkflowStep, User
+
+
+
+  Notification:
+
+    user_id: id
+
+    notification_type: enum:SPPB,WORKFLOW,SYSTEM,INFO
+
+    title: string:200
+
+    message: longtext
+
+    url: string nullable
+
+    is_read: boolean default:false
+
+    read_at: timestamp nullable
+
+    indexes:
+      - index: user_id
+      - index: notification_type
+      - index: is_read
+
+    relationships:
+      belongsTo: User
+
+
+
+  ActivityLog:
+
+    user_id: id nullable
+
+    module: string:50
+
+    action: string:50
+
+    description: longtext nullable
+
+    reference_type: string:50 nullable
+
+    reference_id: integer nullable
+
+    ip_address: string:45 nullable
+
+    user_agent: longtext nullable
+
+    indexes:
+      - index: module
+      - index: action
+      - index: reference_type
+      - index: reference_id
+
+    relationships:
+      belongsTo: User
+
+
+
+  DocumentValidation:
+
+    sppb_header_id: id
+
+    uuid: uuid unique
+
+    qr_code: longtext
+
+    expires_at: timestamp nullable
+
+    indexes:
+      - index: sppb_header_id
+
+    relationships:
+      belongsTo: SppbHeader

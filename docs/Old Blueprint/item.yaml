@@ -1,0 +1,61 @@
+models:
+
+  Item:
+
+    code: string:30 unique
+
+    name: string:200
+
+    specification: text nullable
+
+    unit_id: id
+
+    item_type: enum:ASSET,NON_ASSET default:NON_ASSET
+
+    is_active: boolean default:true
+
+    indexes:
+      - index: unit_id
+      - index: item_type
+      - index: is_active
+
+    relationships:
+      belongsTo: Unit
+      hasMany: Asset, SppbDetail
+
+
+
+  Asset:
+
+    item_id: id
+
+    company_id: id
+
+    plant_id: id
+
+    location_id: id
+
+    barcode: string:100 unique
+
+    serial_number: string:100 nullable
+
+    condition: enum:GOOD,FAIR,DAMAGED,SCRAP default:GOOD
+
+    status: enum:AVAILABLE,RESERVED,IN_USE,REPAIR,DISPOSED default:AVAILABLE
+
+    notes: text nullable
+
+    is_active: boolean default:true
+
+    indexes:
+        - index: item_id
+        - index: company_id
+        - index: plant_id
+        - index: location_id
+        - index: condition
+        - index: status
+        - index: is_active
+
+    relationships:
+        belongsTo: Item, Company, Plant, Location
+        hasMany: SppbDetail

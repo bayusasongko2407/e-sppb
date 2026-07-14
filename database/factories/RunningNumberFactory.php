@@ -1,0 +1,28 @@
+<?php
+
+namespace Database\Factories;
+
+use App\Models\Department;
+use App\Models\Plant;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+class RunningNumberFactory extends Factory
+{
+    /**
+     * Define the model's default state.
+     */
+    public function definition(): array
+    {
+        return [
+            'plant_id' => Plant::factory(),
+            'department_id' => Department::factory(),
+            'document_type' => fake()->regexify('[A-Za-z0-9]{30}'),
+            'period_key' => fake()->regexify('[A-Za-z0-9]{12}'),
+            'prefix' => fake()->regexify('[A-Za-z0-9]{30}'),
+            'digits' => fake()->randomDigitNotNull(),
+            'last_number' => fake()->randomNumber(),
+            'lock_version' => fake()->randomNumber(),
+            'is_active' => fake()->boolean(),
+        ];
+    }
+}

@@ -1,40 +1,76 @@
-
 ## Active Checkpoint
 
 - Updated at: 2026-07-14 Asia/Jakarta
-- Phase: Revisi dan pembekuan Antigravity 2.0 Master Blueprint
-- Status: Selesai — blueprint dan draft telah dinormalisasi serta dibekukan.
-- Current task: Perbarui `technical-work/e-sppb-enterprise/antigravity-blueprint.md`, `draft.yaml`, dan status laporan build tanpa mengubah implementasi aplikasi yang sedang berjalan.
-- Decisions from user: hapus entitas/company scope; organisasi tertinggi adalah Plant; tambahkan manajemen role; UI wajib Bahasa Indonesia; blueprint dibekukan terhadap Filament v5 dan dilarang memakai referensi Filament v3.
-- Verified dependency: `filament/filament` v5.6.8 pada `composer.lock`; signature resource v5 menggunakan `Filament\Schemas\Schema` dan `form(Schema $schema): Schema`.
-- Permission blocker resolved: ownership tiga artefak blueprint telah diperbaiki tanpa menyimpan kredensial ke repository atau konfigurasi.
-- Completed changes:
-  - `Company` dan seluruh `company_id` dihapus dari desain kanonik; Plant menjadi tingkat organisasi tertinggi.
-  - `draft.yaml` kini memuat 26 model dan 8 seeder; sintaks YAML tervalidasi.
-  - Manajemen role/permission ditambahkan melalui Spatie, `RoleManagementService`, `RoleResource`, permission khusus, audit, proteksi role sistem, dan proteksi super admin terakhir.
-  - Semua teks yang terlihat pengguna diwajibkan menggunakan Bahasa Indonesia.
-  - Blueprint berstatus `FROZEN` per 14 Juli 2026.
-  - Filament dikunci pada major v5 dan versi terverifikasi v5.6.8; pola/import/signature Filament v3/v4 menjadi kegagalan quality gate.
-  - `build-report.md` ditandai superseded dan generated preview wajib dibangun ulang.
-- Verification: Symfony YAML parser lulus; tidak ada referensi `Company`/`company_id` dalam `draft.yaml`; pemeriksaan whitespace/diff lulus.
-- Project-local skill created: `/www/wwwroot/e-sppb/skills/antigravity-e-sppb/` berisi `SKILL.md`, `agents/openai.yaml`, dan `references/frozen-rules.md` agar dapat disimpan bersama repository.
-- Auto-discovery retained: `/home/indosoftpedia/.codex/skills/antigravity-e-sppb` adalah symlink ke folder skill di proyek, sehingga tidak ada salinan file kedua yang perlu dipelihara.
-- Skill coverage: pemuatan konteks wajib, aturan Plant-only, Bahasa Indonesia, Spatie role management, workflow implementasi, Laravel Blueprint, guardrail Filament v5.6.8, serta quality gate anti-Filament v3/v4.
-- Skill validation: `quick_validate.py` lulus dengan hasil `Skill is valid!`; tidak ada placeholder TODO tersisa.
-- Blocker resolved: Aturan pemilihan approver = **ANY** (siapa pun yang bertindak pertama menyelesaikan step; semua kandidat di-insert sebagai PENDING, sisanya di-CANCEL setelah yang pertama bertindak)
-- Last completed task: Workflow engine core selesai diimplementasikan dan diverifikasi. **74 tests pass, 313 assertions, 0 failures.**
-- Key changes this session:
-  - `WorkflowInstanceStatus` enum: hapus DRAFT/PENDING/COMPLETED → tambah REVISION_REQUIRED, FAILED
-  - `WorkflowInstanceStepStatus` enum: QUEUED (ganti SKIPPED), tambah REVISION_REQUESTED, EXPIRED
-  - `WorkflowInstanceService`: tulis ulang lengkap — resolveApprovers() (Collection), generate() (ALL kandidat PENDING/QUEUED), approveStep() dengan lockForUpdate + cancel sibling, rejectStep()
-  - `WorkflowInstanceServiceContract`: diperbarui ke resolveApprovers() plural + approveStep/rejectStep
-  - Migration `workflow_instances` + `workflow_instance_steps`: diselaraskan dengan canonical enum blueprint
-  - Model dilengkapi: Company, Plant, Department, Location, Position, WorkflowTemplate, WorkflowInstance, WorkflowInstanceStep, UserPosition (semua fillable + relasi)
-  - Tests: 10 test workflow baru, semua test legacy diperbaiki (23 workflow + 51 lainnya = 74 total)
-  - Direktori `/www/wwwroot/e-sppb-enterprise/technical-work/e-sppb-enterprise/` berhasil dibuat
-- In-progress files: Tidak ada
-- Blockers: Tidak ada
-- Next recommended action: Implementasikan `SppbService` (queueSubmit → ProcessSppbSubmissionJob → generate WorkflowInstance), lalu `GoodsReleaseService`, lalu Filament UI (Fase 5)
-- Required context: `Agents.md`, `technical-work/e-sppb-enterprise/antigravity-blueprint.md` Bagian C FASE 4, `app/Services/Workflow/WorkflowInstanceService.php`
+- Phase: UI/UX Refactoring SPPB Resource (SELESAI)
+- Status: Refactoring UI/UX SppbHeaderResource selesai 100%. Layout enterprise sesuai desain yang disetujui: Header 5-row, Detail Barang full width, Workflow Timeline horizontal. Quality gate lulus: PHP lint OK, Pint OK, PHPStan OK.
 
-- Last verification: Notification service tests passed (1 test, 1 assertion). Other foundational services continue to be implemented.
+## Ringkasan UI/UX Refactoring SPPB Resource (Selesai)
+
+Berhasil merefaktor presentasi layer SppbHeaderResource tanpa mengubah database, migrasi, business logic, atau workflow:
+
+1. **SppbHeaderResource.php**: Diperbarui untuk mendelegasikan `form()`, `infolist()`, dan `table()` ke kelas schema/table terpisah. Menambahkan metode `infolist()` untuk halaman View.
+2. **SppbHeaderForm.php**: Schema form enterprise lengkap dengan:
+   - Header Section 5-row (No. SPPB readonly, Tgl Permintaan readonly, Status badge, Plant, Department, Requester)
+   - Lokasi Asal/Tujuan + Keperluan (span 4 kolom kanan)
+   - Alamat otomatis readonly multiline di bawah setiap lokasi
+   - Tanggal Kebutuhan + Keterangan (textarea span 5 kolom)
+   - Lampiran FileUpload full width
+   - Detail Barang Repeater full width dengan ToggleButtons Asset/Non-Asset
+   - Workflow Timeline horizontal full width (tersembunyi saat create)
+3. **SppbHeaderInfolist.php**: Infolist schema identik untuk halaman View (semua readonly), menggunakan TextEntry dan RepeatableEntry.
+4. **SppbHeadersTable.php**: Table dengan badge Status, filter status, sort default created_at desc.
+5. **Pages**: CreateSppbHeader redirect ke view, EditSppbHeader redirect ke view setelah simpan.
+
+
+
+## Ringkasan FASE 5 (Selesai)
+
+Berhasil membangun seluruh kerangka Resource Filament v5 murni menggunakan `Filament\Schemas\Schema`, seluruhnya berbahasa Indonesia, dan mematuhi aturan ketat blueprint:
+
+1. **Master Data Resources:**
+   - PlantResource, DepartmentResource, LocationResource, UnitResource, PositionResource, UserResource, ItemResource, AssetResource.
+2. **Workflow Master:**
+   - WorkflowTemplateResource (beserta setingan repeater step berurutan).
+   - WorkflowDelegationResource.
+3. **Transaksi SPPB (`SppbResource`):**
+   - Diatur sebagai Master-Detail form dengan Tabs (Informasi, Daftar Barang Repeater, Rekam Workflow).
+4. **Persetujuan & Monitoring:**
+   - `MyApprovalResource`: Form Split-Screen (Grid 3) untuk Approver, tersambung query `WAITING_APPROVAL`.
+   - `GoodsReleaseResource`: Khusus modul pengiriman barang (Admin).
+   - `WorkflowInstanceResource`: Monitoring transparan Mode Read-Only khusus untuk viewer (Gudang).
+
+## Keputusan User (Terkonfirmasi)
+
+- UI Layout SPPB: Master-Detail dengan mode Tab (bukan wizard penuh).
+- Plant sebagai entitas hierarki tertinggi (Company dilarang).
+- Penggunaan mutlak antarmuka dan label Bahasa Indonesia.
+- Model telah mengadopsi standar PHP `declare(strict_types=1);`.
+
+## Ringkasan FASE R0 (Selesai)
+
+Berhasil meremediasi temuan Prioritas 0 (Keamanan dan Blocker Build):
+1. **K-01**: Kredensial hardcoded telah dihapus.
+2. **K-02**: Empat belas factory rusak telah diperbaiki, relasi model dibenahi, unique constraint email diterapkan, dan efisiensi hashing password dioptimalkan.
+3. **K-06**: Penggunaan `dd()` saat login gagal diubah menjadi `ValidationException` yang aman.
+4. **T-09**: Seeder tidak lagi menghasilkan super admin dengan password default `password`.
+5. **T-10**: Relasi model ke class yang tidak ada dihapus (Correlation) atau disesuaikan (UploadedBy ke User).
+6. **T-11 & T-12**: Account lockout telah diterapkan (5 gagal login, kunci 15 menit), model User dikonfigurasi dengan cast `datetime` untuk field login, serta exception redirect yang aman.
+7. **Pint, PHPStan, Tests**: Seluruh Quality Gate lulus dengan status OK.
+8. **ADR-001**: Proposal perbaikan schema (K-04, K-05, T-07) disusun sebagai blocker masuk FASE R1.
+
+## Next Steps (FASE R1)
+
+Fase berikutnya adalah tahap penjaminan integritas workflow dan perbaikan schema sesuai proposal ADR-001 (menunggu persetujuan):
+
+Fase berikutnya adalah tahap penjaminan mutu menyeluruh (Quality Assurance):
+1. **Unit & Feature Testing:** Eksekusi pengujian untuk WorkflowService.
+2. **End-to-End Workflow Testing:** Uji siklus dari Draft → Submit → BAT Approval → Manager Approval → Goods Release → Completed.
+3. **Concurrency/Idempotency Testing:** Uji respons sistem saat ada double-submit command (klik ganda).
+4. **Security Testing:** Uji policy untuk mencegah persetujuan tanpa hak akses / manipulasi Plant lain.
+
+## Credentials
+- Rahasia (seperti kredensial database) hanya boleh berada di dalam file `.env`. Rotasi kredensial merupakan tindakan eksternal wajib yang harus dilakukan oleh pemilik sistem.
+- Filament: v5.6.8
+
+## In-progress files
+Tidak ada. Semua tugas FASE 5 telah selesai digabungkan ke codebase.

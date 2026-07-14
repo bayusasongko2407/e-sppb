@@ -89,20 +89,27 @@ models:
     name: string:200
     specification: text nullable
     unit_id: id
-    item_type: string:20 default:NON_ASSET index
+    # item_type di sini adalah kategori ITEM (bukan kategori aset)
+    # Contoh: CONSUMABLE, EQUIPMENT, MATERIAL, SPARE_PART, dll.
+    item_category: string:50 nullable index
     is_active: boolean default:true index
     indexes:
-      - index: item_type, is_active
+      - index: item_category, is_active
     relationships:
       belongsTo: Unit
-      hasMany: Asset, SppbDetail
+      hasMany: SppbDetail
 
   Asset:
-    item_id: id
-    plant_id: id
-    location_id: id
+    # item_id DIHAPUS: aset berdiri sendiri, bukan turunan item
+    # serial_number DIHAPUS: digantikan oleh barcode sebagai identifier unik
+    plant_id: id nullable
+    # location_id tetap sebagai FK ke tabel locations
+    # asset_location_name & asset_location_address: snapshot text saat aset disimpan
+    # (denormalisasi dari sistem eksternal / saat data berubah)
+    location_id: id nullable
+    asset_location_name: string:255 nullable
+    asset_location_address: text nullable
     barcode: string:100 unique
-    serial_number: string:100 nullable index
     condition: string:20 default:GOOD index
     status: string:20 default:AVAILABLE index
     notes: text nullable
@@ -110,7 +117,7 @@ models:
     indexes:
       - index: plant_id, location_id, status, is_active
     relationships:
-      belongsTo: Item, Plant, Location
+      belongsTo: Plant, Location
       hasMany: SppbDetail
 
   WorkflowTemplate:
@@ -173,12 +180,20 @@ models:
   SppbHeader:
     uuid: uuid unique
     document_number: string:50 nullable unique
+    # UI: plant_id dropdown sesuai hak akses user
     plant_id: id
+    # UI: department_id autofill berdasarkan departemen user login
     department_id: id
+    # UI: requester_id autofill nama user login
     requester_id: id
+    # UI: origin_location_id dropdown difilter berdasarkan plant yang dipilih
     origin_location_id: id
+    # UI: destination_location_id semua lokasi, tidak boleh sama dengan origin
     destination_location_id: id
-    project_name: string:255 nullable
+    # Diganti dari project_name menjadi needed_name
+    needed_name: string:255 nullable
+    legacy_fppb_hash: char:64 nullable
+    legacy_sj_number: string:50 nullable
     request_date: date
     date_needed: date nullable
     purpose: longText
@@ -203,25 +218,37 @@ models:
       - index: plant_id, status, date_needed
       - index: current_approver_id
     relationships:
-      belongsTo: Plant, Department, User:requester_id, Location:originLocation, Location:destinationLocation, User:current_approver_id, WorkflowInstance:currentWorkflowInstance
+      belongsTo: Plant, Department, User:requester, Location:originLocation, Location:destinationLocation, User:currentApprover, WorkflowInstance:currentWorkflowInstance
       hasMany: SppbDetail, WorkflowInstance, SppbStatusLog, Attachment, GoodsRelease
 
   SppbDetail:
     sppb_header_id: id
     line_no: unsignedInteger
+    # barcode_confirmed: jika true → UI dropdown dari tabel assets
+    #                   jika false → UI dropdown dari tabel items
+    barcode_confirmed: boolean default:false
+    # item_id & asset_id: dua FK nullable, hanya salah satu terisi
     item_id: id nullable
     asset_id: id nullable
-    item_type: string:20
-    item_code: string:30 nullable
-    item_name: string:200
-    specification: longText nullable
-    barcode: string:100 nullable index
+    # reference_code: denormalisasi kode untuk tampilan UI (barcode aset / kode item)
+    reference_code: string:100 nullable index
+    is_from_master: boolean default:false
+    # item_type, barcode, item_code, unit_name DIHAPUS
+    # item_name diganti menjadi item_asset_name (netral untuk item maupun aset)
+    item_asset_name: string:200
+    # unit_id tetap sebagai FK, unit_name dihapus (ambil dari relasi)
     unit_id: id
-    unit_name: string:100
     quantity: decimal:18,2
-    approved_quantity: decimal:18,2 nullable
-    released_quantity: decimal:18,2 default:0
+    # remarks: dapat auto-fill dari specification item jika item dipilih
+    #          kosong otomatis jika aset yang dipilih (dapat diedit manual)
     remarks: longText nullable
+    # approved_quantity & released_quantity DIHAPUS
+    # delivery_status: status pengiriman per detail/item
+    # NULL = belum relevan (SPPB belum approved)
+    # PENDING = menunggu pengiriman
+    # IN_TRANSIT = sedang dikirim
+    # DELIVERED = sudah terkirim
+    delivery_status: string:20 nullable index
     indexes:
       - unique: sppb_header_id, line_no
       - index: item_id
@@ -229,7 +256,7 @@ models:
       - index: unit_id
     relationships:
       belongsTo: SppbHeader, Item, Asset, Unit
-      hasMany: Attachment, GoodsReleaseItem
+      hasMany: GoodsReleaseItem
 
   WorkflowInstance:
     uuid: uuid unique
@@ -327,7 +354,7 @@ models:
   Attachment:
     uuid: uuid unique
     sppb_header_id: id
-    sppb_detail_id: id nullable
+    # sppb_detail_id DIHAPUS: attachment hanya pada level sppb_header
     original_name: string:255
     stored_name: string:255 unique
     disk: string:50 default:private
@@ -342,10 +369,9 @@ models:
     softDeletes: true
     indexes:
       - index: sppb_header_id, created_at
-      - index: sppb_detail_id
       - index: uploaded_by
     relationships:
-      belongsTo: SppbHeader, SppbDetail, User:uploader
+      belongsTo: SppbHeader, User:uploader
 
   ActivityLog:
     actor_id: id nullable
@@ -368,6 +394,9 @@ models:
 
   RunningNumber:
     plant_id: id
+    # department_id: ditambahkan untuk mendukung format nomor berbasis departemen
+    # Format masa depan: SPPB/[PLANT_CODE]/[DEPT_CODE]/[YEAR]/[SEQ]
+    department_id: id nullable
     document_type: string:30
     period_key: string:12
     prefix: string:30
@@ -379,13 +408,14 @@ models:
       - unique: plant_id, document_type, period_key
       - index: document_type, period_key, is_active
     relationships:
-      belongsTo: Plant
+      belongsTo: Plant, Department
 
   GoodsRelease:
     uuid: uuid unique
     release_number: string:50 unique
     sppb_header_id: id
     release_sequence: unsignedInteger
+    is_manual: boolean default:false
     created_by: id
     sender_name: string:255
     sender_address: text nullable

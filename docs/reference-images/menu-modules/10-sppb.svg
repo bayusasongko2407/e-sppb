@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="780" viewBox="0 0 1200 780" role="img" aria-labelledby="title desc">
+  <title id="title">Dokumen SPPB</title>
+  <desc id="desc">Permintaan pemindahan/pengeluaran barang dari draft sampai selesai.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#fff7ed"/>
+      <stop offset="47%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#ecfeff"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="20" stdDeviation="18" flood-color="#0f172a" flood-opacity="0.14"/>
+    </filter>
+    <style>
+      .panel { fill: rgba(255,255,255,0.88); stroke: rgba(15,23,42,0.10); }
+      .eyebrow { fill: #64748b; font: 700 20px Georgia, serif; letter-spacing: 0.18em; text-transform: uppercase; }
+      .title { fill: #0f172a; font: 800 58px Georgia, serif; }
+      .subtitle { fill: #475569; font: 400 24px "Trebuchet MS", sans-serif; }
+      .section { fill: #0f172a; font: 800 28px Georgia, serif; }
+      .stat { fill: rgba(255,255,255,0.78); stroke: rgba(15,23,42,0.10); }
+      .stat-label { fill: #64748b; font: 700 14px "Trebuchet MS", sans-serif; letter-spacing: 0.12em; text-transform: uppercase; }
+      .stat-value { fill: #0f172a; font: 800 22px "Trebuchet MS", sans-serif; }
+      .flow-no { fill: #ffffff; font: 800 26px "Trebuchet MS", sans-serif; }
+      .flow-text { fill: #0f172a; font: 700 20px "Trebuchet MS", sans-serif; }
+      .flow-line { stroke: #cbd5e1; stroke-width: 6; stroke-linecap: round; }
+      .note { fill: #334155; font: 500 22px "Trebuchet MS", sans-serif; }
+      .watermark { fill: #0f172a; font: 700 14px "Trebuchet MS", sans-serif; letter-spacing: 0.14em; opacity: 0.38; }
+    </style>
+  </defs>
+  <rect width="1200" height="780" fill="url(#bg)"/>
+  <circle cx="1030" cy="90" r="190" fill="#b45309" opacity="0.10"/>
+  <circle cx="130" cy="730" r="220" fill="#b45309" opacity="0.08"/>
+  <rect x="36" y="34" width="1128" height="712" rx="42" class="panel" filter="url(#shadow)"/>
+  <g transform="translate(832 72) scale(1.04)"><path d="M94 62h100l48 48v150H94z" fill="#b45309" opacity="0.12"/><path d="M194 62v54h48M120 150h84M120 184h84M120 218h52" fill="none" stroke="#b45309" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <text x="72" y="100" class="eyebrow">SPPB</text>
+  <text x="72" y="154" class="title">Dokumen SPPB</text>
+  <text x="72" y="184" class="subtitle">Permintaan pemindahan/pengeluaran barang dari draft sampai</text><text x="72" y="214" class="subtitle">selesai.</text>
+  <rect x="72" y="278" width="204" height="94" rx="24" class="stat"/><circle cx="110" cy="324" r="14" fill="#b45309" opacity="0.18"/><text x="136" y="316" class="stat-label">Area</text><text x="136" y="346" class="stat-value">Draft</text><rect x="312" y="278" width="204" height="94" rx="24" class="stat"/><circle cx="350" cy="324" r="14" fill="#b45309" opacity="0.18"/><text x="376" y="316" class="stat-label">Area</text><text x="376" y="346" class="stat-value">Submitted</text><rect x="552" y="278" width="204" height="94" rx="24" class="stat"/><circle cx="590" cy="324" r="14" fill="#b45309" opacity="0.18"/><text x="616" y="316" class="stat-label">Area</text><text x="616" y="346" class="stat-value">Approved</text><rect x="792" y="278" width="204" height="94" rx="24" class="stat"/><circle cx="830" cy="324" r="14" fill="#b45309" opacity="0.18"/><text x="856" y="316" class="stat-label">Area</text><text x="856" y="346" class="stat-value">Completed</text>
+  <text x="72" y="450" class="section">Alur Utama</text>
+  <circle cx="78" cy="508" r="30" fill="#b45309"/><text x="78" y="518" text-anchor="middle" class="flow-no">1</text><text x="124" y="500" class="flow-text">Buat draft</text><path d="M226 508h62" class="flow-line"/><circle cx="316" cy="508" r="30" fill="#b45309"/><text x="316" y="518" text-anchor="middle" class="flow-no">2</text><text x="362" y="500" class="flow-text">Tambah detail dan lampiran</text><path d="M464 508h62" class="flow-line"/><circle cx="554" cy="508" r="30" fill="#b45309"/><text x="554" y="518" text-anchor="middle" class="flow-no">3</text><text x="600" y="500" class="flow-text">Submit ke workflow</text><path d="M702 508h62" class="flow-line"/><circle cx="792" cy="508" r="30" fill="#b45309"/><text x="792" y="518" text-anchor="middle" class="flow-no">4</text><text x="838" y="500" class="flow-text">Buat Surat Jalan</text>
+  <text x="72" y="604" class="section">Catatan Desain</text>
+  <circle cx="96" cy="648" r="7" fill="#b45309"/><text x="118" y="655" class="note">Mutasi harus lewat service dan queue</text><circle cx="96" cy="690" r="7" fill="#b45309"/><text x="118" y="697" class="note">Nomor dokumen harus aman dari race condition</text><circle cx="96" cy="732" r="7" fill="#b45309"/><text x="118" y="739" class="note">Timeline status wajib append-only</text>
+  <text x="72" y="718" class="watermark">E-SPPB ENTERPRISE • REFERENSI MENU/MODUL • 2026-07-14</text>
+</svg>

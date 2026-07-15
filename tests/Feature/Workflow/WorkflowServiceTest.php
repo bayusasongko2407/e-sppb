@@ -11,7 +11,6 @@ use App\Enums\SppbStatus;
 use App\Enums\WorkflowCommandStatus;
 use App\Enums\WorkflowInstanceStatus;
 use App\Enums\WorkflowInstanceStepStatus;
-use App\Exceptions\Workflow\InvalidSppbTransitionException;
 use App\Exceptions\Workflow\StaleWorkflowCommandException;
 use App\Exceptions\Workflow\UnauthorizedApprovalException;
 use App\Models\Department;
@@ -19,11 +18,11 @@ use App\Models\Plant;
 use App\Models\Position;
 use App\Models\SppbHeader;
 use App\Models\User;
-use App\Models\WorkflowDelegation;
 use App\Models\WorkflowStep;
 use App\Models\WorkflowTemplate;
 use App\Services\WorkflowService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class WorkflowServiceTest extends TestCase
@@ -44,7 +43,7 @@ class WorkflowServiceTest extends TestCase
         $department = Department::factory()->create();
         $manager = User::factory()->create(['plant_id' => $plant->id, 'department_id' => $department->id]);
         $requester = User::factory()->create(['plant_id' => $plant->id, 'department_id' => $department->id, 'manager_id' => $manager->id]);
-        
+
         $template = WorkflowTemplate::factory()->create([
             'document_type' => 'SPPB',
             'plant_id' => $plant->id,
@@ -61,7 +60,7 @@ class WorkflowServiceTest extends TestCase
             'approval_mode' => 'ANY',
             'minimum_approvals' => 1,
         ]);
-        
+
         $step2 = WorkflowStep::factory()->create([
             'workflow_template_id' => $template->id,
             'sequence' => 2,
@@ -96,14 +95,14 @@ class WorkflowServiceTest extends TestCase
 
         $this->assertEquals('uuid-test-123', $command->command_uuid);
         $this->assertEquals(WorkflowCommandStatus::QUEUED->value, $command->status);
-        
+
         $sppb->refresh();
         $this->assertEquals(SppbStatus::SUBMISSION_QUEUED->value, $sppb->status);
-        
+
         $this->assertDatabaseHas('sppb_status_logs', [
             'sppb_header_id' => $sppb->id,
             'to_status' => SppbStatus::SUBMISSION_QUEUED->value,
-            'action' => 'SUBMIT_QUEUED'
+            'action' => 'SUBMIT_QUEUED',
         ]);
     }
 
@@ -121,10 +120,10 @@ class WorkflowServiceTest extends TestCase
         $this->workflowService->queueSubmission($data);
 
         $this->expectException(StaleWorkflowCommandException::class);
-        
+
         // Coba submit ulang dengan state yang dibalikin ke DRAFT supaya lolos validasi status
         SppbHeader::where('id', $sppb->id)->update(['status' => SppbStatus::DRAFT->value]);
-        
+
         $this->workflowService->queueSubmission($data);
     }
 
@@ -138,7 +137,7 @@ class WorkflowServiceTest extends TestCase
         $instance = $this->workflowService->generateWorkflow($sppb->id, 'corr-123');
 
         $this->assertEquals(WorkflowInstanceStatus::IN_PROGRESS->value, $instance->status);
-        
+
         $sppb->refresh();
         $this->assertEquals(SppbStatus::WAITING_APPROVAL->value, $sppb->status);
         $this->assertEquals($instance->id, $sppb->current_workflow_instance_id);
@@ -183,10 +182,10 @@ class WorkflowServiceTest extends TestCase
     public function test_approve_advances_workflow_to_next_step(): void
     {
         [$sppb, $requester, $manager, $template, $step1, $step2] = $this->setupSppbAndWorkflow();
-        
+
         // Kita butuh user untuk position step 2
         $nextApprover = User::factory()->create(['plant_id' => $sppb->plant_id]);
-        \Illuminate\Support\Facades\DB::table('user_positions')->insert([
+        DB::table('user_positions')->insert([
             'user_id' => $nextApprover->id,
             'position_id' => $step2->approver_position_id,
             'is_active' => true,

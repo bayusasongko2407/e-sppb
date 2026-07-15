@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Users\Schemas;
 
-use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Facades\Hash;
 
 class UserForm
 {
@@ -36,21 +36,21 @@ class UserForm
                     ->label('Email address')
                     ->email()
                     ->default(null),
-                DateTimePicker::make('email_verified_at')
-                    ->label('Email Diverifikasi Pada'),
                 TextInput::make('password')
                     ->label('Kata Sandi')
                     ->password()
-                    ->required(),
+                    ->dehydrateStateUsing(fn ($state) => Hash::make($state))
+                    ->dehydrated(fn ($state) => filled($state))
+                    ->required(fn (string $context): bool => $context === 'create'),
                 Toggle::make('is_active')
                     ->label('Aktif')
+                    ->default(true)
                     ->required(),
-                DateTimePicker::make('last_login_at'),
-                TextInput::make('failed_login_attempts')
-                    ->required()
-                    ->numeric()
-                    ->default(0),
-                DateTimePicker::make('locked_until'),
+                Select::make('roles')
+                    ->label('Peran (Role)')
+                    ->relationship('roles', 'name')
+                    ->multiple()
+                    ->preload(),
             ]);
     }
 }

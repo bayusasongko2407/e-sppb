@@ -25,8 +25,10 @@ class ItemsTable
                     ->label('Nama')
                     ->searchable(),
                 TextColumn::make('unit.name')
+                    ->label('Satuan')
                     ->searchable(),
                 TextColumn::make('item_category')
+                    ->label('Kategori')
                     ->searchable(),
                 IconColumn::make('is_active')
                     ->label('Aktif')

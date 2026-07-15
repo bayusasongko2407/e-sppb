@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Assets\Schemas;
 
+use App\Models\EnumControl;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -23,19 +24,37 @@ class AssetForm
                 Select::make('location_id')
                     ->relationship('location', 'name')
                     ->default(null),
-                TextInput::make('asset_location_name')
+                TextInput::make('asset_name')
+                    ->label('Nama Aset')
+                    ->required(),
+                TextInput::make('asset_location_data')
+                    ->label('Data Lokasi Aset')
                     ->default(null),
-                Textarea::make('asset_location_address')
-                    ->default(null)
-                    ->columnSpanFull(),
                 TextInput::make('barcode')
                     ->required(),
-                TextInput::make('condition')
+                Select::make('condition')
+                    ->label('Kondisi')
+                    ->options(fn () => EnumControl::where('table_name', 'assets')
+                        ->where('column_name', 'condition')
+                        ->where('is_active', true)
+                        ->orderBy('sequence')
+                        ->pluck('label', 'value'))
                     ->required()
                     ->default('GOOD'),
-                TextInput::make('status')
+                Select::make('status')
+                    ->label('Status')
+                    ->options(fn () => EnumControl::where('table_name', 'assets')
+                        ->where('column_name', 'status')
+                        ->where('is_active', true)
+                        ->orderBy('sequence')
+                        ->pluck('label', 'value'))
                     ->required()
                     ->default('AVAILABLE'),
+                Select::make('unit_id')
+                    ->label('Satuan')
+                    ->relationship('unit', 'name')
+                    ->required()
+                    ->default(2),
                 Textarea::make('notes')
                     ->default(null)
                     ->columnSpanFull(),

@@ -12,7 +12,7 @@ class UnitPolicy
      */
     public function viewAny(User $user): bool
     {
-        return false;
+        return $user->hasPermissionTo('view_any_unit');
     }
 
     /**
@@ -20,7 +20,7 @@ class UnitPolicy
      */
     public function view(User $user, Unit $unit): bool
     {
-        return false;
+        return $user->hasPermissionTo('view_unit');
     }
 
     /**
@@ -28,7 +28,7 @@ class UnitPolicy
      */
     public function create(User $user): bool
     {
-        return false;
+        return $user->hasPermissionTo('create_unit');
     }
 
     /**
@@ -36,7 +36,7 @@ class UnitPolicy
      */
     public function update(User $user, Unit $unit): bool
     {
-        return false;
+        return $user->hasPermissionTo('update_unit');
     }
 
     /**
@@ -44,7 +44,7 @@ class UnitPolicy
      */
     public function delete(User $user, Unit $unit): bool
     {
-        return false;
+        return $user->hasPermissionTo('delete_unit');
     }
 
     /**
@@ -52,7 +52,7 @@ class UnitPolicy
      */
     public function restore(User $user, Unit $unit): bool
     {
-        return false;
+        return $user->hasPermissionTo('restore_unit');
     }
 
     /**
@@ -60,6 +60,6 @@ class UnitPolicy
      */
     public function forceDelete(User $user, Unit $unit): bool
     {
-        return false;
+        return $user->hasPermissionTo('force_delete_unit');
     }
 }

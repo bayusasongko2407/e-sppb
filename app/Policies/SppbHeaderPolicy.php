@@ -12,7 +12,7 @@ class SppbHeaderPolicy
      */
     public function viewAny(User $user): bool
     {
-        return false;
+        return $user->hasPermissionTo('view_any_sppbheader');
     }
 
     /**
@@ -20,7 +20,7 @@ class SppbHeaderPolicy
      */
     public function view(User $user, SppbHeader $sppbHeader): bool
     {
-        return false;
+        return $user->hasPermissionTo('view_sppbheader');
     }
 
     /**
@@ -28,7 +28,7 @@ class SppbHeaderPolicy
      */
     public function create(User $user): bool
     {
-        return false;
+        return $user->hasPermissionTo('create_sppbheader');
     }
 
     /**
@@ -36,7 +36,7 @@ class SppbHeaderPolicy
      */
     public function update(User $user, SppbHeader $sppbHeader): bool
     {
-        return false;
+        return $user->hasPermissionTo('update_sppbheader');
     }
 
     /**
@@ -44,7 +44,7 @@ class SppbHeaderPolicy
      */
     public function delete(User $user, SppbHeader $sppbHeader): bool
     {
-        return false;
+        return $user->hasPermissionTo('delete_sppbheader');
     }
 
     /**
@@ -52,7 +52,7 @@ class SppbHeaderPolicy
      */
     public function restore(User $user, SppbHeader $sppbHeader): bool
     {
-        return false;
+        return $user->hasPermissionTo('restore_sppbheader');
     }
 
     /**
@@ -60,6 +60,6 @@ class SppbHeaderPolicy
      */
     public function forceDelete(User $user, SppbHeader $sppbHeader): bool
     {
-        return false;
+        return $user->hasPermissionTo('force_delete_sppbheader');
     }
 }

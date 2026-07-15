@@ -23,6 +23,26 @@ Berhasil merefaktor presentasi layer SppbHeaderResource tanpa mengubah database,
 
 
 
+## Ringkasan Perombakan Master Data & Enum Controls (Selesai)
+
+Berhasil melakukan standarisasi struktur Master Data sesuai kebutuhan bisnis operasional terbaru:
+1. **EnumControls**: Mengimplementasikan arsitektur tabel dinamis (`enum_controls`) untuk manajemen opsi _dropdown_ klasifikasi yang aman diedit oleh Admin (seperti Kategori Unit, Kondisi Aset, Status Aset) tanpa mengubah source code.
+2. **Perbaikan Skema Plants, Departments, Locations**: 
+   - Konversi dan rasionalisasi field deskripsi menjadi alamat (di tabel Plants).
+   - Penghapusan field deskripsi opsional untuk memfokuskan pendataan inti.
+   - Pemasangan auto-generasi kode `LOC-0000X` yang atomik di model `Location`.
+3. **Perombakan Manajemen Aset**:
+   - Skema disederhanakan: `asset_location_address` dihapus, `asset_location_name` diubah menjadi referensi `asset_location_data`.
+   - Menambahkan field mandatory `asset_name` dan _foreign key_ `unit_id`.
+4. **Testing & QA**: Mengonversi `PlantFactory`, `LocationFactory`, `DepartmentFactory`, dan `AssetFactory` pada _test suite_. Seluruh Feature Test dan unit test tetap lulus dengan `0` error PHPStan.
+
+## Ringkasan Modul Hak Akses & Roles Control (Selesai)
+1. **RoleResource Terintegrasi**: Menggunakan standar `Spatie\Permission\Models\Role` untuk menyediakan menu *Roles / Hak Akses* pada navigasi *Sistem*. 
+2. **Model Checklist Matrix**: Menggunakan `CheckboxList` dengan fitur `bulk toggleable` agar perizinan (permissions) disajikan lengkap dan mudah dikelola oleh administrator tanpa batasan layout tradisional.
+3. **Seeding Otomatis Izin (Permissions)**: Mensintesis dan men-*seed* izin dasar CRUD (seperti `view`, `view_any`, `create`, `update`, `delete`) untuk seluruh modul inti (Plants, Departments, Locations, Units, Positions, Users, Items, Assets, EnumControls, Roles, SppbHeaders) sehingga opsi otorisasi menjadi berwujud nyata di database.
+4. **Command Sinkronisasi Dinamis**: Membuat Custom Artisan Command `php artisan auth:sync-permissions` yang mampu memindai model-model baru di masa depan secara otomatis dan menambahkannya ke daftar Checklist perizinan di layar `RoleResource`.
+5. **Policy Refactoring**: Merevisi paksa metode default seluruh Policy aplikasi (`PlantPolicy`, `UserPolicy`, dll.) agar bereaksi memeriksa `$user->hasPermissionTo(...)` dibanding nilai `false` rekaan Laravel, melengkapi siklus hidup otorisasi dari UI menuju backend. Seluruh proses audit PHPStan dan pengujian berlalu tanpa kendala.
+
 ## Ringkasan FASE 5 (Selesai)
 
 Berhasil membangun seluruh kerangka Resource Filament v5 murni menggunakan `Filament\Schemas\Schema`, seluruhnya berbahasa Indonesia, dan mematuhi aturan ketat blueprint:
@@ -69,13 +89,23 @@ Berhasil melaksanakan tahap penjaminan mutu menyeluruh (Quality Assurance) dan i
 4. **Security Testing:** WorkflowService memverifikasi bahwa actor yang melakukan approval adalah approver yang sah (atau delegated approver).
 5. **Quality Gate:** PHPStan level maksimal dan 15 test suite berlalu dengan status hijau (OK).
 
+## Ringkasan FASE 6 (Selesai)
+
+Berhasil mengimplementasikan fase penjaminan mutu dan mengunci Core Engine:
+1. **GoodsReleaseService:** Mengembangkan implementasi definitif untuk Pelepasan Barang (`createGoodsRelease`). Secara atomik memvalidasi SPPB yang sudah disetujui, mencatat snapshot alamat asal/tujuan, mengunci database, mengatur pembuatan *running sequence number* dokumen SJ, serta mengubah status SPPB (dari `APPROVED` ke `RELEASE_IN_PROGRESS` hingga menjadi `COMPLETED`).
+2. **DTO & Exceptions:** Menambahkan DTO `CreateGoodsReleaseData` dan exception `InvalidGoodsReleaseQuantityException` untuk melindungi integritas rilis fisik.
+3. **SppbServiceTest:** Menambahkan unit dan feature test lengkap untuk `SppbService` (memvalidasi alur draft, manipulasi detail, larangan SPPB asal/tujuan sama, dan proteksi draft yang tidak boleh disubmit bila detail kosong).
+4. **GoodsReleaseServiceTest:** Mengimplementasikan uji coba validasi (tidak dapat merilis SPPB belum disetujui, kuantitas dilarang melewati batas, dan *happy path* partial -> full goods release).
+5. **Quality Gate:** PHPStan level maksimum dan 24 Feature Test suite berlalu dengan status hijau (OK). Lint dan statis kode (Pint, Larastan) telah lulus sempurna.
+
 ## Next Steps
 
-Lanjutkan ke iterasi pengembangan berikutnya (FASE 6 / Peluncuran).
+Tugas terkait Core Engine dan Testing Pelepasan Barang telah lulus secara penuh. Dokumen ini dapat diandalkan sebagai baseline SPPB Enterprise. Silakan konfirmasi untuk perbaikan atau deployment/pembersihan tahap selanjutnya.
 
 ## Credentials
 - Rahasia (seperti kredensial database) hanya boleh berada di dalam file `.env`. Rotasi kredensial merupakan tindakan eksternal wajib yang harus dilakukan oleh pemilik sistem.
 - Filament: v5.6.8
 
 ## In-progress files
-Tidak ada. Semua tugas FASE 5 telah selesai digabungkan ke codebase.
+Tidak ada. FASE 6 telah selesai dan *clean*.
+

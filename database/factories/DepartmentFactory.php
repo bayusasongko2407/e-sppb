@@ -14,10 +14,9 @@ class DepartmentFactory extends Factory
     {
         return [
             'plant_id' => Plant::factory(),
-            'code' => fake()->regexify('[A-Za-z0-9]{20}'),
-            'name' => fake()->name(),
-            'description' => fake()->text(),
-            'is_active' => fake()->boolean(),
+            'code' => $this->faker->regexify('[A-Za-z0-9]{20}'),
+            'name' => $this->faker->name(),
+            'is_active' => $this->faker->boolean(),
         ];
     }
 }

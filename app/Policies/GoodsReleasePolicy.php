@@ -12,7 +12,7 @@ class GoodsReleasePolicy
      */
     public function viewAny(User $user): bool
     {
-        return false;
+        return $user->hasPermissionTo('view_any_goodsrelease');
     }
 
     /**
@@ -20,7 +20,7 @@ class GoodsReleasePolicy
      */
     public function view(User $user, GoodsRelease $goodsRelease): bool
     {
-        return false;
+        return $user->hasPermissionTo('view_goodsrelease');
     }
 
     /**
@@ -28,7 +28,7 @@ class GoodsReleasePolicy
      */
     public function create(User $user): bool
     {
-        return false;
+        return $user->hasPermissionTo('create_goodsrelease');
     }
 
     /**
@@ -36,7 +36,7 @@ class GoodsReleasePolicy
      */
     public function update(User $user, GoodsRelease $goodsRelease): bool
     {
-        return false;
+        return $user->hasPermissionTo('update_goodsrelease');
     }
 
     /**
@@ -44,7 +44,7 @@ class GoodsReleasePolicy
      */
     public function delete(User $user, GoodsRelease $goodsRelease): bool
     {
-        return false;
+        return $user->hasPermissionTo('delete_goodsrelease');
     }
 
     /**
@@ -52,7 +52,7 @@ class GoodsReleasePolicy
      */
     public function restore(User $user, GoodsRelease $goodsRelease): bool
     {
-        return false;
+        return $user->hasPermissionTo('restore_goodsrelease');
     }
 
     /**
@@ -60,6 +60,6 @@ class GoodsReleasePolicy
      */
     public function forceDelete(User $user, GoodsRelease $goodsRelease): bool
     {
-        return false;
+        return $user->hasPermissionTo('force_delete_goodsrelease');
     }
 }

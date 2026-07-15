@@ -12,7 +12,7 @@ class PlantPolicy
      */
     public function viewAny(User $user): bool
     {
-        return false;
+        return $user->hasPermissionTo('view_any_plant');
     }
 
     /**
@@ -20,7 +20,7 @@ class PlantPolicy
      */
     public function view(User $user, Plant $plant): bool
     {
-        return false;
+        return $user->hasPermissionTo('view_plant');
     }
 
     /**
@@ -28,7 +28,7 @@ class PlantPolicy
      */
     public function create(User $user): bool
     {
-        return false;
+        return $user->hasPermissionTo('create_plant');
     }
 
     /**
@@ -36,7 +36,7 @@ class PlantPolicy
      */
     public function update(User $user, Plant $plant): bool
     {
-        return false;
+        return $user->hasPermissionTo('update_plant');
     }
 
     /**
@@ -44,7 +44,7 @@ class PlantPolicy
      */
     public function delete(User $user, Plant $plant): bool
     {
-        return false;
+        return $user->hasPermissionTo('delete_plant');
     }
 
     /**
@@ -52,7 +52,7 @@ class PlantPolicy
      */
     public function restore(User $user, Plant $plant): bool
     {
-        return false;
+        return $user->hasPermissionTo('restore_plant');
     }
 
     /**
@@ -60,6 +60,6 @@ class PlantPolicy
      */
     public function forceDelete(User $user, Plant $plant): bool
     {
-        return false;
+        return $user->hasPermissionTo('force_delete_plant');
     }
 }

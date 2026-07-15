@@ -6,10 +6,8 @@ namespace Tests\Feature\Workflow;
 
 use App\DTOs\Workflow\ApprovalDecisionData;
 use App\DTOs\Workflow\SubmitSppbData;
-use App\Enums\ApproverStatus;
 use App\Enums\SppbStatus;
 use App\Enums\WorkflowInstanceStatus;
-use App\Enums\WorkflowInstanceStepStatus;
 use App\Models\Department;
 use App\Models\Plant;
 use App\Models\Position;
@@ -39,10 +37,10 @@ class SppbEndToEndTest extends TestCase
         // 1. Setup Master Data
         $plant = Plant::factory()->create();
         $department = Department::factory()->create();
-        
+
         $manager = User::factory()->create(['plant_id' => $plant->id, 'department_id' => $department->id]);
         $requester = User::factory()->create(['plant_id' => $plant->id, 'department_id' => $department->id, 'manager_id' => $manager->id]);
-        
+
         $batPosition = Position::factory()->create(['name' => 'BAT Approver']);
         $batUser = User::factory()->create(['plant_id' => $plant->id]);
         UserPosition::factory()->create([
@@ -67,7 +65,7 @@ class SppbEndToEndTest extends TestCase
             'approval_mode' => 'ANY',
             'minimum_approvals' => 1,
         ]);
-        
+
         WorkflowStep::factory()->create([
             'workflow_template_id' => $template->id,
             'sequence' => 2,
@@ -115,14 +113,14 @@ class SppbEndToEndTest extends TestCase
             remarks: 'Disetujui manager',
             delegatedFromId: null
         );
-        
+
         $this->workflowService->queueApproval($approval1Data);
         $this->workflowService->approve($approval1Data);
-        
+
         $sppb->refresh();
         $this->assertEquals(2, $sppb->current_step_sequence);
         $this->assertEquals($batUser->id, $sppb->current_approver_id);
-        
+
         $step2 = $instance->workflowInstanceSteps()->where('sequence', 2)->first();
 
         // 5. BAT Approval
@@ -135,22 +133,22 @@ class SppbEndToEndTest extends TestCase
             remarks: 'Disetujui BAT',
             delegatedFromId: null
         );
-        
+
         $this->workflowService->queueApproval($approval2Data);
         $this->workflowService->approve($approval2Data);
-        
+
         $sppb->refresh();
         $this->assertEquals(SppbStatus::APPROVED->value, $sppb->status);
         $this->assertNull($sppb->current_approver_id);
-        
+
         $instance->refresh();
         $this->assertEquals(WorkflowInstanceStatus::APPROVED->value, $instance->status);
-        
+
         // Cek log status
         $this->assertDatabaseHas('sppb_status_logs', [
             'sppb_header_id' => $sppb->id,
             'to_status' => SppbStatus::APPROVED->value,
-            'action' => 'SPPB_APPROVED'
+            'action' => 'SPPB_APPROVED',
         ]);
     }
 }

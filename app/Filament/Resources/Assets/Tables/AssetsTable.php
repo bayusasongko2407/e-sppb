@@ -22,13 +22,22 @@ class AssetsTable
                     ->searchable(),
                 TextColumn::make('location.name')
                     ->searchable(),
-                TextColumn::make('asset_location_name')
+                TextColumn::make('asset_name')
+                    ->label('Nama Aset')
+                    ->searchable(),
+                TextColumn::make('asset_location_data')
+                    ->label('Data Lokasi Aset')
                     ->searchable(),
                 TextColumn::make('barcode')
                     ->searchable(),
+                TextColumn::make('unit.name')
+                    ->label('Satuan')
+                    ->searchable(),
                 TextColumn::make('condition')
+                    ->label('Kondisi')
                     ->searchable(),
                 TextColumn::make('status')
+                    ->label('Status')
                     ->searchable(),
                 IconColumn::make('is_active')
                     ->label('Aktif')

@@ -14,11 +14,9 @@ class LocationFactory extends Factory
     {
         return [
             'plant_id' => Plant::factory(),
-            'code' => fake()->regexify('[A-Za-z0-9]{20}'),
-            'name' => fake()->name(),
-            'address' => fake()->text(),
-            'description' => fake()->text(),
-            'is_active' => fake()->boolean(),
+            'name' => $this->faker->name(),
+            'address' => $this->faker->text(),
+            'is_active' => $this->faker->boolean(),
         ];
     }
 }

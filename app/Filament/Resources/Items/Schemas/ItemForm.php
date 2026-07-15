@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Items\Schemas;
 
+use App\Models\EnumControl;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -28,7 +29,14 @@ class ItemForm
                 Select::make('unit_id')
                     ->relationship('unit', 'name')
                     ->required(),
-                TextInput::make('item_category')
+                Select::make('item_category')
+                    ->label('Kategori')
+                    ->options(fn () => EnumControl::where('table_name', 'items')
+                        ->where('column_name', 'item_category')
+                        ->where('is_active', true)
+                        ->orderBy('sequence')
+                        ->pluck('label', 'value'))
+                    ->searchable()
                     ->default(null),
                 Toggle::make('is_active')
                     ->label('Aktif')

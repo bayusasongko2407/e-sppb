@@ -20,7 +20,6 @@ class Department extends Model
         'plant_id',
         'code',
         'name',
-        'description',
         'is_active',
     ];
 

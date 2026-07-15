@@ -12,7 +12,7 @@ class AssetPolicy
      */
     public function viewAny(User $user): bool
     {
-        return false;
+        return $user->hasPermissionTo('view_any_asset');
     }
 
     /**
@@ -20,7 +20,7 @@ class AssetPolicy
      */
     public function view(User $user, Asset $asset): bool
     {
-        return false;
+        return $user->hasPermissionTo('view_asset');
     }
 
     /**
@@ -28,7 +28,7 @@ class AssetPolicy
      */
     public function create(User $user): bool
     {
-        return false;
+        return $user->hasPermissionTo('create_asset');
     }
 
     /**
@@ -36,7 +36,7 @@ class AssetPolicy
      */
     public function update(User $user, Asset $asset): bool
     {
-        return false;
+        return $user->hasPermissionTo('update_asset');
     }
 
     /**
@@ -44,7 +44,7 @@ class AssetPolicy
      */
     public function delete(User $user, Asset $asset): bool
     {
-        return false;
+        return $user->hasPermissionTo('delete_asset');
     }
 
     /**
@@ -52,7 +52,7 @@ class AssetPolicy
      */
     public function restore(User $user, Asset $asset): bool
     {
-        return false;
+        return $user->hasPermissionTo('restore_asset');
     }
 
     /**
@@ -60,6 +60,6 @@ class AssetPolicy
      */
     public function forceDelete(User $user, Asset $asset): bool
     {
-        return false;
+        return $user->hasPermissionTo('force_delete_asset');
     }
 }

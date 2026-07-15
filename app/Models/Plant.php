@@ -18,7 +18,7 @@ class Plant extends Model
     protected $fillable = [
         'code',
         'name',
-        'description',
+        'address',
         'is_active',
     ];
 

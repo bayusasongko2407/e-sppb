@@ -30,10 +30,7 @@ class LocationForm
                     ->label('Alamat')
                     ->default(null)
                     ->columnSpanFull(),
-                Textarea::make('description')
-                    ->label('Deskripsi')
-                    ->default(null)
-                    ->columnSpanFull(),
+
                 Toggle::make('is_active')
                     ->label('Aktif')
                     ->required(),

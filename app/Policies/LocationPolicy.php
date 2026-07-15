@@ -12,7 +12,7 @@ class LocationPolicy
      */
     public function viewAny(User $user): bool
     {
-        return false;
+        return $user->hasPermissionTo('view_any_location');
     }
 
     /**
@@ -20,7 +20,7 @@ class LocationPolicy
      */
     public function view(User $user, Location $location): bool
     {
-        return false;
+        return $user->hasPermissionTo('view_location');
     }
 
     /**
@@ -28,7 +28,7 @@ class LocationPolicy
      */
     public function create(User $user): bool
     {
-        return false;
+        return $user->hasPermissionTo('create_location');
     }
 
     /**
@@ -36,7 +36,7 @@ class LocationPolicy
      */
     public function update(User $user, Location $location): bool
     {
-        return false;
+        return $user->hasPermissionTo('update_location');
     }
 
     /**
@@ -44,7 +44,7 @@ class LocationPolicy
      */
     public function delete(User $user, Location $location): bool
     {
-        return false;
+        return $user->hasPermissionTo('delete_location');
     }
 
     /**
@@ -52,7 +52,7 @@ class LocationPolicy
      */
     public function restore(User $user, Location $location): bool
     {
-        return false;
+        return $user->hasPermissionTo('restore_location');
     }
 
     /**
@@ -60,6 +60,6 @@ class LocationPolicy
      */
     public function forceDelete(User $user, Location $location): bool
     {
-        return false;
+        return $user->hasPermissionTo('force_delete_location');
     }
 }

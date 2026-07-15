@@ -12,7 +12,7 @@ class WorkflowTemplatePolicy
      */
     public function viewAny(User $user): bool
     {
-        return false;
+        return $user->hasPermissionTo('view_any_workflowtemplate');
     }
 
     /**
@@ -20,7 +20,7 @@ class WorkflowTemplatePolicy
      */
     public function view(User $user, WorkflowTemplate $workflowTemplate): bool
     {
-        return false;
+        return $user->hasPermissionTo('view_workflowtemplate');
     }
 
     /**
@@ -28,7 +28,7 @@ class WorkflowTemplatePolicy
      */
     public function create(User $user): bool
     {
-        return false;
+        return $user->hasPermissionTo('create_workflowtemplate');
     }
 
     /**
@@ -36,7 +36,7 @@ class WorkflowTemplatePolicy
      */
     public function update(User $user, WorkflowTemplate $workflowTemplate): bool
     {
-        return false;
+        return $user->hasPermissionTo('update_workflowtemplate');
     }
 
     /**
@@ -44,7 +44,7 @@ class WorkflowTemplatePolicy
      */
     public function delete(User $user, WorkflowTemplate $workflowTemplate): bool
     {
-        return false;
+        return $user->hasPermissionTo('delete_workflowtemplate');
     }
 
     /**
@@ -52,7 +52,7 @@ class WorkflowTemplatePolicy
      */
     public function restore(User $user, WorkflowTemplate $workflowTemplate): bool
     {
-        return false;
+        return $user->hasPermissionTo('restore_workflowtemplate');
     }
 
     /**
@@ -60,6 +60,6 @@ class WorkflowTemplatePolicy
      */
     public function forceDelete(User $user, WorkflowTemplate $workflowTemplate): bool
     {
-        return false;
+        return $user->hasPermissionTo('force_delete_workflowtemplate');
     }
 }

@@ -12,7 +12,7 @@ class DepartmentPolicy
      */
     public function viewAny(User $user): bool
     {
-        return false;
+        return $user->hasPermissionTo('view_any_department');
     }
 
     /**
@@ -20,7 +20,7 @@ class DepartmentPolicy
      */
     public function view(User $user, Department $department): bool
     {
-        return false;
+        return $user->hasPermissionTo('view_department');
     }
 
     /**
@@ -28,7 +28,7 @@ class DepartmentPolicy
      */
     public function create(User $user): bool
     {
-        return false;
+        return $user->hasPermissionTo('create_department');
     }
 
     /**
@@ -36,7 +36,7 @@ class DepartmentPolicy
      */
     public function update(User $user, Department $department): bool
     {
-        return false;
+        return $user->hasPermissionTo('update_department');
     }
 
     /**
@@ -44,7 +44,7 @@ class DepartmentPolicy
      */
     public function delete(User $user, Department $department): bool
     {
-        return false;
+        return $user->hasPermissionTo('delete_department');
     }
 
     /**
@@ -52,7 +52,7 @@ class DepartmentPolicy
      */
     public function restore(User $user, Department $department): bool
     {
-        return false;
+        return $user->hasPermissionTo('restore_department');
     }
 
     /**
@@ -60,6 +60,6 @@ class DepartmentPolicy
      */
     public function forceDelete(User $user, Department $department): bool
     {
-        return false;
+        return $user->hasPermissionTo('force_delete_department');
     }
 }

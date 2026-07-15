@@ -21,7 +21,7 @@ class PlantForm
                 TextInput::make('name')
                     ->label('Nama')
                     ->required(),
-                Textarea::make('description')
+                Textarea::make('address')
                     ->label('Deskripsi')
                     ->default(null)
                     ->columnSpanFull(),

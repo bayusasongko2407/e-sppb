@@ -21,9 +21,19 @@ class Location extends Model
         'code',
         'name',
         'address',
-        'description',
         'is_active',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (Location $location) {
+            if (empty($location->code)) {
+                $lastLocation = self::orderBy('id', 'desc')->first();
+                $nextNumber = $lastLocation ? intval(substr($lastLocation->code, 4)) + 1 : 1;
+                $location->code = 'LOC-'.str_pad((string) $nextNumber, 5, '0', STR_PAD_LEFT);
+            }
+        });
+    }
 
     /**
      * Get the attributes that should be cast.

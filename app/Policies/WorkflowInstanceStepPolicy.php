@@ -12,7 +12,7 @@ class WorkflowInstanceStepPolicy
      */
     public function viewAny(User $user): bool
     {
-        return false;
+        return $user->hasPermissionTo('view_any_workflowinstancestep');
     }
 
     /**
@@ -20,7 +20,7 @@ class WorkflowInstanceStepPolicy
      */
     public function view(User $user, WorkflowInstanceStep $workflowInstanceStep): bool
     {
-        return false;
+        return $user->hasPermissionTo('view_workflowinstancestep');
     }
 
     /**
@@ -28,7 +28,7 @@ class WorkflowInstanceStepPolicy
      */
     public function create(User $user): bool
     {
-        return false;
+        return $user->hasPermissionTo('create_workflowinstancestep');
     }
 
     /**
@@ -36,7 +36,7 @@ class WorkflowInstanceStepPolicy
      */
     public function update(User $user, WorkflowInstanceStep $workflowInstanceStep): bool
     {
-        return false;
+        return $user->hasPermissionTo('update_workflowinstancestep');
     }
 
     /**
@@ -44,7 +44,7 @@ class WorkflowInstanceStepPolicy
      */
     public function delete(User $user, WorkflowInstanceStep $workflowInstanceStep): bool
     {
-        return false;
+        return $user->hasPermissionTo('delete_workflowinstancestep');
     }
 
     /**
@@ -52,7 +52,7 @@ class WorkflowInstanceStepPolicy
      */
     public function restore(User $user, WorkflowInstanceStep $workflowInstanceStep): bool
     {
-        return false;
+        return $user->hasPermissionTo('restore_workflowinstancestep');
     }
 
     /**
@@ -60,6 +60,6 @@ class WorkflowInstanceStepPolicy
      */
     public function forceDelete(User $user, WorkflowInstanceStep $workflowInstanceStep): bool
     {
-        return false;
+        return $user->hasPermissionTo('force_delete_workflowinstancestep');
     }
 }

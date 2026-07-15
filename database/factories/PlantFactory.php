@@ -12,10 +12,10 @@ class PlantFactory extends Factory
     public function definition(): array
     {
         return [
-            'code' => fake()->regexify('[A-Za-z0-9]{20}'),
-            'name' => fake()->name(),
-            'description' => fake()->text(),
-            'is_active' => fake()->boolean(),
+            'code' => $this->faker->regexify('[A-Za-z0-9]{20}'),
+            'name' => $this->faker->name(),
+            'address' => $this->faker->text(),
+            'is_active' => $this->faker->boolean(),
         ];
     }
 }

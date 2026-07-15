@@ -19,11 +19,12 @@ class Asset extends Model
     protected $fillable = [
         'plant_id',
         'location_id',
-        'asset_location_name',
-        'asset_location_address',
+        'asset_name',
+        'asset_location_data',
         'barcode',
         'condition',
         'status',
+        'unit_id',
         'notes',
         'is_active',
     ];
@@ -39,6 +40,7 @@ class Asset extends Model
             'id' => 'integer',
             'plant_id' => 'integer',
             'location_id' => 'integer',
+            'unit_id' => 'integer',
             'is_active' => 'boolean',
         ];
     }
@@ -51,6 +53,11 @@ class Asset extends Model
     public function location(): BelongsTo
     {
         return $this->belongsTo(Location::class);
+    }
+
+    public function unit(): BelongsTo
+    {
+        return $this->belongsTo(Unit::class);
     }
 
     public function sppbDetails(): HasMany

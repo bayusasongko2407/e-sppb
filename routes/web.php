@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DocumentVerificationController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -7,6 +8,6 @@ Route::get('/', function () {
 });
 
 Route::middleware('throttle:60,1')->group(function () {
-    Route::get('/verify/document/{verificationUuid}/page/{page}', [\App\Http\Controllers\DocumentVerificationController::class, 'verifyPublicPage'])
+    Route::get('/verify/document/{verificationUuid}/page/{page}', [DocumentVerificationController::class, 'verifyPublicPage'])
         ->name('document.verify');
 });

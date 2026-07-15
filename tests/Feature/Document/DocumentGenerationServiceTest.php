@@ -92,7 +92,7 @@ class DocumentGenerationServiceTest extends TestCase
         $this->assertEquals('READY', $generation->status);
         $this->assertNotNull($generation->checksum_sha256);
         $this->assertNotNull($generation->path);
-        
+
         Storage::disk('private')->assertExists($generation->path);
 
         $this->assertDatabaseCount('document_pages', 1);

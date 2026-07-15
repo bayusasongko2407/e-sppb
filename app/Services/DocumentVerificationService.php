@@ -19,8 +19,9 @@ class DocumentVerificationService
 
         $validationId = Str::uuid()->toString();
 
-        if (!$page) {
+        if (! $page) {
             $this->logValidation(null, null, 'NOT_FOUND', 'PUBLIC_QR', $validationId, $ip, $userAgent);
+
             return ['status' => 'NOT_FOUND', 'data' => null, 'validation_id' => $validationId];
         }
 
@@ -49,7 +50,7 @@ class DocumentVerificationService
                 'page_number' => $page->page_number,
                 'total_pages' => $generation->page_count,
                 'fingerprint' => substr($generation->checksum_sha256 ?? '', 0, 8),
-            ]
+            ],
         ];
     }
 

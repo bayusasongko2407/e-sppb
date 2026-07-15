@@ -120,4 +120,7 @@ Memulai implementasi arsitektur pertukaran data dan dokumen sesuai keputusan ADR
 2. **Standardisasi Integritas & Audit (Quality Gate)**:
    - Menyempurnakan relasi antar-tabel dan batas karakter unik indeks khusus (64-char limit pada MariaDB/MySQL).
    - Seluruh model dan *Factories* bawaan Blueprint telah lolos perbaikan `phpstan` dengan *0 errors*.
-3. **Status Saat Ini**: Basis data untuk ekosistem dokumen & pertukaran data telah *live*. Tahap berikutnya adalah memprogram `Service Layer` untuk *Job Queue* dan Pembuatan PDF.
+3. **Pembangunan Service Layer Dokumen (Selesai)**:
+   - `DocumentGenerationService` & `ProcessDocumentGenerationJob`: Antrean pembuatan PDF aman, asinkron, dan sanggup menggantikan versi lama (supersede) tanpa menimpa *file* fisik.
+   - `DocumentVerificationController` & `DocumentVerificationService`: Endpoint publik *Rate-limited* (tanpa login) untuk pengecekan validitas QR per halaman beserta pencatatan *IP Address* / *Fingerprint* setiap kali diverifikasi.
+4. **Status Saat Ini**: Basis data & Endpoint *QR Verification* telah *live* (bersama sistem render PDF *dummy* yang siap diganti ke library *Snappy* atau *DomPDF* nanti). Tahap berikutnya adalah memprogram modul antrean *Data Import/Export*.

@@ -12,8 +12,7 @@ class DocumentVerificationController extends Controller
 {
     public function __construct(
         private readonly DocumentVerificationService $service
-    ) {
-    }
+    ) {}
 
     /**
      * Verify a public document QR code page.

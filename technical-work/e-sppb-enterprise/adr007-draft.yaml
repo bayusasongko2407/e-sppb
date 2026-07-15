@@ -1,0 +1,198 @@
+models:
+  DocumentTemplate:
+    uuid: uuid unique
+    code: string:50
+    name: string:150
+    document_type: string:30
+    version: unsignedInteger default:1
+    plant_id: id nullable foreign restrictOnDelete
+    renderer: string:50 default:HTML_PDF
+    template_path: string:500
+    template_checksum_sha256: char:64
+    configuration: json nullable
+    description: text nullable
+    is_active: boolean default:true index
+    effective_from: timestamp nullable
+    effective_until: timestamp nullable
+    created_by_id: id foreign restrictOnDelete
+    indexes:
+      - unique: code, version
+      - index: document_type, plant_id, is_active
+      - index: effective_from, effective_until
+      - index: created_by_id, created_at
+    relationships:
+      belongsTo: Plant, User:createdBy
+      hasMany: DocumentGeneration
+
+  DocumentGeneration:
+    uuid: uuid unique
+    command_uuid: uuid unique
+    document_template_id: id foreign restrictOnDelete
+    template_version: unsignedInteger
+    plant_id: id foreign restrictOnDelete
+    sppb_header_id: id nullable foreign restrictOnDelete
+    goods_release_id: id nullable foreign restrictOnDelete
+    document_type: string:30
+    document_number: string:100
+    source_revision_no: unsignedInteger default:0
+    generation_no: unsignedInteger default:1
+    supersedes_id: id nullable foreign restrictOnDelete
+    generated_by_id: id foreign restrictOnDelete
+    revoked_by_id: id nullable foreign restrictOnDelete
+    status: string:30 default:QUEUED index
+    is_official: boolean default:false index
+    plant_code_snapshot: string:20
+    plant_name_snapshot: string:150
+    render_payload: json
+    source_checksum_sha256: char:64
+    disk: string:50 nullable
+    directory: string:255 nullable
+    stored_name: string:255 nullable unique
+    path: string:500 nullable
+    mime_type: string:100 nullable
+    file_size: unsignedBigInteger nullable
+    checksum_sha256: char:64 nullable index
+    page_count: unsignedInteger default:0
+    processing_started_at: timestamp nullable
+    generated_at: timestamp nullable
+    expires_at: timestamp nullable
+    revoked_at: timestamp nullable
+    revocation_reason: text nullable
+    error_code: string:50 nullable
+    error_message: text nullable
+    lock_version: unsignedInteger default:0
+    indexes:
+      - unique: sppb_header_id, document_type, generation_no
+      - unique: goods_release_id, document_type, generation_no
+      - index: plant_id, status, generated_at
+      - index: document_type, status, created_at
+      - index: sppb_header_id, status
+      - index: goods_release_id, status
+      - index: expires_at, status
+      - index: supersedes_id
+    relationships:
+      belongsTo: DocumentTemplate, Plant, SppbHeader, GoodsRelease, DocumentGeneration:supersedes, User:generatedBy, User:revokedBy
+      hasOne: DocumentGeneration:supersededBy
+      hasMany: DocumentPage, DocumentValidation
+
+  DocumentPage:
+    document_generation_id: id foreign cascadeOnDelete
+    verification_uuid: uuid unique
+    page_number: unsignedInteger
+    page_checksum_sha256: char:64
+    qr_payload_checksum_sha256: char:64 unique
+    verification_token_hash: char:64 unique
+    indexes:
+      - unique: document_generation_id, page_number
+      - index: page_checksum_sha256
+    relationships:
+      belongsTo: DocumentGeneration
+      hasMany: DocumentValidation
+
+  DocumentValidation:
+    uuid: uuid unique
+    document_generation_id: id nullable foreign restrictOnDelete
+    document_page_id: id nullable foreign restrictOnDelete
+    actor_id: id nullable foreign restrictOnDelete
+    validation_result: string:20 index
+    verification_channel: string:20 default:PUBLIC_QR index
+    lookup_fingerprint_sha256: char:64 nullable index
+    request_fingerprint_sha256: char:64 nullable
+    ip_address_hash_sha256: char:64 nullable
+    user_agent_hash_sha256: char:64 nullable
+    correlation_id: uuid nullable index
+    verified_at: timestamp index
+    metadata: json nullable
+    indexes:
+      - index: document_generation_id, verified_at
+      - index: document_page_id, verified_at
+      - index: validation_result, verified_at
+      - index: lookup_fingerprint_sha256, verified_at
+    relationships:
+      belongsTo: DocumentGeneration, DocumentPage, User:actor
+
+  DataImport:
+    uuid: uuid unique
+    command_uuid: uuid unique
+    commit_command_uuid: uuid nullable unique
+    plant_id: id nullable foreign restrictOnDelete
+    requested_by_id: id foreign restrictOnDelete
+    committed_by_id: id nullable foreign restrictOnDelete
+    import_type: string:50
+    schema_version: unsignedInteger default:1
+    status: string:30 default:UPLOADED index
+    scan_status: string:20 default:PENDING index
+    original_name: string:255
+    stored_name: string:255 unique
+    disk: string:50 default:private
+    directory: string:255
+    path: string:500
+    mime_type: string:100
+    extension: string:20
+    file_size: unsignedBigInteger
+    checksum_sha256: char:64 index
+    scope_snapshot: json nullable
+    options: json nullable
+    total_rows: unsignedBigInteger default:0
+    valid_rows: unsignedBigInteger default:0
+    invalid_rows: unsignedBigInteger default:0
+    processed_rows: unsignedBigInteger default:0
+    successful_rows: unsignedBigInteger default:0
+    failed_rows: unsignedBigInteger default:0
+    validation_report_disk: string:50 nullable
+    validation_report_path: string:500 nullable
+    validation_report_checksum_sha256: char:64 nullable
+    validation_started_at: timestamp nullable
+    validated_at: timestamp nullable
+    processing_started_at: timestamp nullable
+    completed_at: timestamp nullable
+    expires_at: timestamp nullable
+    error_code: string:50 nullable
+    error_message: text nullable
+    lock_version: unsignedInteger default:0
+    indexes:
+      - index: plant_id, import_type, status
+      - index: requested_by_id, status, created_at
+      - index: committed_by_id, completed_at
+      - index: expires_at, status
+    relationships:
+      belongsTo: Plant, User:requestedBy, User:committedBy
+
+  DataExport:
+    uuid: uuid unique
+    command_uuid: uuid unique
+    plant_id: id nullable foreign restrictOnDelete
+    requested_by_id: id foreign restrictOnDelete
+    export_type: string:50
+    dataset: string:100
+    schema_version: unsignedInteger default:1
+    format: string:20
+    status: string:30 default:QUEUED index
+    scope_snapshot: json
+    filters: json nullable
+    columns: json
+    options: json nullable
+    disk: string:50 nullable
+    directory: string:255 nullable
+    stored_name: string:255 nullable unique
+    path: string:500 nullable
+    mime_type: string:100 nullable
+    file_size: unsignedBigInteger nullable
+    checksum_sha256: char:64 nullable index
+    total_rows: unsignedBigInteger default:0
+    processed_rows: unsignedBigInteger default:0
+    download_count: unsignedInteger default:0
+    processing_started_at: timestamp nullable
+    completed_at: timestamp nullable
+    expires_at: timestamp nullable
+    last_downloaded_at: timestamp nullable
+    error_code: string:50 nullable
+    error_message: text nullable
+    lock_version: unsignedInteger default:0
+    indexes:
+      - index: plant_id, export_type, status
+      - index: requested_by_id, status, created_at
+      - index: dataset, format, status
+      - index: expires_at, status
+    relationships:
+      belongsTo: Plant, User:requestedBy

@@ -40,11 +40,11 @@ class SyncPermissionsCommand extends Command
             $modelLower = strtolower($modelName);
 
             foreach ($actions as $action) {
-                $permissionName = $action . '_' . $modelLower;
+                $permissionName = $action.'_'.$modelLower;
                 $permission = Permission::firstOrCreate(
                     ['name' => $permissionName, 'guard_name' => 'web']
                 );
-                
+
                 if ($permission->wasRecentlyCreated) {
                     $this->line("Dibuat: {$permissionName}");
                     $count++;

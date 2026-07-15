@@ -2,11 +2,11 @@
 
 namespace Database\Factories;
 
-use App\Models\User;
-
 use App\Models\DocumentGeneration;
 use App\Models\DocumentPage;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Str;
 
 class DocumentValidationFactory extends Factory
 {
@@ -26,7 +26,7 @@ class DocumentValidationFactory extends Factory
             'request_fingerprint_sha256' => fake()->randomLetter(),
             'ip_address_hash_sha256' => fake()->randomLetter(),
             'user_agent_hash_sha256' => fake()->randomLetter(),
-            'correlation_id' => \Illuminate\Support\Str::uuid(),
+            'correlation_id' => Str::uuid(),
             'verified_at' => fake()->dateTime(),
             'metadata' => '{}',
         ];

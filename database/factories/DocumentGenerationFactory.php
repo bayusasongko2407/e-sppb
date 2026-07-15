@@ -2,14 +2,12 @@
 
 namespace Database\Factories;
 
+use App\Models\DocumentGeneration;
 use App\Models\DocumentTemplate;
-
 use App\Models\GoodsRelease;
 use App\Models\Plant;
-
 use App\Models\SppbHeader;
 use App\Models\User;
-use App\Models\DocumentGeneration;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class DocumentGenerationFactory extends Factory

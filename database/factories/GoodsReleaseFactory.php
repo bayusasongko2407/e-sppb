@@ -34,9 +34,9 @@ class GoodsReleaseFactory extends Factory
             'received_by_id' => User::factory(),
             'status' => fake()->regexify('[A-Za-z0-9]{20}'),
             'notes' => fake()->text(),
-            'verification_hash' => fake()->randomLetter(),
-            'sender_user_id_id' => User::factory(),
-            'receiver_user_id_id' => User::factory(),
+            'verification_hash' => fake()->uuid(),
+            'sender_user_id' => User::factory(),
+            'receiver_user_id' => User::factory(),
         ];
     }
 }

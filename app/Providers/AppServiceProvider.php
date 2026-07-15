@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Contracts\DocumentRendererInterface;
 use App\Contracts\SppbServiceContract;
 use App\Contracts\WorkflowServiceContract;
+use App\Services\DummyDocumentRenderer;
 use App\Services\RunningNumberService;
 use App\Services\SppbService;
 use App\Services\Workflow\ApproverResolver;
@@ -22,6 +24,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->bind(
+            DocumentRendererInterface::class,
+            DummyDocumentRenderer::class
+        );
+
         $this->app->singleton(
             WorkflowServiceContract::class,
             WorkflowService::class,

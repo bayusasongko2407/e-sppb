@@ -22,8 +22,8 @@ class WorkflowStep extends Model
         'code',
         'name',
         'approver_type',
-        'approver_user_id',
-        'approver_position_id',
+        'approver_user_ids',
+        'approver_position_ids',
         'approver_role',
         'approval_mode',
         'minimum_approvals',
@@ -44,8 +44,8 @@ class WorkflowStep extends Model
             'id' => 'integer',
             'workflow_template_id' => 'integer',
             'sequence' => 'integer',
-            'approver_user_id' => 'integer',
-            'approver_position_id' => 'integer',
+            'approver_user_ids' => 'array',
+            'approver_position_ids' => 'array',
             'minimum_approvals' => 'integer',
             'sla_hours' => 'integer',
             'allow_self_approval' => 'boolean',
@@ -57,16 +57,6 @@ class WorkflowStep extends Model
     public function workflowTemplate(): BelongsTo
     {
         return $this->belongsTo(WorkflowTemplate::class);
-    }
-
-    public function approverUser(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
-
-    public function approverPosition(): BelongsTo
-    {
-        return $this->belongsTo(Position::class);
     }
 
     public function workflowInstanceSteps(): HasMany

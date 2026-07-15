@@ -44,11 +44,11 @@ final class ApproverResolver
 
     private function resolveByUser(WorkflowStep $step): Collection
     {
-        if (! $step->approver_user_id) {
+        if (empty($step->approver_user_ids)) {
             return collect();
         }
 
-        return User::where('id', $step->approver_user_id)->get();
+        return User::whereIn('id', $step->approver_user_ids)->get();
     }
 
     private function resolveByRole(WorkflowStep $step, SppbHeader $header, bool $forDeptHead = false): Collection
@@ -65,11 +65,11 @@ final class ApproverResolver
 
     private function resolveByPosition(WorkflowStep $step, SppbHeader $header): Collection
     {
-        if (! $step->approver_position_id) {
+        if (empty($step->approver_position_ids)) {
             return collect();
         }
 
-        return User::whereHas('positions', fn ($q) => $q->where('position_id', $step->approver_position_id)
+        return User::whereHas('positions', fn ($q) => $q->whereIn('position_id', $step->approver_position_ids)
             ->where('is_active', true)
         )->where('plant_id', $header->plant_id)->get();
     }

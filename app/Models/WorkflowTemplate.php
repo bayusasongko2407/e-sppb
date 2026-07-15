@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,7 +12,28 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class WorkflowTemplate extends Model
 {
-    use HasFactory;
+    use HasFactory, HasUuids;
+
+    /**
+     * Get the columns that should receive a unique identifier.
+     *
+     * @return array<int, string>
+     */
+    public function uniqueIds(): array
+    {
+        return ['uuid'];
+    }
+
+    /**
+     * Default values for attributes.
+     *
+     * @var array
+     */
+    protected $attributes = [
+        'version' => 1,
+        'document_type' => 'SPPB',
+        'is_active' => true,
+    ];
 
     /**
      * The attributes that are mass assignable.

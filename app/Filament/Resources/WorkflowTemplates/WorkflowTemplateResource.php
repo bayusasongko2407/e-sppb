@@ -74,11 +74,17 @@ class WorkflowTemplateResource extends Resource
                     ->searchable()
                     ->preload()
                     ->default(null),
-                TextInput::make('document_type')
-                    ->label('Jenis Dokumen')
+                Select::make('document_type')
+                    ->label('Jenis Dokumen (Modul)')
+                    ->helperText('Pilih modul aplikasi yang akan menggunakan alur persetujuan ini.')
+                    ->options([
+                        'SPPB' => 'Surat Perintah Pengeluaran Barang (SPPB)',
+                        'PR' => 'Purchase Request (PR)',
+                        'PO' => 'Purchase Order (PO)',
+                        'INV' => 'Invoice',
+                    ])
                     ->required()
-                    ->default('SPPB')
-                    ->readOnly(),
+                    ->default('SPPB'),
                 Textarea::make('description')
                     ->label('Deskripsi')
                     ->default(null)

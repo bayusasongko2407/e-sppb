@@ -14,7 +14,6 @@ use App\Filament\Resources\Locations\Tables\LocationsTable;
 use App\Models\Location;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 
 class LocationResource extends Resource
@@ -23,7 +22,9 @@ class LocationResource extends Resource
 
     protected static \UnitEnum|string|null $navigationGroup = 'Master Data';
 
-    protected static string|\BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-map-pin';
+
+    protected static ?int $navigationSort = 3;
 
     public static function form(Schema $schema): Schema
     {

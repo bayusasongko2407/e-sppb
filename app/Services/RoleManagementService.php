@@ -21,10 +21,8 @@ class RoleManagementService
         'super_admin',
         'admin',
         'requester',
-        'bat_approver',
-        'manager_approver',
-        'warehouse',
-        'auditor',
+        'approver',
+        'manager',
     ];
 
     /**

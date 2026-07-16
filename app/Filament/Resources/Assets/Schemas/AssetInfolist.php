@@ -20,9 +20,11 @@ class AssetInfolist
                 TextEntry::make('location.name')
                     ->label('Location')
                     ->placeholder('-'),
-                TextEntry::make('asset_location_name')
+                TextEntry::make('asset_name')
+                    ->label('Nama Aset')
                     ->placeholder('-'),
-                TextEntry::make('asset_location_address')
+                TextEntry::make('asset_location_data')
+                    ->label('Data Lokasi Aset')
                     ->placeholder('-')
                     ->columnSpanFull(),
                 TextEntry::make('barcode'),

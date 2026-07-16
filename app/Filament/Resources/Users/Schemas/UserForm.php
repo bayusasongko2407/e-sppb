@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Users\Schemas;
 
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -19,9 +20,10 @@ class UserForm
                 Select::make('plant_id')
                     ->label('Plant')
                     ->relationship('plant', 'name')
-                    ->default(null),
+                    ->default(null)
+                    ->live(),
                 Select::make('department_id')
-                    ->relationship('department', 'name')
+                    ->relationship('department', 'name', fn ($query, $get) => $query->when($get('plant_id'), fn ($q, $plantId) => $q->where('plant_id', $plantId)))
                     ->default(null),
                 Select::make('manager_id')
                     ->relationship('manager', 'name')
@@ -51,6 +53,23 @@ class UserForm
                     ->relationship('roles', 'name')
                     ->multiple()
                     ->preload(),
+                Repeater::make('positions')
+                    ->label('Posisi (Positions)')
+                    ->relationship('positions')
+                    ->schema([
+                        Select::make('position_id')
+                            ->label('Posisi')
+                            ->relationship('position', 'name')
+                            ->required(),
+                        Toggle::make('is_primary')
+                            ->label('Utama')
+                            ->default(false),
+                        Toggle::make('is_active')
+                            ->label('Aktif')
+                            ->default(true),
+                    ])
+                    ->columns(3)
+                    ->columnSpanFull(),
             ]);
     }
 }

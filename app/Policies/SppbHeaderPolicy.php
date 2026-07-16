@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\SppbStatus;
 use App\Models\SppbHeader;
 use App\Models\User;
 
@@ -12,7 +13,7 @@ class SppbHeaderPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasPermissionTo('view_any_sppbheader');
+        return true;
     }
 
     /**
@@ -20,7 +21,21 @@ class SppbHeaderPolicy
      */
     public function view(User $user, SppbHeader $sppbHeader): bool
     {
-        return $user->hasPermissionTo('view_sppbheader');
+        if ($user->hasRole('super_admin')) {
+            return true;
+        }
+
+        // Requester can view their own SPPB
+        if ($sppbHeader->requester_id === $user->id) {
+            return true;
+        }
+
+        // Current approver can view
+        if ($sppbHeader->current_approver_id === $user->id) {
+            return true;
+        }
+
+        return $user->hasDocumentAccess('sppb', 'view', $sppbHeader->plant_id, $sppbHeader->department_id);
     }
 
     /**
@@ -28,7 +43,18 @@ class SppbHeaderPolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasPermissionTo('create_sppbheader');
+        if ($user->hasRole('super_admin')) {
+            return true;
+        }
+
+        if ($user->hasRole('requester')) {
+            return true;
+        }
+
+        return $user->documentAccesses()
+            ->where('module', 'sppb')
+            ->where('can_create', true)
+            ->exists();
     }
 
     /**
@@ -36,7 +62,19 @@ class SppbHeaderPolicy
      */
     public function update(User $user, SppbHeader $sppbHeader): bool
     {
-        return $user->hasPermissionTo('update_sppbheader');
+        if ($user->hasRole('super_admin')) {
+            return true;
+        }
+
+        if (! in_array($sppbHeader->status, [SppbStatus::DRAFT->value, SppbStatus::REJECTED->value])) {
+            return false;
+        }
+
+        if ($sppbHeader->requester_id === $user->id) {
+            return true;
+        }
+
+        return $user->hasDocumentAccess('sppb', 'edit', $sppbHeader->plant_id, $sppbHeader->department_id);
     }
 
     /**
@@ -44,7 +82,19 @@ class SppbHeaderPolicy
      */
     public function delete(User $user, SppbHeader $sppbHeader): bool
     {
-        return $user->hasPermissionTo('delete_sppbheader');
+        if ($user->hasRole('super_admin')) {
+            return true;
+        }
+
+        if (! in_array($sppbHeader->status, [SppbStatus::DRAFT->value, SppbStatus::REJECTED->value])) {
+            return false;
+        }
+
+        if ($sppbHeader->requester_id === $user->id) {
+            return true;
+        }
+
+        return $user->hasDocumentAccess('sppb', 'delete', $sppbHeader->plant_id, $sppbHeader->department_id);
     }
 
     /**
@@ -52,7 +102,7 @@ class SppbHeaderPolicy
      */
     public function restore(User $user, SppbHeader $sppbHeader): bool
     {
-        return $user->hasPermissionTo('restore_sppbheader');
+        return $user->hasRole('super_admin');
     }
 
     /**
@@ -60,6 +110,6 @@ class SppbHeaderPolicy
      */
     public function forceDelete(User $user, SppbHeader $sppbHeader): bool
     {
-        return $user->hasPermissionTo('force_delete_sppbheader');
+        return $user->hasRole('super_admin');
     }
 }

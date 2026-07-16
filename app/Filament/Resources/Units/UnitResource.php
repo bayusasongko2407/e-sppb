@@ -14,7 +14,6 @@ use App\Filament\Resources\Units\Tables\UnitsTable;
 use App\Models\Unit;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 
 class UnitResource extends Resource
@@ -23,7 +22,9 @@ class UnitResource extends Resource
 
     protected static \UnitEnum|string|null $navigationGroup = 'Master Data';
 
-    protected static string|\BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-scale';
+
+    protected static ?int $navigationSort = 4;
 
     public static function form(Schema $schema): Schema
     {

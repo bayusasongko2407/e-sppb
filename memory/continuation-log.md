@@ -1,8 +1,8 @@
 ## Active Checkpoint
 
-- Updated at: 2026-07-14 Asia/Jakarta
-- Phase: UI/UX Refactoring SPPB Resource (SELESAI)
-- Status: Refactoring UI/UX SppbHeaderResource selesai 100%. Layout enterprise sesuai desain yang disetujui: Header 5-row, Detail Barang full width, Workflow Timeline horizontal. Quality gate lulus: PHP lint OK, Pint OK, PHPStan OK.
+- Updated at: 2026-07-15 Asia/Jakarta
+- Phase: Perbaikan Infrastruktur Testing & Koreksi Skema Workflow (SELESAI)
+- Status: Menghilangkan infinite loop pada DocumentGenerationFactory, memperbarui test suite (WorkflowServiceTest, SppbEndToEndTest, DocumentGenerationServiceTest) agar selaras dengan skema database terbaru (kolom JSON approver_position_ids) dan perilaku eksekusi sinkron. Seluruh 27 unit/feature test lulus 100% (PASS).
 
 ## Ringkasan UI/UX Refactoring SPPB Resource (Selesai)
 

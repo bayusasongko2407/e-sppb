@@ -15,8 +15,11 @@ use App\Enums\WorkflowInstanceStepStatus;
 use App\Exceptions\Workflow\InvalidSppbTransitionException;
 use App\Exceptions\Workflow\StaleWorkflowCommandException;
 use App\Exceptions\Workflow\UnauthorizedApprovalException;
+use App\Filament\Resources\MyApprovals\MyApprovalResource;
+use App\Filament\Resources\SppbHeaders\SppbHeaderResource;
 use App\Models\SppbHeader;
 use App\Models\SppbStatusLog;
+use App\Models\User;
 use App\Models\WorkflowCommand;
 use App\Models\WorkflowDelegation;
 use App\Models\WorkflowInstance;
@@ -24,7 +27,10 @@ use App\Models\WorkflowInstanceStep;
 use App\Models\WorkflowStepApprover;
 use App\Services\Workflow\ApproverResolver;
 use App\Services\Workflow\WorkflowTemplateResolver;
+use Filament\Actions\Action;
+use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Ramsey\Uuid\Uuid;
 
 final class WorkflowService implements WorkflowServiceContract
@@ -44,7 +50,7 @@ final class WorkflowService implements WorkflowServiceContract
             $header = SppbHeader::lockForUpdate()->findOrFail($data->sppbHeaderId);
 
             $currentStatus = SppbStatus::from($header->status);
-            if (! in_array($currentStatus, [SppbStatus::DRAFT, SppbStatus::REVISION_REQUIRED])) {
+            if (! in_array($currentStatus, [SppbStatus::DRAFT, SppbStatus::REJECTED])) {
                 throw new InvalidSppbTransitionException($header->status, SppbStatus::SUBMISSION_QUEUED->value);
             }
 
@@ -52,6 +58,10 @@ final class WorkflowService implements WorkflowServiceContract
             $existing = WorkflowCommand::where('command_uuid', $data->commandUuid)->first();
             if ($existing) {
                 throw new StaleWorkflowCommandException;
+            }
+
+            if ($currentStatus === SppbStatus::REJECTED) {
+                $header->revision_no += 1;
             }
 
             $command = WorkflowCommand::create([
@@ -71,12 +81,26 @@ final class WorkflowService implements WorkflowServiceContract
             $this->writeStatusLog(
                 $header,
                 null,
-                SppbStatus::DRAFT->value,
+                $currentStatus->value,
                 SppbStatus::SUBMISSION_QUEUED->value,
                 $data->actorId,
                 $data->commandUuid,
                 'SUBMIT_QUEUED',
             );
+
+            // Eksekusi secara sinkron (karena tidak ada worker background)
+            try {
+                $this->generateWorkflow($data->sppbHeaderId, $data->correlationId ?? $data->commandUuid);
+
+                $command->status = WorkflowCommandStatus::COMPLETED->value;
+                $command->processed_at = now();
+                $command->save();
+            } catch (\Exception $e) {
+                $command->status = WorkflowCommandStatus::FAILED->value;
+                $command->error_message = $e->getMessage();
+                $command->save();
+                throw $e;
+            }
 
             return $command;
         });
@@ -139,13 +163,28 @@ final class WorkflowService implements WorkflowServiceContract
                         'approver_id' => $approver->id,
                         'status' => ApproverStatus::PENDING->value,
                     ]);
+
+                    $this->sendNotification(
+                        $approver,
+                        'Persetujuan Baru',
+                        "SPPB dengan nomor {$header->sppb_number} (Pemohon: {$header->requester?->name}) memerlukan persetujuan/verifikasi Anda.",
+                        MyApprovalResource::getUrl('view', ['record' => $header->id])
+                    );
                 }
                 $header->current_workflow_instance_id = $instance->id;
                 $header->current_step_sequence = $firstStep->sequence;
                 $header->current_approver_id = $approvers->first()?->id;
+
+                $isBat = str_contains(strtoupper($firstStep->code), 'BAT') || str_contains(strtoupper($firstStep->name), 'BAT');
+                if ($isBat) {
+                    $header->status = SppbStatus::WAITING_VERIFICATION_BAT->value;
+                } else {
+                    $header->status = SppbStatus::WAITING_APPROVAL->value;
+                }
+            } else {
+                $header->status = SppbStatus::WAITING_APPROVAL->value;
             }
 
-            $header->status = SppbStatus::WAITING_APPROVAL->value;
             $header->submitted_at = $header->submitted_at ?? now();
             $header->save();
 
@@ -153,7 +192,7 @@ final class WorkflowService implements WorkflowServiceContract
                 $header,
                 $instance->id,
                 SppbStatus::SUBMISSION_QUEUED->value,
-                SppbStatus::WAITING_APPROVAL->value,
+                $header->status,
                 null,
                 null,
                 'WORKFLOW_GENERATED',
@@ -209,7 +248,7 @@ final class WorkflowService implements WorkflowServiceContract
                 }
             }
 
-            return WorkflowCommand::create([
+            $command = WorkflowCommand::create([
                 'command_uuid' => $data->commandUuid,
                 'command_type' => 'ApprovalDecision',
                 'aggregate_type' => 'WorkflowInstanceStep',
@@ -220,10 +259,36 @@ final class WorkflowService implements WorkflowServiceContract
                     'remarks' => $data->remarks,
                     'delegated_from_id' => $data->delegatedFromId,
                     'correlation_id' => $data->correlationId,
+                    'require_plant_manager' => $data->requirePlantManager,
                 ]),
                 'status' => WorkflowCommandStatus::QUEUED->value,
                 'attempts' => 0,
             ]);
+
+            // Eksekusi secara sinkron (karena tidak ada worker background)
+            try {
+                $decision = strtolower($data->decision);
+                if ($decision === 'approve') {
+                    $this->approve($data);
+                } elseif ($decision === 'reject') {
+                    $this->reject($data);
+                } elseif ($decision === 'revision') {
+                    $this->requestRevision($data);
+                } else {
+                    throw new \InvalidArgumentException("Invalid decision: {$data->decision}");
+                }
+
+                $command->status = WorkflowCommandStatus::COMPLETED->value;
+                $command->processed_at = now();
+                $command->save();
+            } catch (\Exception $e) {
+                $command->status = WorkflowCommandStatus::FAILED->value;
+                $command->error_message = $e->getMessage();
+                $command->save();
+                throw $e;
+            }
+
+            return $command;
         });
     }
 
@@ -275,10 +340,19 @@ final class WorkflowService implements WorkflowServiceContract
                 $step->save();
 
                 // Cari step berikutnya
-                $nextStep = WorkflowInstanceStep::where('workflow_instance_id', $instance->id)
-                    ->where('sequence', '>', $step->sequence)
-                    ->orderBy('sequence')
-                    ->first();
+                $nextStep = null;
+                if ($data->requirePlantManager !== false) {
+                    $nextStep = WorkflowInstanceStep::where('workflow_instance_id', $instance->id)
+                        ->where('sequence', '>', $step->sequence)
+                        ->orderBy('sequence')
+                        ->first();
+                } else {
+                    // Cancel any remaining queued steps since manager opted to make this final
+                    WorkflowInstanceStep::where('workflow_instance_id', $instance->id)
+                        ->where('sequence', '>', $step->sequence)
+                        ->where('status', WorkflowInstanceStepStatus::QUEUED->value)
+                        ->update(['status' => WorkflowInstanceStepStatus::CANCELLED->value]);
+                }
 
                 if ($nextStep) {
                     // Aktifkan step berikutnya
@@ -301,19 +375,51 @@ final class WorkflowService implements WorkflowServiceContract
                                 ],
                                 ['status' => ApproverStatus::PENDING->value],
                             );
+
+                            $this->sendNotification(
+                                $approver,
+                                'Persetujuan Baru',
+                                "SPPB dengan nomor {$header->sppb_number} (Pemohon: {$header->requester?->name}) memerlukan persetujuan/verifikasi Anda.",
+                                MyApprovalResource::getUrl('view', ['record' => $header->id])
+                            );
                         }
                         $header->current_step_sequence = $nextStep->sequence;
                         $header->current_approver_id = $approvers->first()?->id;
+                    }
+
+                    // Dynamically map SPPB header status
+                    $upperCode = strtoupper($nextStep->code ?? '');
+                    $upperName = strtoupper($nextStep->name ?? '');
+
+                    $isManager = $upperCode === 'MAN'
+                        || $upperCode === 'MGR'
+                        || $upperCode === 'MANAGER'
+                        || str_starts_with($upperCode, 'MAN-')
+                        || str_starts_with($upperCode, 'MGR-')
+                        || str_starts_with($upperCode, 'MANAGER-')
+                        || str_contains($upperName, 'MANAGER')
+                        || str_contains($upperName, 'MGR');
+
+                    $isBat = str_contains($upperCode, 'BAT')
+                        || str_contains($upperName, 'BAT');
+
+                    if ($isManager) {
+                        $header->status = SppbStatus::WAITING_APPROVAL_MANAGER->value;
+                    } elseif ($isBat) {
+                        $header->status = SppbStatus::WAITING_VERIFICATION_BAT->value;
+                    } else {
+                        $header->status = SppbStatus::WAITING_APPROVAL->value;
                     }
 
                     $this->writeStatusLog(
                         $header,
                         $instance->id,
                         null,
-                        SppbStatus::WAITING_APPROVAL->value,
+                        $header->status,
                         $data->actorId,
                         $data->commandUuid,
                         'STEP_APPROVED',
+                        $data->remarks,
                     );
                 } else {
                     // Ini step final — SPPB disetujui!
@@ -333,6 +439,14 @@ final class WorkflowService implements WorkflowServiceContract
                         $data->actorId,
                         $data->commandUuid,
                         'SPPB_APPROVED',
+                        $data->remarks,
+                    );
+
+                    $this->sendNotification(
+                        $header->requester,
+                        'SPPB Disetujui',
+                        "SPPB dengan nomor {$header->sppb_number} telah disetujui sepenuhnya.",
+                        SppbHeaderResource::getUrl('view', ['record' => $header->id])
                     );
                 }
 
@@ -402,6 +516,15 @@ final class WorkflowService implements WorkflowServiceContract
                 $data->remarks,
             );
 
+            $actor = User::find($data->actorId);
+            $actorName = $actor ? $actor->name : 'Approver';
+            $this->sendNotification(
+                $header->requester,
+                'SPPB Ditolak',
+                "SPPB dengan nomor {$header->sppb_number} telah ditolak oleh {$actorName}. Alasan: {$data->remarks}",
+                SppbHeaderResource::getUrl('view', ['record' => $header->id])
+            );
+
             return $step->refresh();
         });
     }
@@ -459,6 +582,15 @@ final class WorkflowService implements WorkflowServiceContract
                 $data->commandUuid,
                 'REVISION_REQUESTED',
                 $data->remarks,
+            );
+
+            $actor = User::find($data->actorId);
+            $actorName = $actor ? $actor->name : 'Approver';
+            $this->sendNotification(
+                $header->requester,
+                'Permintaan Revisi SPPB',
+                "SPPB dengan nomor {$header->sppb_number} dikembalikan untuk direvisi oleh {$actorName}. Catatan: {$data->remarks}",
+                SppbHeaderResource::getUrl('view', ['record' => $header->id])
             );
 
             return $step->refresh();
@@ -539,5 +671,27 @@ final class WorkflowService implements WorkflowServiceContract
             'remarks' => $remarks,
             'logged_at' => now(),
         ]);
+    }
+
+    private function sendNotification($user, string $title, string $body, string $url): void
+    {
+        if (! $user) {
+            return;
+        }
+
+        try {
+            Notification::make()
+                ->title($title)
+                ->body($body)
+                ->icon('heroicon-o-document-text')
+                ->actions([
+                    Action::make('view')
+                        ->label('Lihat Detail')
+                        ->url($url),
+                ])
+                ->sendToDatabase($user);
+        } catch (\Throwable $e) {
+            Log::error('Gagal mengirim notifikasi: '.$e->getMessage());
+        }
     }
 }

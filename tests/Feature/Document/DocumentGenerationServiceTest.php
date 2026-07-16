@@ -81,7 +81,7 @@ class DocumentGenerationServiceTest extends TestCase
             'plant_id' => $plant->id,
             'generated_by_id' => $user->id,
             'status' => 'QUEUED',
-            'render_payload' => json_encode(['test' => 123]),
+            'render_payload' => ['test' => 123],
         ]);
 
         $job = new ProcessDocumentGenerationJob($generation->id);

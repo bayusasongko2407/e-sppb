@@ -12,7 +12,7 @@ class GoodsReleasePolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasPermissionTo('view_any_goodsrelease');
+        return true;
     }
 
     /**
@@ -20,7 +20,21 @@ class GoodsReleasePolicy
      */
     public function view(User $user, GoodsRelease $goodsRelease): bool
     {
-        return $user->hasPermissionTo('view_goodsrelease');
+        if ($user->hasRole('super_admin')) {
+            return true;
+        }
+
+        $sppb = $goodsRelease->sppbHeader;
+        if (! $sppb) {
+            return false;
+        }
+
+        // Requester of the original SPPB can view the release
+        if ($sppb->requester_id === $user->id) {
+            return true;
+        }
+
+        return $user->hasDocumentAccess('goods_release', 'view', $sppb->plant_id, $sppb->department_id);
     }
 
     /**
@@ -28,7 +42,14 @@ class GoodsReleasePolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasPermissionTo('create_goodsrelease');
+        if ($user->hasRole('super_admin')) {
+            return true;
+        }
+
+        return $user->documentAccesses()
+            ->where('module', 'goods_release')
+            ->where('can_create', true)
+            ->exists();
     }
 
     /**
@@ -36,7 +57,16 @@ class GoodsReleasePolicy
      */
     public function update(User $user, GoodsRelease $goodsRelease): bool
     {
-        return $user->hasPermissionTo('update_goodsrelease');
+        if ($user->hasRole('super_admin')) {
+            return true;
+        }
+
+        $sppb = $goodsRelease->sppbHeader;
+        if (! $sppb) {
+            return false;
+        }
+
+        return $user->hasDocumentAccess('goods_release', 'edit', $sppb->plant_id, $sppb->department_id);
     }
 
     /**
@@ -44,7 +74,16 @@ class GoodsReleasePolicy
      */
     public function delete(User $user, GoodsRelease $goodsRelease): bool
     {
-        return $user->hasPermissionTo('delete_goodsrelease');
+        if ($user->hasRole('super_admin')) {
+            return true;
+        }
+
+        $sppb = $goodsRelease->sppbHeader;
+        if (! $sppb) {
+            return false;
+        }
+
+        return $user->hasDocumentAccess('goods_release', 'delete', $sppb->plant_id, $sppb->department_id);
     }
 
     /**
@@ -52,7 +91,7 @@ class GoodsReleasePolicy
      */
     public function restore(User $user, GoodsRelease $goodsRelease): bool
     {
-        return $user->hasPermissionTo('restore_goodsrelease');
+        return $user->hasRole('super_admin');
     }
 
     /**
@@ -60,6 +99,6 @@ class GoodsReleasePolicy
      */
     public function forceDelete(User $user, GoodsRelease $goodsRelease): bool
     {
-        return $user->hasPermissionTo('force_delete_goodsrelease');
+        return $user->hasRole('super_admin');
     }
 }

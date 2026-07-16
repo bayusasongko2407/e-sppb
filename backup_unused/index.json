@@ -1,0 +1,16 @@
+{
+    "backup_date": "2026-07-15 18:06:00",
+    "description": "Backup of unused/redundant files identified during system audit.",
+    "files": [
+        {
+            "original_path": "app/Models/LegacyReference.php",
+            "backup_path": "backup_unused/LegacyReference.php",
+            "reason": "Model is not used anywhere in the codebase."
+        },
+        {
+            "original_path": "database/migrations/2026_07_14_063621_create_legacy_references_table.php",
+            "backup_path": "backup_unused/2026_07_14_063621_create_legacy_references_table.php",
+            "reason": "Migration for the unused legacy_references table."
+        }
+    ]
+}

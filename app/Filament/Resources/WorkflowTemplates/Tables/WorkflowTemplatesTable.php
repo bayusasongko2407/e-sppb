@@ -2,6 +2,9 @@
 
 namespace App\Filament\Resources\WorkflowTemplates\Tables;
 
+use App\Filament\Resources\WorkflowTemplates\WorkflowTemplateResource;
+use App\Models\WorkflowTemplate;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -54,6 +57,13 @@ class WorkflowTemplatesTable
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make(),
+                Action::make('duplicate')
+                    ->label('Salin')
+                    ->icon('heroicon-o-document-duplicate')
+                    ->color('info')
+                    ->url(fn (WorkflowTemplate $record): string => WorkflowTemplateResource::getUrl('create', [
+                        'source' => $record->id,
+                    ])),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

@@ -6,10 +6,16 @@ namespace App\Filament\Resources\SppbHeaders\Pages;
 
 use App\Filament\Resources\SppbHeaders\SppbHeaderResource;
 use Filament\Resources\Pages\CreateRecord;
+use Filament\Support\Enums\Width;
 
 class CreateSppbHeader extends CreateRecord
 {
     protected static string $resource = SppbHeaderResource::class;
+
+    public function getMaxContentWidth(): Width
+    {
+        return Width::Full;
+    }
 
     protected function getRedirectUrl(): string
     {

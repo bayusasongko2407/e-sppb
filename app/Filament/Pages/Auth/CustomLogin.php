@@ -7,8 +7,9 @@ namespace App\Filament\Pages\Auth;
 use App\Services\Auth\AuthService;
 use Filament\Auth\Http\Responses\Contracts\LoginResponse;
 use Filament\Auth\Pages\Login as BaseLogin;
-use Filament\Forms\Components\Component;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Component;
+use Illuminate\Validation\ValidationException;
 
 class CustomLogin extends BaseLogin
 {
@@ -26,26 +27,9 @@ class CustomLogin extends BaseLogin
     }
 
     /**
-     * Get the form schema for the login page.
-     *
-     * @return array<int, Component>
+     * Override getEmailFormComponent to return a text input for Email or NIK.
      */
-    protected function getForms(): array
-    {
-        return [
-            'form' => $this->form(
-                $this->makeForm()
-                    ->schema([
-                        $this->getLoginFormComponent(),
-                        $this->getPasswordFormComponent(),
-                        $this->getRememberFormComponent(),
-                    ])
-                    ->statePath('data'),
-            ),
-        ];
-    }
-
-    protected function getLoginFormComponent()
+    protected function getEmailFormComponent(): Component
     {
         return TextInput::make('email')
             ->label(__('Email atau NIK'))
@@ -62,12 +46,20 @@ class CustomLogin extends BaseLogin
     {
         $data = $this->form->getState();
 
-        $authService = app(AuthService::class);
-        $authService->attemptLogin(
-            $data['email'],
-            $data['password'],
-            $data['remember'] ?? false
-        );
+        try {
+            $authService = app(AuthService::class);
+            $authService->attemptLogin(
+                $data['email'],
+                $data['password'],
+                $data['remember'] ?? false
+            );
+        } catch (ValidationException $e) {
+            // Map the validation error key to 'data.email' so it renders correctly on the form input
+            $message = $e->validator->errors()->first('email') ?: $e->getMessage();
+            throw ValidationException::withMessages([
+                'data.email' => $message,
+            ]);
+        }
 
         session()->regenerate();
 

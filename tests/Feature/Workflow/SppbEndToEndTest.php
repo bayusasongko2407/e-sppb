@@ -70,7 +70,7 @@ class SppbEndToEndTest extends TestCase
             'workflow_template_id' => $template->id,
             'sequence' => 2,
             'approver_type' => 'POSITION',
-            'approver_position_id' => $batPosition->id,
+            'approver_position_ids' => [$batPosition->id],
             'approval_mode' => 'ANY',
             'minimum_approvals' => 1,
         ]);
@@ -92,12 +92,11 @@ class SppbEndToEndTest extends TestCase
         );
         $this->workflowService->queueSubmission($submitData);
         $sppb->refresh();
-        $this->assertEquals(SppbStatus::SUBMISSION_QUEUED->value, $sppb->status);
-
-        // Job memproses submission:
-        $instance = $this->workflowService->generateWorkflow($sppb->id, 'corr-123');
-        $sppb->refresh();
         $this->assertEquals(SppbStatus::WAITING_APPROVAL->value, $sppb->status);
+
+        // Fetch the automatically generated workflow instance
+        $instance = $sppb->workflowInstances()->latest()->first();
+        $this->assertNotNull($instance);
         $this->assertEquals(1, $sppb->current_step_sequence);
         $this->assertEquals($manager->id, $sppb->current_approver_id);
 
@@ -115,7 +114,6 @@ class SppbEndToEndTest extends TestCase
         );
 
         $this->workflowService->queueApproval($approval1Data);
-        $this->workflowService->approve($approval1Data);
 
         $sppb->refresh();
         $this->assertEquals(2, $sppb->current_step_sequence);
@@ -135,7 +133,6 @@ class SppbEndToEndTest extends TestCase
         );
 
         $this->workflowService->queueApproval($approval2Data);
-        $this->workflowService->approve($approval2Data);
 
         $sppb->refresh();
         $this->assertEquals(SppbStatus::APPROVED->value, $sppb->status);

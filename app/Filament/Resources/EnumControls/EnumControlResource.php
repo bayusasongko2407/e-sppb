@@ -11,20 +11,21 @@ use App\Models\EnumControl;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 
 class EnumControlResource extends Resource
 {
     protected static ?string $model = EnumControl::class;
 
-    protected static \UnitEnum|string|null $navigationGroup = 'Pengaturan';
+    protected static \UnitEnum|string|null $navigationGroup = 'Sistem';
 
     protected static ?string $modelLabel = 'Enum Kontrol';
 
     protected static ?string $pluralModelLabel = 'Enum Kontrol';
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-adjustments-horizontal';
+
+    protected static ?int $navigationSort = 3;
 
     protected static ?string $recordTitleAttribute = 'label';
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Traits\SecureRouteBinding;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -13,7 +14,7 @@ use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-    use HasFactory, HasRoles, Notifiable;
+    use HasFactory, HasRoles, Notifiable, SecureRouteBinding;
 
     /**
      * The attributes that are mass assignable.
@@ -123,13 +124,57 @@ class User extends Authenticatable
         return $this->hasMany(Attachment::class);
     }
 
-    public function notifications(): HasMany
-    {
-        return $this->hasMany(Notification::class);
-    }
-
     public function activityLogs(): HasMany
     {
         return $this->hasMany(ActivityLog::class);
+    }
+
+    public function documentAccesses(): HasMany
+    {
+        return $this->hasMany(DocumentAccess::class);
+    }
+
+    public function emailChangeRequests(): HasMany
+    {
+        return $this->hasMany(EmailChangeRequest::class);
+    }
+
+    /**
+     * Check if user has specific document access based on module, action, plant, and department.
+     */
+    public function hasDocumentAccess(string $module, string $action, ?int $plantId = null, ?int $departmentId = null): bool
+    {
+        if ($this->hasRole('super_admin')) {
+            return true;
+        }
+
+        $query = $this->documentAccesses()->where('module', $module);
+
+        if ($plantId !== null) {
+            $query->where('plant_id', $plantId);
+        }
+
+        if ($departmentId !== null) {
+            $query->where('department_id', $departmentId);
+        }
+
+        switch ($action) {
+            case 'view':
+                $query->where('can_view', true);
+                break;
+            case 'create':
+                $query->where('can_create', true);
+                break;
+            case 'edit':
+                $query->where('can_edit', true);
+                break;
+            case 'delete':
+                $query->where('can_delete', true);
+                break;
+            default:
+                return false;
+        }
+
+        return $query->exists();
     }
 }

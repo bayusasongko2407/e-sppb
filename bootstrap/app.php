@@ -18,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->trustProxies(at: '*');
+        $middleware->redirectGuestsTo('/login');
         $middleware->append(EnsureCorrelationId::class);
         $middleware->web(append: [
             EnsureUserIsActive::class,

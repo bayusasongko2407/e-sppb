@@ -2,8 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Models\Position;
-use App\Models\User;
 use App\Models\WorkflowTemplate;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -20,8 +18,8 @@ class WorkflowStepFactory extends Factory
             'code' => fake()->regexify('[A-Za-z0-9]{30}'),
             'name' => fake()->name(),
             'approver_type' => fake()->regexify('[A-Za-z0-9]{30}'),
-            'approver_user_id' => User::factory(),
-            'approver_position_id' => Position::factory(),
+            'approver_user_ids' => null,
+            'approver_position_ids' => null,
             'approver_role' => fake()->regexify('[A-Za-z0-9]{100}'),
             'approval_mode' => fake()->regexify('[A-Za-z0-9]{20}'),
             'minimum_approvals' => fake()->randomNumber(),

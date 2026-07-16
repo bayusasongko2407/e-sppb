@@ -20,6 +20,10 @@ class UserInfolist
                 TextEntry::make('department.name')
                     ->label('Department')
                     ->placeholder('-'),
+                TextEntry::make('positions.position.name')
+                    ->label('Posisi')
+                    ->badge()
+                    ->placeholder('-'),
                 TextEntry::make('manager.name')
                     ->label('Manager')
                     ->placeholder('-'),

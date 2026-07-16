@@ -11,6 +11,35 @@ class SppbDetail extends Model
 {
     use HasFactory;
 
+    protected static function booted(): void
+    {
+        static::creating(function (SppbDetail $detail) {
+            if (empty($detail->line_no)) {
+                $maxLineNo = self::where('sppb_header_id', $detail->sppb_header_id)->max('line_no');
+                $detail->line_no = ($maxLineNo ?? 0) + 1;
+            }
+
+            if (empty($detail->item_asset_name)) {
+                if ($detail->item_id) {
+                    $item = Item::find($detail->item_id);
+                    if ($item) {
+                        $detail->item_asset_name = $item->name;
+                        if (empty($detail->unit_id)) {
+                            $detail->unit_id = $item->unit_id;
+                        }
+                    }
+                } elseif ($detail->asset_id) {
+                    $asset = Asset::find($detail->asset_id);
+                    if ($asset) {
+                        $detail->item_asset_name = $asset->asset_name;
+                    }
+                } else {
+                    $detail->item_asset_name = '-';
+                }
+            }
+        });
+    }
+
     /**
      * The attributes that are mass assignable.
      *

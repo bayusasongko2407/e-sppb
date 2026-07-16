@@ -14,7 +14,6 @@ use App\Filament\Resources\Items\Tables\ItemsTable;
 use App\Models\Item;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 
 class ItemResource extends Resource
@@ -23,7 +22,9 @@ class ItemResource extends Resource
 
     protected static \UnitEnum|string|null $navigationGroup = 'Master Data';
 
-    protected static string|\BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-cube';
+
+    protected static ?int $navigationSort = 6;
 
     public static function form(Schema $schema): Schema
     {

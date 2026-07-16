@@ -158,7 +158,7 @@ class SppbHeaderInfolist
                                     ->placeholder('—')
                                     ->visible(fn ($record): bool => ! $record?->barcode_confirmed),
 
-                                TextEntry::make('asset.asset_location_name')
+                                TextEntry::make('asset.asset_name')
                                     ->label('Nama Asset')
                                     ->placeholder('—')
                                     ->visible(fn ($record): bool => (bool) $record?->barcode_confirmed),
@@ -189,31 +189,13 @@ class SppbHeaderInfolist
                 Section::make('Workflow Persetujuan')
                     ->schema([
                         Placeholder::make('workflow_timeline_view')
-                            ->label('')
+                            ->hiddenLabel()
                             ->content(function ($record): HtmlString {
-                                if (! $record || ! $record->currentWorkflowInstance) {
-                                    return new HtmlString(
-                                        '<p class="text-sm text-gray-400 italic py-4 text-center">'
-                                        .'Workflow persetujuan akan tampil setelah dokumen diajukan.'
-                                        .'</p>'
-                                    );
+                                if (! $record) {
+                                    return new HtmlString('');
                                 }
 
-                                $steps = $record->currentWorkflowInstance
-                                    ->workflowInstanceSteps()
-                                    ->with('actedBy')
-                                    ->orderBy('sequence')
-                                    ->get();
-
-                                if ($steps->isEmpty()) {
-                                    return new HtmlString(
-                                        '<p class="text-sm text-gray-400 italic py-4 text-center">'
-                                        .'Belum ada langkah workflow.'
-                                        .'</p>'
-                                    );
-                                }
-
-                                return SppbHeaderForm::renderWorkflowTimeline($steps);
+                                return SppbHeaderForm::renderWorkflowTimeline($record);
                             })
                             ->columnSpanFull(),
                     ])

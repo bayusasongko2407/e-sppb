@@ -14,5 +14,6 @@ final class ApprovalDecisionData
         public readonly ?string $remarks = null,
         public readonly ?int $delegatedFromId = null,
         public readonly ?string $correlationId = null,
+        public readonly ?bool $requirePlantManager = null,
     ) {}
 }

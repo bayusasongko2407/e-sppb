@@ -10,6 +10,7 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
 class UsersTable
@@ -22,6 +23,11 @@ class UsersTable
                     ->searchable(),
                 TextColumn::make('department.name')
                     ->searchable(),
+                TextColumn::make('positions.position.name')
+                    ->label('Posisi')
+                    ->badge()
+                    ->searchable()
+                    ->placeholder('—'),
                 TextColumn::make('manager.name')
                     ->searchable(),
                 TextColumn::make('nik')
@@ -61,7 +67,9 @@ class UsersTable
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                SelectFilter::make('position')
+                    ->label('Posisi')
+                    ->relationship('positions.position', 'name'),
             ])
             ->recordActions([
                 ViewAction::make(),

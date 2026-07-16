@@ -24,8 +24,6 @@ class SppbHeaderFactory extends Factory
             'origin_location_id' => Location::factory(),
             'destination_location_id' => Location::factory(),
             'needed_name' => fake()->regexify('[A-Za-z0-9]{255}'),
-            'legacy_fppb_hash' => fake()->randomLetter(),
-            'legacy_sj_number' => fake()->regexify('[A-Za-z0-9]{50}'),
             'request_date' => fake()->date(),
             'date_needed' => fake()->date(),
             'purpose' => fake()->text(),

@@ -9,6 +9,8 @@ use App\Filament\Resources\WorkflowTemplates\Pages\EditWorkflowTemplate;
 use App\Filament\Resources\WorkflowTemplates\Pages\ListWorkflowTemplates;
 use App\Filament\Resources\WorkflowTemplates\Pages\ViewWorkflowTemplate;
 use App\Filament\Resources\WorkflowTemplates\Tables\WorkflowTemplatesTable;
+use App\Models\Position;
+use App\Models\User;
 use App\Models\WorkflowTemplate;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Repeater;
@@ -20,16 +22,18 @@ use Filament\Infolists\Components\IconEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Support\Str;
 
 class WorkflowTemplateResource extends Resource
 {
     protected static ?string $model = WorkflowTemplate::class;
 
-    protected static string|\BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-arrow-path';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Pengaturan Sistem';
+    protected static string|\UnitEnum|null $navigationGroup = 'Workflow';
+
+    protected static ?int $navigationSort = 1;
 
     protected static ?string $recordTitleAttribute = 'name';
 
@@ -39,18 +43,18 @@ class WorkflowTemplateResource extends Resource
             ->schema([
                 TextInput::make('uuid')
                     ->label('UUID')
-                    ->default(fn () => \Illuminate\Support\Str::uuid()->toString())
+                    ->default(fn () => Str::uuid()->toString())
                     ->required()
                     ->hidden(),
                 TextInput::make('code')
                     ->label('Kode Template')
-                    ->placeholder('Contoh: SPPB-IT-001')
+                    ->placeholder('Contoh: SPPB-ENG-001')
                     ->helperText('Kode unik identifikasi workflow. Maksimal 50 karakter.')
                     ->required()
                     ->maxLength(50),
                 TextInput::make('name')
                     ->label('Nama Workflow')
-                    ->placeholder('Contoh: Approval SPPB Departemen IT')
+                    ->placeholder('Contoh: Approval SPPB Departemen Engineering')
                     ->helperText('Nama deskriptif untuk alur persetujuan ini.')
                     ->required()
                     ->maxLength(150),
@@ -66,11 +70,12 @@ class WorkflowTemplateResource extends Resource
                     ->relationship('plant', 'name')
                     ->searchable()
                     ->preload()
-                    ->default(null),
+                    ->default(null)
+                    ->live(),
                 Select::make('department_id')
                     ->label('Departemen')
                     ->helperText('Kosongkan jika workflow ini berlaku lintas departemen.')
-                    ->relationship('department', 'name')
+                    ->relationship('department', 'name', fn ($query, $get) => $query->when($get('plant_id'), fn ($q, $plantId) => $q->where('plant_id', $plantId)))
                     ->searchable()
                     ->preload()
                     ->default(null),
@@ -78,7 +83,7 @@ class WorkflowTemplateResource extends Resource
                     ->label('Jenis Dokumen (Modul)')
                     ->helperText('Pilih modul aplikasi yang akan menggunakan alur persetujuan ini.')
                     ->options([
-                        'SPPB' => 'Surat Perintah Pengeluaran Barang (SPPB)',
+                        'SPPB' => 'Surat Perintah Pengiriman Barang (SPPB)',
                         'PR' => 'Purchase Request (PR)',
                         'PO' => 'Purchase Order (PO)',
                         'INV' => 'Invoice',
@@ -128,8 +133,8 @@ class WorkflowTemplateResource extends Resource
                         Select::make('approver_user_ids')
                             ->label('Pilih Pengguna')
                             ->multiple()
-                            ->getSearchResultsUsing(fn (string $search) => \App\Models\User::where('name', 'like', "%{$search}%")->limit(50)->pluck('name', 'id'))
-                            ->getOptionLabelsUsing(fn (array $values) => \App\Models\User::whereIn('id', $values)->pluck('name', 'id'))
+                            ->getSearchResultsUsing(fn (string $search) => User::where('name', 'like', "%{$search}%")->limit(50)->pluck('name', 'id'))
+                            ->getOptionLabelsUsing(fn (array $values) => User::whereIn('id', $values)->pluck('name', 'id'))
                             ->searchable()
                             ->helperText('Bisa memilih lebih dari 1 pengguna.')
                             ->visible(fn ($get) => $get('approver_type') === 'USER')
@@ -137,8 +142,8 @@ class WorkflowTemplateResource extends Resource
                         Select::make('approver_position_ids')
                             ->label('Pilih Jabatan')
                             ->multiple()
-                            ->getSearchResultsUsing(fn (string $search) => \App\Models\Position::where('name', 'like', "%{$search}%")->limit(50)->pluck('name', 'id'))
-                            ->getOptionLabelsUsing(fn (array $values) => \App\Models\Position::whereIn('id', $values)->pluck('name', 'id'))
+                            ->getSearchResultsUsing(fn (string $search) => Position::where('name', 'like', "%{$search}%")->limit(50)->pluck('name', 'id'))
+                            ->getOptionLabelsUsing(fn (array $values) => Position::whereIn('id', $values)->pluck('name', 'id'))
                             ->searchable()
                             ->helperText('Bisa memilih lebih dari 1 jabatan.')
                             ->visible(fn ($get) => $get('approver_type') === 'POSITION')

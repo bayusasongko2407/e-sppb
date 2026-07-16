@@ -8,13 +8,13 @@ use App\Contracts\DocumentRendererInterface;
 use App\Models\DocumentGeneration;
 use App\Models\DocumentPage;
 use App\Services\DocumentGenerationService;
+use App\Services\DocumentVerificationService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 class ProcessDocumentGenerationJob implements ShouldQueue
 {
@@ -45,19 +45,27 @@ class ProcessDocumentGenerationJob implements ShouldQueue
             $pdfContent = $renderer->renderToPdf(
                 $generation->documentTemplate->template_path ?? 'default',
                 $generation->render_payload,
-                ['is_official' => $generation->is_official]
+                [
+                    'is_official' => $generation->is_official,
+                    'generation_uuid' => $generation->uuid,
+                ]
             );
 
             // Calculate checksum
             $checksum = hash('sha256', $pdfContent);
             $fileSize = strlen($pdfContent);
-            $pageCount = 1; // Simplification for now, a real PDF parser would count pages
+            $pageCount = 1; // Simplification; a real PDF parser would count pages
 
-            // Save to private storage
+            // Save to private storage — ensure parent directory exists
             $disk = 'private';
             $directory = 'documents/'.now()->format('Y/m');
             $storedName = $generation->uuid.'.pdf';
             $path = $directory.'/'.$storedName;
+
+            // Create directory if it does not exist (Storage::put does not auto-create)
+            if (! Storage::disk($disk)->exists($directory)) {
+                Storage::disk($disk)->makeDirectory($directory);
+            }
 
             Storage::disk($disk)->put($path, $pdfContent);
 
@@ -72,16 +80,32 @@ class ProcessDocumentGenerationJob implements ShouldQueue
                 $pageCount
             );
 
-            // Generate Pages for QR verification
+            // Generate Pages for QR verification using SHA256 tokens
             for ($i = 1; $i <= $pageCount; $i++) {
-                DocumentPage::create([
-                    'document_generation_id' => $generation->id,
-                    'verification_uuid' => Str::uuid()->toString(),
-                    'page_number' => $i,
-                    'page_checksum_sha256' => hash('sha256', $pdfContent.$i), // Simulated per-page checksum
-                    'qr_payload_checksum_sha256' => hash('sha256', 'payload'.$i.$generation->uuid),
-                    'verification_token_hash' => hash('sha256', Str::random(32)),
-                ]);
+                $sha256Token = DocumentVerificationService::deriveToken($generation->uuid, $i);
+
+                // Deterministic UUID derived from generation UUID + page (for backwards compat)
+                $hash = md5($generation->uuid.'-'.$i);
+                $verificationUuid = sprintf('%08s-%04s-%04s-%04s-%12s',
+                    substr($hash, 0, 8),
+                    substr($hash, 8, 4),
+                    substr($hash, 12, 4),
+                    substr($hash, 16, 4),
+                    substr($hash, 20, 12)
+                );
+
+                DocumentPage::updateOrCreate(
+                    [
+                        'document_generation_id' => $generation->id,
+                        'page_number' => $i,
+                    ],
+                    [
+                        'verification_uuid' => $verificationUuid,
+                        'page_checksum_sha256' => hash('sha256', $pdfContent.$i),
+                        'qr_payload_checksum_sha256' => hash('sha256', 'payload'.$i.$generation->uuid),
+                        'verification_token_hash' => $sha256Token,
+                    ]
+                );
             }
 
         } catch (\Throwable $e) {

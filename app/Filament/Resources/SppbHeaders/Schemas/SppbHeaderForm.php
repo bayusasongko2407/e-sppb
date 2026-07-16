@@ -8,6 +8,7 @@ use App\Enums\SppbStatus;
 use App\Models\Asset;
 use App\Models\Item;
 use App\Models\Location;
+use App\Models\SppbHeader;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Placeholder;
@@ -21,7 +22,6 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\HtmlString;
 
@@ -93,12 +93,13 @@ class SppbHeaderForm
                                 ->searchable()
                                 ->preload()
                                 ->required()
-                                ->default(fn () => auth()->user()?->plant_id),
+                                ->default(fn () => auth()->user()?->plant_id)
+                                ->live(),
 
                             // Department — editable
                             Select::make('department_id')
                                 ->label('Department')
-                                ->relationship('department', 'name')
+                                ->relationship('department', 'name', fn ($query, $get) => $query->when($get('plant_id'), fn ($q, $plantId) => $q->where('plant_id', $plantId)))
                                 ->searchable()
                                 ->preload()
                                 ->required()
@@ -241,12 +242,24 @@ class SppbHeaderForm
                                 ToggleButtons::make('barcode_confirmed')
                                     ->label('Jenis')
                                     ->options([
-                                        false => 'Non Asset',
-                                        true => 'Asset',
+                                        0 => 'Non Asset',
+                                        1 => 'Asset',
                                     ])
-                                    ->default(false)
+                                    ->default(0)
                                     ->inline()
                                     ->live()
+                                    ->afterStateHydrated(function ($component, $state) {
+                                        if ($state === null) {
+                                            $component->state(0);
+                                        } else {
+                                            $component->state($state ? 1 : 0);
+                                        }
+                                    })
+                                    ->afterStateUpdated(function (Set $set, $state) {
+                                        if ($state == 1) {
+                                            $set('quantity', 1);
+                                        }
+                                    })
                                     ->columnSpan(1),
 
                                 // Kode — readonly, auto-filled
@@ -278,12 +291,12 @@ class SppbHeaderForm
                                             $set('remarks', $item->specification ?? null);
                                         }
                                     })
-                                    ->visible(fn (Get $get): bool => ! $get('barcode_confirmed'))
+                                    ->visible(fn (Get $get): bool => $get('barcode_confirmed') != 1)
                                     ->columnSpan(2),
 
                                 Select::make('asset_id')
                                     ->label('Nama Asset')
-                                    ->relationship('asset', 'asset_location_name')
+                                    ->relationship('asset', 'asset_name')
                                     ->searchable()
                                     ->live()
                                     ->afterStateUpdated(function (Set $set, ?int $state): void {
@@ -296,9 +309,11 @@ class SppbHeaderForm
                                         $asset = Asset::find($state);
                                         if ($asset) {
                                             $set('reference_code', $asset->barcode ?? null);
+                                            $set('unit_id', $asset->unit_id ?? null);
+                                            $set('quantity', 1);
                                         }
                                     })
-                                    ->visible(fn (Get $get): bool => (bool) $get('barcode_confirmed'))
+                                    ->visible(fn (Get $get): bool => $get('barcode_confirmed') == 1)
                                     ->columnSpan(2),
 
                                 // Qty
@@ -307,6 +322,7 @@ class SppbHeaderForm
                                     ->numeric()
                                     ->minValue(0.01)
                                     ->required()
+                                    ->readOnly(fn (Get $get): bool => $get('barcode_confirmed') == 1)
                                     ->columnSpan(1),
 
                                 // Satuan — readonly, auto-filled
@@ -314,6 +330,7 @@ class SppbHeaderForm
                                     ->label('Satuan')
                                     ->relationship('unit', 'name')
                                     ->disabled()
+                                    ->dehydrated()
                                     ->columnSpan(1),
 
                                 // Keterangan / Spesifikasi — editable
@@ -337,31 +354,13 @@ class SppbHeaderForm
                 Section::make('Workflow Persetujuan')
                     ->schema([
                         Placeholder::make('workflow_timeline')
-                            ->label('')
+                            ->hiddenLabel()
                             ->content(function ($record): HtmlString {
-                                if (! $record || ! $record->currentWorkflowInstance) {
-                                    return new HtmlString(
-                                        '<p class="text-sm text-gray-400 italic py-4 text-center">'
-                                        .'Workflow persetujuan akan tampil setelah dokumen diajukan.'
-                                        .'</p>'
-                                    );
+                                if (! $record) {
+                                    return new HtmlString('');
                                 }
 
-                                $steps = $record->currentWorkflowInstance
-                                    ->workflowInstanceSteps()
-                                    ->with('actedBy')
-                                    ->orderBy('sequence')
-                                    ->get();
-
-                                if ($steps->isEmpty()) {
-                                    return new HtmlString(
-                                        '<p class="text-sm text-gray-400 italic py-4 text-center">'
-                                        .'Belum ada langkah workflow.'
-                                        .'</p>'
-                                    );
-                                }
-
-                                return static::renderWorkflowTimeline($steps);
+                                return static::renderWorkflowTimeline($record);
                             })
                             ->columnSpanFull(),
                     ])
@@ -389,78 +388,112 @@ class SppbHeaderForm
     }
 
     /**
-     * Render enterprise horizontal workflow timeline as HTML.
-     *
-     * @param  Collection  $steps
+     * Render enterprise horizontal workflow list table as HTML.
      */
-    public static function renderWorkflowTimeline($steps): HtmlString
+    public static function renderWorkflowTimeline(SppbHeader $record): HtmlString
     {
-        $html = '<div class="overflow-x-auto pb-2">';
-        $html .= '<div class="flex items-start gap-0 min-w-max">';
+        $logs = $record->sppbStatusLogs()
+            ->with(['actor.positions.position', 'workflowInstanceStep'])
+            ->orderBy('logged_at', 'asc')
+            ->get();
 
-        foreach ($steps as $index => $step) {
-            $status = $step->status;
-
-            [$borderColor, $bgColor, $textColor, $badgeBg, $badgeText, $statusLabel] = match ($status) {
-                'APPROVED' => ['border-green-400',  'bg-green-50',  'text-green-800',  'bg-green-100',  'text-green-700',  'Selesai'],
-                'PENDING' => ['border-blue-400',   'bg-blue-50',   'text-blue-800',   'bg-blue-100',   'text-blue-700',   'Berjalan'],
-                'QUEUED' => ['border-gray-300',   'bg-gray-50',   'text-gray-600',   'bg-gray-100',   'text-gray-500',   'Menunggu'],
-                'REJECTED',
-                'REVISION_REQUESTED' => ['border-red-400',    'bg-red-50',    'text-red-800',    'bg-red-100',    'text-red-700',    'Ditolak'],
-                'CANCELLED' => ['border-gray-400',   'bg-gray-100',  'text-gray-500',   'bg-gray-200',   'text-gray-500',   'Dibatalkan'],
-                'EXPIRED' => ['border-orange-400', 'bg-orange-50', 'text-orange-800', 'bg-orange-100', 'text-orange-700', 'Kedaluwarsa'],
-                default => ['border-gray-300',   'bg-gray-50',   'text-gray-600',   'bg-gray-100',   'text-gray-500',   $status],
-            };
-
-            $actedByName = $step->actedBy?->name ?? '—';
-            $dueAt = $step->due_at ? Carbon::parse($step->due_at)->translatedFormat('d M Y') : '—';
-            $acteAt = $step->acted_at ? Carbon::parse($step->acted_at)->translatedFormat('d M Y') : null;
-
-            // Card
-            $html .= '<div class="flex flex-col items-center">';
-
-            // Step card
-            $html .= '<div class="w-52 rounded-xl border-2 '.$borderColor.' '.$bgColor.' p-3 shadow-sm">';
-
-            // Step header
-            $html .= '<div class="flex items-center justify-between mb-2">';
-            $html .= '<span class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Langkah '.e($step->sequence).'</span>';
-            $html .= '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium '.$badgeBg.' '.$badgeText.'">'.e($statusLabel).'</span>';
-            $html .= '</div>';
-
-            // Step name
-            $html .= '<p class="text-sm font-semibold '.$textColor.' mb-1 truncate" title="'.e($step->name).'">'.e($step->name).'</p>';
-
-            // Approver
-            $html .= '<p class="text-xs text-gray-500 truncate" title="'.e($actedByName).'">';
-            $html .= '<span class="font-medium">Approver:</span> '.e($actedByName);
-            $html .= '</p>';
-
-            // Deadline
-            $html .= '<p class="text-xs text-gray-400 mt-1">';
-            $html .= '<span class="font-medium">Deadline:</span> '.e($dueAt);
-            $html .= '</p>';
-
-            // Tanggal aksi (jika sudah diaksi)
-            if ($acteAt) {
-                $html .= '<p class="text-xs text-gray-400">';
-                $html .= '<span class="font-medium">Diproses:</span> '.e($acteAt);
-                $html .= '</p>';
-            }
-
-            $html .= '</div>'; // end card
-
-            // Connector arrow (except last)
-            if ($index < $steps->count() - 1) {
-                $html .= '<div class="flex items-center self-start mt-8 px-1">';
-                $html .= '<div class="w-6 h-0.5 bg-gray-300"></div>';
-                $html .= '<div class="text-gray-400 text-sm">▶</div>';
-                $html .= '</div>';
-            }
-
-            $html .= '</div>'; // end flex col
+        if ($logs->isEmpty()) {
+            return new HtmlString(
+                '<p class="text-sm text-gray-400 italic py-4 text-center">'
+                .'Belum ada riwayat aktivitas workflow.'
+                .'</p>'
+            );
         }
 
+        $filteredLogs = $logs->filter(fn ($log) => $log->action !== 'WORKFLOW_GENERATED');
+
+        $html = '<div class="fi-ta-ctn border border-gray-200 dark:border-white/10 rounded-xl bg-white dark:bg-gray-900 shadow-sm overflow-hidden">';
+        $html .= '<div class="fi-ta-content overflow-x-auto">';
+        $html .= '<table style="width: 100%; table-layout: fixed;" class="w-full divide-y divide-gray-200 dark:divide-white/5 text-left text-sm">';
+        $html .= '<thead class="bg-gray-50 dark:bg-white/5">';
+        $html .= '<tr>';
+        $html .= '<th scope="col" style="width: 25%;" class="px-8 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-400">Pengguna</th>';
+        $html .= '<th scope="col" style="width: 25%;" class="px-8 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-400">Tindakan</th>';
+        $html .= '<th scope="col" style="width: 35%;" class="px-8 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-400">Catatan</th>';
+        $html .= '<th scope="col" style="width: 15%;" class="px-8 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-400">Waktu Tindakan</th>';
+        $html .= '</tr>';
+        $html .= '</thead>';
+        $html .= '<tbody class="divide-y divide-gray-200 dark:divide-white/5">';
+
+        foreach ($filteredLogs as $log) {
+            $user = $log->actor;
+            $userLabel = '—';
+            $posName = '';
+
+            if ($user) {
+                $nik = $user->nik ? e($user->nik) : '—';
+                $name = $user->name ? e($user->name) : '—';
+                $userLabel = "{$nik} - {$name}";
+
+                // Fetch position
+                if ($user->relationLoaded('positions')) {
+                    $activePositions = $user->positions->filter(fn ($p) => $p->is_active);
+                    $primaryPos = $activePositions->firstWhere('is_primary', true);
+                    $anyPos = $primaryPos ?? $activePositions->first();
+
+                    if ($anyPos && $anyPos->position) {
+                        $posName = $anyPos->position->name;
+                    }
+                }
+
+                if (empty($posName)) {
+                    // Fallback to roles
+                    $posName = $user->roles->pluck('name')
+                        ->map(fn ($r) => str_replace('_', ' ', ucwords($r, '_')))
+                        ->first() ?? '';
+                }
+            }
+
+            $posSuffix = $posName ? " {{$posName}}" : '';
+
+            $stepCode = $log->workflowInstanceStep?->code ?? '';
+            $stepName = $log->workflowInstanceStep?->name ?? '';
+            $isBat = str_contains(strtoupper($stepCode), 'BAT') || str_contains(strtoupper($stepName), 'BAT');
+
+            // Format Tindakan based on action and position
+            $actionLabel = match ($log->action) {
+                'SUBMIT_QUEUED' => 'Diajukan'.$posSuffix,
+                'STEP_APPROVED' => $isBat ? 'Diverifikasi BAT' : 'Disetujui'.$posSuffix,
+                'SPPB_APPROVED' => 'Disetujui Penuh',
+                'REVISION_REQUESTED' => 'Revisi Diminta oleh'.$posSuffix,
+                'SPPB_REJECTED' => 'Ditolak oleh'.$posSuffix,
+                'SPPB_CANCELLED' => 'Dibatalkan oleh'.$posSuffix,
+                'BAT_OPENED' => 'Proses Verifikasi BAT'.$posSuffix,
+                default => e($log->action)
+            };
+
+            // Formatting colors for action labels matching Filament native badges
+            $badgeColor = match ($log->action) {
+                'SUBMIT_QUEUED' => 'text-blue-700 bg-blue-500/10 ring-blue-600/10 dark:text-blue-400 dark:bg-blue-500/20 dark:ring-blue-500/30',
+                'STEP_APPROVED' => $isBat ? 'text-green-700 bg-green-500/10 ring-green-600/10 dark:text-green-400 dark:bg-green-500/20 dark:ring-green-500/30' : 'text-green-700 bg-green-500/10 ring-green-600/10 dark:text-green-400 dark:bg-green-500/20 dark:ring-green-500/30',
+                'SPPB_APPROVED' => 'text-emerald-700 bg-emerald-500/10 ring-emerald-600/10 dark:text-emerald-400 dark:bg-emerald-500/20 dark:ring-emerald-500/30',
+                'BAT_OPENED' => 'text-cyan-700 bg-cyan-500/10 ring-cyan-600/10 dark:text-cyan-400 dark:bg-cyan-500/20 dark:ring-cyan-500/30',
+                'REVISION_REQUESTED' => 'text-amber-700 bg-amber-500/10 ring-amber-600/10 dark:text-amber-400 dark:bg-amber-500/20 dark:ring-amber-500/30',
+                'SPPB_REJECTED' => 'text-red-700 bg-red-500/10 ring-red-600/10 dark:text-red-400 dark:bg-red-500/20 dark:ring-red-500/30',
+                'SPPB_CANCELLED' => 'text-gray-700 bg-gray-500/10 ring-gray-600/10 dark:text-gray-400 dark:bg-gray-500/20 dark:ring-gray-500/30',
+                default => 'text-gray-700 bg-gray-500/10 ring-gray-600/10 dark:text-gray-400 dark:bg-gray-500/20 dark:ring-gray-500/30'
+            };
+
+            $actionBadge = '<span class="fi-badge inline-flex items-center justify-center rounded-md px-2.5 py-1 text-xs font-semibold ring-1 ring-inset '.$badgeColor.'">'.$actionLabel.'</span>';
+
+            $remarks = $log->remarks ? e($log->remarks) : '—';
+            $timeFormatted = $log->logged_at ? Carbon::parse($log->logged_at)->translatedFormat('d M Y H:i') : '—';
+
+            $html .= '<tr class="hover:bg-gray-50 dark:hover:bg-white/5">';
+            $html .= '<td class="px-8 py-4 text-sm text-gray-950 dark:text-white font-medium">'.$userLabel.'</td>';
+            $html .= '<td class="px-8 py-4">'.$actionBadge.'</td>';
+            $html .= '<td class="px-8 py-4 text-sm text-gray-600 dark:text-gray-300 break-words" title="'.($log->remarks ? e($log->remarks) : '').'">'.$remarks.'</td>';
+            $html .= '<td class="px-8 py-4 text-sm text-gray-500 dark:text-gray-400">'.$timeFormatted.'</td>';
+            $html .= '</tr>';
+        }
+
+        $html .= '</tbody>';
+        $html .= '</table>';
         $html .= '</div>';
         $html .= '</div>';
 

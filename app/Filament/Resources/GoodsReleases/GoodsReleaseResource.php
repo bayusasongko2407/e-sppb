@@ -20,6 +20,8 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\DB;
 
 class GoodsReleaseResource extends Resource
 {
@@ -29,7 +31,9 @@ class GoodsReleaseResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-truck';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Logistik & Gudang';
+    protected static string|\UnitEnum|null $navigationGroup = 'Transaksi';
+
+    protected static ?int $navigationSort = 3;
 
     protected static ?string $navigationLabel = 'Surat Jalan';
 
@@ -121,6 +125,36 @@ class GoodsReleaseResource extends Resource
             ->bulkActions([
                 //
             ]);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        $user = auth()->user();
+        $query = parent::getEloquentQuery();
+
+        if (! $user) {
+            return $query;
+        }
+
+        if ($user->hasRole('super_admin')) {
+            return $query;
+        }
+
+        return $query->whereHas('sppbHeader', function ($sppbQuery) use ($user) {
+            $sppbQuery->where(function ($q) use ($user) {
+                $q->where('requester_id', $user->id)
+                    ->orWhere('current_approver_id', $user->id)
+                    ->orWhereExists(function ($rawQuery) use ($user) {
+                        $rawQuery->select(DB::raw(1))
+                            ->from('document_accesses')
+                            ->whereColumn('document_accesses.plant_id', 'sppb_headers.plant_id')
+                            ->whereColumn('document_accesses.department_id', 'sppb_headers.department_id')
+                            ->where('document_accesses.user_id', $user->id)
+                            ->where('document_accesses.module', 'goods_release')
+                            ->where('document_accesses.can_view', true);
+                    });
+            });
+        });
     }
 
     public static function getPages(): array

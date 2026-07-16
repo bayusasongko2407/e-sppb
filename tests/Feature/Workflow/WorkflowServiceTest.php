@@ -18,6 +18,7 @@ use App\Models\Plant;
 use App\Models\Position;
 use App\Models\SppbHeader;
 use App\Models\User;
+use App\Models\WorkflowInstanceStep;
 use App\Models\WorkflowStep;
 use App\Models\WorkflowTemplate;
 use App\Services\WorkflowService;
@@ -65,7 +66,7 @@ class WorkflowServiceTest extends TestCase
             'workflow_template_id' => $template->id,
             'sequence' => 2,
             'approver_type' => 'POSITION',
-            'approver_position_id' => Position::factory()->create()->id,
+            'approver_position_ids' => [Position::factory()->create()->id],
             'approval_mode' => 'ANY',
             'minimum_approvals' => 1,
         ]);
@@ -94,10 +95,10 @@ class WorkflowServiceTest extends TestCase
         $command = $this->workflowService->queueSubmission($data);
 
         $this->assertEquals('uuid-test-123', $command->command_uuid);
-        $this->assertEquals(WorkflowCommandStatus::QUEUED->value, $command->status);
+        $this->assertEquals(WorkflowCommandStatus::COMPLETED->value, $command->status);
 
         $sppb->refresh();
-        $this->assertEquals(SppbStatus::SUBMISSION_QUEUED->value, $sppb->status);
+        $this->assertEquals(SppbStatus::WAITING_APPROVAL->value, $sppb->status);
 
         $this->assertDatabaseHas('sppb_status_logs', [
             'sppb_header_id' => $sppb->id,
@@ -187,7 +188,7 @@ class WorkflowServiceTest extends TestCase
         $nextApprover = User::factory()->create(['plant_id' => $sppb->plant_id]);
         DB::table('user_positions')->insert([
             'user_id' => $nextApprover->id,
-            'position_id' => $step2->approver_position_id,
+            'position_id' => $step2->approver_position_ids[0],
             'is_active' => true,
         ]);
 
@@ -206,7 +207,8 @@ class WorkflowServiceTest extends TestCase
             delegatedFromId: null
         );
 
-        $updatedStep = $this->workflowService->approve($data);
+        $this->workflowService->queueApproval($data);
+        $updatedStep = $firstStep->refresh();
 
         $this->assertEquals(WorkflowInstanceStepStatus::APPROVED->value, $updatedStep->status);
 
@@ -237,7 +239,7 @@ class WorkflowServiceTest extends TestCase
             delegatedFromId: null
         );
 
-        $this->workflowService->reject($data);
+        $this->workflowService->queueApproval($data);
 
         $sppb->refresh();
         $this->assertEquals(SppbStatus::REJECTED->value, $sppb->status);
@@ -246,5 +248,79 @@ class WorkflowServiceTest extends TestCase
 
         $instance->refresh();
         $this->assertEquals(WorkflowInstanceStatus::REJECTED->value, $instance->status);
+    }
+
+    public function test_manager_approval_with_skip_plant_manager_option(): void
+    {
+        [$sppb, $requester, $manager, $template, $step1, $step2] = $this->setupSppbAndWorkflow();
+
+        // Pastikan step 1 adalah BAT
+        $step1->update(['code' => 'BAT-01', 'name' => 'Verifikasi BAT']);
+
+        // Kita butuh user untuk position step 2
+        $nextApprover = User::factory()->create(['plant_id' => $sppb->plant_id]);
+        DB::table('user_positions')->insert([
+            'user_id' => $nextApprover->id,
+            'position_id' => $step2->approver_position_ids[0],
+            'is_active' => true,
+        ]);
+
+        $sppb->status = SppbStatus::SUBMISSION_QUEUED->value;
+        $sppb->save();
+        $instance = $this->workflowService->generateWorkflow($sppb->id, 'corr-123');
+
+        $sppb->refresh();
+        $this->assertEquals(SppbStatus::WAITING_VERIFICATION_BAT->value, $sppb->status);
+
+        $secondStep = $instance->workflowInstanceSteps()->where('sequence', 2)->first();
+        $secondStep->update(['code' => 'MAN-01', 'name' => 'Persetujuan Manager']);
+
+        $firstStep = $instance->workflowInstanceSteps()->where('sequence', 1)->first();
+
+        // Jalankan persetujuan langkah 1 (BAT)
+        $data1 = new ApprovalDecisionData(
+            workflowInstanceStepId: $firstStep->id,
+            actorId: $manager->id,
+            decision: 'APPROVE',
+            commandUuid: 'cmd-uuid-1',
+            correlationId: 'corr-1',
+            remarks: 'BAT OK',
+            delegatedFromId: null
+        );
+        $this->workflowService->queueApproval($data1);
+
+        $sppb->refresh();
+        $this->assertEquals(SppbStatus::WAITING_APPROVAL_MANAGER->value, $sppb->status);
+
+        // Tambah step ke-3 (Plant Manager) di instance untuk mensimulasikan sisa step
+        $thirdStep = WorkflowInstanceStep::create([
+            'workflow_instance_id' => $instance->id,
+            'sequence' => 3,
+            'code' => 'PLNT-01',
+            'name' => 'Persetujuan Plant Manager',
+            'approver_type' => 'ROLE',
+            'status' => 'QUEUED',
+        ]);
+
+        // Jalankan persetujuan Manager dengan requirePlantManager = false
+        $data2 = new ApprovalDecisionData(
+            workflowInstanceStepId: $secondStep->id,
+            actorId: $nextApprover->id,
+            decision: 'APPROVE',
+            commandUuid: 'cmd-uuid-2',
+            correlationId: 'corr-2',
+            remarks: 'Manager OK',
+            delegatedFromId: null,
+            requirePlantManager: false
+        );
+        $this->workflowService->queueApproval($data2);
+
+        $sppb->refresh();
+        $instance->refresh();
+        $thirdStep->refresh();
+
+        $this->assertEquals(SppbStatus::APPROVED->value, $sppb->status);
+        $this->assertEquals(WorkflowInstanceStatus::APPROVED->value, $instance->status);
+        $this->assertEquals(WorkflowInstanceStepStatus::CANCELLED->value, $thirdStep->status);
     }
 }

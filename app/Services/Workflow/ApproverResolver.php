@@ -21,18 +21,31 @@ final class ApproverResolver
     {
         $candidates = match ($step->approver_type) {
             'USER' => $this->resolveByUser($step),
-            'ROLE' => $this->resolveByRole($step, $header),
-            'POSITION' => $this->resolveByPosition($step, $header),
+            'ROLE' => $this->resolveByRole($step),
+            'POSITION' => $this->resolveByPosition($step),
             'REQUESTER_MANAGER' => $this->resolveRequesterManager($header),
-            'DEPARTMENT_HEAD' => $this->resolveByRole($step, $header, forDeptHead: true),
+            'DEPARTMENT_HEAD' => $this->resolveByRole($step, forDeptHead: true),
             default => collect(),
         };
 
         $candidates = $candidates->where('is_active', true);
 
-        // Filter scope plant
+        // Filter scope plant berdasarkan document_access, jika tidak ada, fallback ke user plant_id
         if ($header->plant_id) {
-            $candidates = $candidates->where('plant_id', $header->plant_id);
+            $module = strtolower($header->document_type ?? 'sppb');
+            $candidates = $candidates->filter(function ($user) use ($header, $module) {
+                if ($user->hasRole('super_admin')) {
+                    return true;
+                }
+
+                // Jika ada konfigurasi document_access, patuhi aturan tersebut
+                if ($user->documentAccesses()->where('module', $module)->exists()) {
+                    return $user->hasDocumentAccess($module, 'view', $header->plant_id);
+                }
+
+                // Fallback jika tidak ada konfigurasi document_access sama sekali
+                return $user->plant_id === $header->plant_id;
+            });
         }
 
         if ($candidates->isEmpty()) {
@@ -51,19 +64,17 @@ final class ApproverResolver
         return User::whereIn('id', $step->approver_user_ids)->get();
     }
 
-    private function resolveByRole(WorkflowStep $step, SppbHeader $header, bool $forDeptHead = false): Collection
+    private function resolveByRole(WorkflowStep $step, bool $forDeptHead = false): Collection
     {
-        $roleName = $forDeptHead ? 'manager_approver' : $step->approver_role;
+        $roleName = $forDeptHead ? 'manager' : $step->approver_role;
         if (! $roleName) {
             return collect();
         }
 
-        return User::role($roleName)
-            ->where('plant_id', $header->plant_id)
-            ->get();
+        return User::role($roleName)->get();
     }
 
-    private function resolveByPosition(WorkflowStep $step, SppbHeader $header): Collection
+    private function resolveByPosition(WorkflowStep $step): Collection
     {
         if (empty($step->approver_position_ids)) {
             return collect();
@@ -71,7 +82,7 @@ final class ApproverResolver
 
         return User::whereHas('positions', fn ($q) => $q->whereIn('position_id', $step->approver_position_ids)
             ->where('is_active', true)
-        )->where('plant_id', $header->plant_id)->get();
+        )->get();
     }
 
     private function resolveRequesterManager(SppbHeader $header): Collection

@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Auth;
 
-use App\Filament\Resources\Roles\Pages\ManageRoles;
+use App\Filament\Resources\Roles\Pages\CreateRole;
+use App\Filament\Resources\Roles\Pages\ListRoles;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -23,6 +24,9 @@ class RoleFeatureTest extends TestCase
 
         // Force local env to allow Filament panel access under test environment
         config(['app.env' => 'local']);
+
+        // Sync permissions
+        $this->artisan('auth:sync-permissions');
 
         // Clear Spatie cached permissions
         $this->app->make(PermissionRegistrar::class)->forgetCachedPermissions();
@@ -43,7 +47,7 @@ class RoleFeatureTest extends TestCase
         $this->app->make(PermissionRegistrar::class)->forgetCachedPermissions();
 
         $response = $this->actingAs($superAdmin)
-            ->get(ManageRoles::getUrl());
+            ->get(ListRoles::getUrl());
 
         $response->assertStatus(200);
     }
@@ -57,25 +61,24 @@ class RoleFeatureTest extends TestCase
         $permissionCreate = Permission::firstOrCreate(['name' => 'create_role', 'guard_name' => 'web']);
         $superAdmin->givePermissionTo($permission, $permissionCreate);
 
-        $permission1 = Permission::firstOrCreate(['name' => 'sppb.create', 'guard_name' => 'web']);
-        $permission2 = Permission::firstOrCreate(['name' => 'sppb.submit', 'guard_name' => 'web']);
+        $permission1 = Permission::firstOrCreate(['name' => 'create_plant', 'guard_name' => 'web']);
+        $permission2 = Permission::firstOrCreate(['name' => 'view_plant', 'guard_name' => 'web']);
 
         $this->actingAs($superAdmin);
 
-        Livewire::test(ManageRoles::class)
-            ->mountAction('create')
-            ->setActionData([
+        Livewire::test(CreateRole::class)
+            ->fillForm([
                 'is_superadmin' => false,
                 'name' => 'test_custom_role',
-                'permissions' => [$permission1->id, $permission2->id],
+                'permissions_plant' => [$permission1->id, $permission2->id],
             ])
-            ->callMountedAction()
-            ->assertHasNoActionErrors();
+            ->call('create')
+            ->assertHasNoFormErrors();
 
         $role = Role::findByName('test_custom_role', 'web');
         $this->assertNotNull($role);
-        $this->assertTrue($role->hasPermissionTo('sppb.create'));
-        $this->assertTrue($role->hasPermissionTo('sppb.submit'));
+        $this->assertTrue($role->hasPermissionTo('create_plant'));
+        $this->assertTrue($role->hasPermissionTo('view_plant'));
     }
 
     public function test_can_create_super_admin_role(): void
@@ -92,14 +95,13 @@ class RoleFeatureTest extends TestCase
         // Delete seeded super_admin so we can test creating it
         Role::where('name', 'super_admin')->delete();
 
-        Livewire::test(ManageRoles::class)
-            ->mountAction('create')
-            ->setActionData([
+        Livewire::test(CreateRole::class)
+            ->fillForm([
                 'is_superadmin' => true,
                 'name' => 'super_admin',
             ])
-            ->callMountedAction()
-            ->assertHasNoActionErrors();
+            ->call('create')
+            ->assertHasNoFormErrors();
 
         $role = Role::findByName('super_admin', 'web');
         $this->assertNotNull($role);

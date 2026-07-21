@@ -58,7 +58,17 @@ class GoodsReleaseService
                 'verification_hash' => hash('sha256', $releaseNumber.uniqid('', true)),
             ]);
 
-            $isAllCompleted = true;
+            $hasValidReleaseItem = false;
+            foreach ($data->items as $itemData) {
+                if ($itemData->quantityReleased > 0) {
+                    $hasValidReleaseItem = true;
+                    break;
+                }
+            }
+
+            if (! $hasValidReleaseItem) {
+                throw new \InvalidArgumentException('Minimal harus ada 1 item barang yang dirilis dengan kuantitas > 0.');
+            }
 
             foreach ($data->items as $itemData) {
                 if ($itemData->quantityReleased <= 0) {
@@ -90,9 +100,17 @@ class GoodsReleaseService
                     'is_checked' => true,
                     'notes' => $itemData->notes,
                 ]);
+            }
 
-                if (($alreadyReleased + $itemData->quantityReleased) < $detail->quantity) {
+            // Validasi apakah SELURUH detail SPPB sudah rilis penuh
+            $isAllCompleted = true;
+            foreach ($sppb->sppbDetails as $detail) {
+                $totalReleased = GoodsReleaseItem::where('sppb_detail_id', $detail->id)
+                    ->sum('quantity_released');
+
+                if ($totalReleased < $detail->quantity) {
                     $isAllCompleted = false;
+                    break;
                 }
             }
 

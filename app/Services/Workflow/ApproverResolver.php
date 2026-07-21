@@ -40,7 +40,7 @@ final class ApproverResolver
 
                 // Jika ada konfigurasi document_access, patuhi aturan tersebut
                 if ($user->documentAccesses()->where('module', $module)->exists()) {
-                    return $user->hasDocumentAccess($module, 'view', $header->plant_id);
+                    return $user->hasDocumentAccess($module, 'view', $header->plant_id, $header->department_id);
                 }
 
                 // Fallback jika tidak ada konfigurasi document_access sama sekali
@@ -71,7 +71,7 @@ final class ApproverResolver
             return collect();
         }
 
-        return User::role($roleName)->get();
+        return User::whereHas('roles', fn ($q) => $q->where('name', $roleName))->get();
     }
 
     private function resolveByPosition(WorkflowStep $step): Collection
@@ -88,10 +88,18 @@ final class ApproverResolver
     private function resolveRequesterManager(SppbHeader $header): Collection
     {
         $requester = User::find($header->requester_id);
-        if (! $requester?->manager_id) {
-            return collect();
+        if ($requester?->manager_id) {
+            $manager = User::where('id', $requester->manager_id)->where('is_active', true)->get();
+            if ($manager->isNotEmpty()) {
+                return $manager;
+            }
         }
 
-        return User::where('id', $requester->manager_id)->get();
+        // Fallback jika requester tidak memiliki manager_id aktif: cari manager di department & plant yang sama
+        return User::whereHas('roles', fn ($q) => $q->whereIn('name', ['manager', 'plant_manager']))
+            ->where('plant_id', $header->plant_id)
+            ->where('department_id', $header->department_id)
+            ->where('is_active', true)
+            ->get();
     }
 }

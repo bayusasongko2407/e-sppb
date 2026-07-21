@@ -45,4 +45,28 @@ class Unit extends Model
     {
         return $this->hasMany(SppbDetail::class);
     }
+
+    /**
+     * Get grouped units options by category for Filament Select dropdowns.
+     *
+     * @return array<string, array<int, string>>
+     */
+    public static function getGroupedOptions(): array
+    {
+        return static::query()
+            ->where('is_active', true)
+            ->orderBy('category')
+            ->orderBy('name')
+            ->get()
+            ->groupBy(fn (self $unit) => $unit->category ?: 'Lain-lain')
+            ->map(function ($units) {
+                $options = [];
+                foreach ($units as $unit) {
+                    $options[$unit->id] = "{$unit->name} ({$unit->code})";
+                }
+
+                return $options;
+            })
+            ->toArray();
+    }
 }

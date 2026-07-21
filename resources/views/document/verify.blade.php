@@ -7,17 +7,29 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #0f172a;
-            --card-bg: rgba(30, 41, 59, 0.7);
-            --border-color: rgba(255, 255, 255, 0.08);
-            --text-primary: #f8fafc;
-            --text-secondary: #94a3b8;
-            --success: #10b981;
-            --success-glow: rgba(16, 185, 129, 0.15);
-            --warning: #f59e0b;
-            --warning-glow: rgba(245, 158, 11, 0.15);
-            --danger: #ef4444;
-            --danger-glow: rgba(239, 68, 68, 0.15);
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --border-color: #e2e8f0;
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --text-muted: #94a3b8;
+            --success: #059669;
+            --success-bg: #ecfdf5;
+            --success-border: #a7f3d0;
+            --warning: #d97706;
+            --warning-bg: #fffbeb;
+            --warning-border: #fde68a;
+            --danger: #dc2626;
+            --danger-bg: #fef2f2;
+            --danger-border: #fecaca;
+            --indigo-accent: #4f46e5;
+            --indigo-bg: #eef2ff;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
 
         body {
@@ -28,194 +40,264 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0;
-            padding: 20px;
-            box-sizing: border-box;
-            background-image: radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.1) 0%, transparent 40%),
-                              radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.08) 0%, transparent 40%);
+            padding: 24px 16px;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(79, 70, 229, 0.04) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(5, 150, 105, 0.04) 0px, transparent 50%);
         }
 
         .container {
             width: 100%;
-            max-width: 480px;
-            perspective: 1000px;
+            max-width: 520px;
         }
 
         .card {
             background: var(--card-bg);
             border: 1px solid var(--border-color);
-            border-radius: 24px;
-            padding: 32px;
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-            text-align: center;
-            animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+            border-radius: 20px;
+            padding: 32px 28px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+            animation: fadeIn 0.4s ease-out;
         }
 
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .header {
+            text-align: center;
             margin-bottom: 24px;
+            padding-bottom: 18px;
+            border-bottom: 1px dashed var(--border-color);
         }
 
-        .company-name {
+        .company-tag {
+            display: inline-block;
             font-size: 11px;
             font-weight: 800;
             text-transform: uppercase;
-            letter-spacing: 2px;
-            color: var(--text-secondary);
+            letter-spacing: 1.5px;
+            color: var(--indigo-accent);
+            background: var(--indigo-bg);
+            padding: 4px 12px;
+            border-radius: 20px;
             margin-bottom: 8px;
         }
 
         .system-title {
             font-size: 20px;
-            font-weight: 700;
+            font-weight: 800;
             color: var(--text-primary);
-            margin: 0;
+            letter-spacing: -0.3px;
         }
 
-        /* Status Styles */
-        .status-badge-container {
-            margin: 24px 0;
+        /* Status Section */
+        .status-box {
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 24px;
             display: flex;
             flex-direction: column;
             align-items: center;
         }
 
         .status-icon {
-            width: 72px;
-            height: 72px;
+            width: 56px;
+            height: 56px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 16px;
-            position: relative;
+            margin-bottom: 12px;
         }
 
         .status-icon svg {
-            width: 36px;
-            height: 36px;
+            width: 28px;
+            height: 28px;
         }
 
         .status-title {
-            font-size: 20px;
+            font-size: 17px;
             font-weight: 800;
-            margin-bottom: 6px;
-            letter-spacing: 0.5px;
+            letter-spacing: -0.2px;
+            margin-bottom: 4px;
         }
 
         .status-desc {
             font-size: 13px;
-            color: var(--text-secondary);
-            max-width: 280px;
             line-height: 1.5;
+            max-width: 380px;
         }
 
-        /* Valid */
+        /* Status Variants */
+        .status-VALID .status-box {
+            background-color: var(--success-bg);
+            border: 1px solid var(--success-border);
+        }
         .status-VALID .status-icon {
-            background-color: var(--success-glow);
-            border: 2px solid var(--success);
-            box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+            background-color: #d1fae5;
+            color: var(--success);
         }
-        .status-VALID .status-icon svg { color: var(--success); }
         .status-VALID .status-title { color: var(--success); }
+        .status-VALID .status-desc { color: #047857; }
 
-        /* Warning/Superseded/Expired */
+        .status-SUPERSEDED .status-box,
+        .status-EXPIRED .status-box {
+            background-color: var(--warning-bg);
+            border: 1px solid var(--warning-border);
+        }
         .status-SUPERSEDED .status-icon,
         .status-EXPIRED .status-icon {
-            background-color: var(--warning-glow);
-            border: 2px solid var(--warning);
-            box-shadow: 0 0 20px rgba(245, 158, 11, 0.3);
+            background-color: #fef3c7;
+            color: var(--warning);
         }
-        .status-SUPERSEDED .status-icon svg,
-        .status-EXPIRED .status-icon svg { color: var(--warning); }
         .status-SUPERSEDED .status-title,
         .status-EXPIRED .status-title { color: var(--warning); }
+        .status-SUPERSEDED .status-desc,
+        .status-EXPIRED .status-desc { color: #b45309; }
 
-        /* Danger/Revoked/NotFound */
+        .status-REVOKED .status-box,
+        .status-NOT_FOUND .status-box {
+            background-color: var(--danger-bg);
+            border: 1px solid var(--danger-border);
+        }
         .status-REVOKED .status-icon,
         .status-NOT_FOUND .status-icon {
-            background-color: var(--danger-glow);
-            border: 2px solid var(--danger);
-            box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+            background-color: #fee2e2;
+            color: var(--danger);
         }
-        .status-REVOKED .status-icon svg,
-        .status-NOT_FOUND .status-icon svg { color: var(--danger); }
         .status-REVOKED .status-title,
         .status-NOT_FOUND .status-title { color: var(--danger); }
+        .status-REVOKED .status-desc,
+        .status-NOT_FOUND .status-desc { color: #b91c1c; }
 
-        /* Details */
-        .details-list {
-            background: rgba(15, 23, 42, 0.4);
-            border: 1px solid var(--border-color);
-            border-radius: 16px;
-            padding: 20px;
-            text-align: left;
-            margin-bottom: 24px;
+        /* Section Layout */
+        .section-title {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
-        .detail-item {
+        .info-grid {
+            background: #f1f5f9;
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 16px 18px;
+            margin-bottom: 20px;
+        }
+
+        .info-row {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
-            padding: 10px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
             font-size: 13px;
         }
 
-        .detail-item:last-child {
+        .info-row:last-child {
             border-bottom: none;
             padding-bottom: 0;
         }
 
-        .detail-item:first-child {
+        .info-row:first-child {
             padding-top: 0;
         }
 
-        .detail-label {
+        .label {
             color: var(--text-secondary);
             font-weight: 500;
         }
 
-        .detail-value {
+        .value {
             color: var(--text-primary);
             font-weight: 600;
             text-align: right;
-            padding-left: 15px;
+        }
+
+        .value-highlight {
+            color: var(--indigo-accent);
+            font-weight: 700;
+        }
+
+        /* Approval Timeline */
+        .approval-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .approval-item {
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 10px 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+        }
+
+        .approval-role {
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .approval-status {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--success);
+            background: var(--success-bg);
+            padding: 3px 8px;
+            border-radius: 6px;
+            border: 1px solid var(--success-border);
+        }
+
+        /* Security Badges */
+        .security-badge {
+            background: #f8fafc;
+            border: 1px dashed var(--border-color);
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+        }
+
+        .security-badge code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-weight: 700;
+            color: var(--text-primary);
         }
 
         .footer {
+            text-align: center;
             font-size: 11px;
-            color: var(--text-secondary);
-            line-height: 1.5;
-        }
-
-        .footer a {
-            color: #6366f1;
-            text-decoration: none;
+            color: var(--text-muted);
+            line-height: 1.6;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="card status-{{ $status }}">
+            <!-- Header -->
             <div class="header">
-                <div class="company-name">PT Santos Jaya Abadi</div>
-                <h1 class="system-title">Verifikasi Dokumen Resmi</h1>
+                <div class="company-tag">PT Santos Jaya Abadi</div>
+                <h1 class="system-title">Verifikasi Dokumen SPPB</h1>
             </div>
 
-            <div class="status-badge-container">
+            <!-- Status Banner -->
+            <div class="status-box">
                 <div class="status-icon">
                     @if($status === 'VALID')
                         <svg fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
@@ -242,7 +324,7 @@
 
                 <div class="status-title">
                     @if($status === 'VALID')
-                        DOKUMEN ASLI & VALID
+                        DOKUMEN ASLI &amp; VALID
                     @elseif($status === 'SUPERSEDED')
                         DOKUMEN TELAH DIPERBARUI
                     @elseif($status === 'EXPIRED')
@@ -256,60 +338,140 @@
 
                 <div class="status-desc">
                     @if($status === 'VALID')
-                        Dokumen ini sah, terdaftar resmi di sistem E-SPPB, dan tidak mengalami perubahan isi.
+                        Dokumen ini terdaftar resmi dalam sistem E-SPPB Enterprise, terverifikasi sah, dan tidak mengalami modifikasi.
                     @elseif($status === 'SUPERSEDED')
-                        Versi dokumen baru telah dirilis untuk SPPB ini. Dokumen versi lama ini sudah tidak berlaku.
+                        Telah terbit versi baru untuk dokumen SPPB ini. Dokumen versi lama ini tidak dapat dipergunakan kembali.
                     @elseif($status === 'EXPIRED')
-                        Masa berlaku dokumen ini telah habis dan tidak dapat digunakan kembali.
+                        Masa berlaku verifikasi dokumen ini telah habis. Silakan hubungi bagian administrasi.
                     @elseif($status === 'REVOKED')
-                        Dokumen ini telah dicabut secara manual oleh administrator dan tidak berlaku lagi.
+                        Dokumen ini telah dicabut secara resmi dan dinyatakan tidak berlaku.
                     @else
-                        Kode QR tidak valid atau dokumen tidak terdaftar dalam basis data sistem resmi kami.
+                        Kode QR tidak terdaftar dalam basis data resmi E-SPPB.
                     @endif
                 </div>
             </div>
 
             @if($data)
-                <div class="details-list">
-                    <div class="detail-item">
-                        <span class="detail-label">Jenis Dokumen</span>
-                        <span class="detail-value">{{ strtoupper($data['document_type']) }}</span>
+                <!-- Ringkasan SPPB -->
+                <div class="section-title">📄 Informasi SPPB</div>
+                <div class="info-grid">
+                    <div class="info-row">
+                        <span class="label">Jenis Dokumen</span>
+                        <span class="value">{{ strtoupper($data['document_type']) }}</span>
                     </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Nomor Dokumen</span>
-                        <span class="detail-value">{{ $data['document_number'] }}</span>
+                    <div class="info-row">
+                        <span class="label">Nomor SPPB</span>
+                        <span class="value value-highlight">{{ $data['document_number'] }}</span>
                     </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Pabrik (Plant)</span>
-                        <span class="detail-value">{{ $data['plant_name'] }}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Halaman</span>
-                        <span class="detail-value">{{ $data['page_number'] }} dari {{ $data['total_pages'] }}</span>
-                    </div>
-                    @if(isset($data['generated_at']))
-                        <div class="detail-item">
-                            <span class="detail-label">Tanggal Dibuat</span>
-                            <span class="detail-value">{{ \Carbon\Carbon::parse($data['generated_at'])->translatedFormat('d F Y H:i') }} WIB</span>
+                    @if(isset($data['status_sppb']))
+                        <div class="info-row">
+                            <span class="label">Status Pengajuan</span>
+                            <span class="value" style="color: var(--success);">{{ strtoupper($data['status_sppb']) }}</span>
                         </div>
                     @endif
-                    <div class="detail-item">
-                        <span class="detail-label">Digital Fingerprint</span>
-                        <span class="detail-value" style="font-family: monospace; letter-spacing: 0.5px;">SHA256: {{ $data['fingerprint'] }}</span>
+                    <div class="info-row">
+                        <span class="label">Pabrik (Plant)</span>
+                        <span class="value">{{ $data['plant_name'] }}</span>
                     </div>
+                    @if(isset($data['department_name']))
+                        <div class="info-row">
+                            <span class="label">Departemen</span>
+                            <span class="value">{{ $data['department_name'] }}</span>
+                        </div>
+                    @endif
+                    @if(isset($data['requester_name']))
+                        <div class="info-row">
+                            <span class="label">Pemohon</span>
+                            <span class="value">{{ $data['requester_name'] }}</span>
+                        </div>
+                    @endif
+                </div>
+
+                <!-- Jadwal & Rute Pengiriman -->
+                <div class="section-title">📍 Jadwal &amp; Rute</div>
+                <div class="info-grid">
+                    @if(isset($data['date_needed']))
+                        <div class="info-row">
+                            <span class="label">Tanggal Kebutuhan</span>
+                            <span class="value">{{ $data['date_needed'] }}</span>
+                        </div>
+                    @endif
+
+                    @if(isset($data['locations']))
+                        <div class="info-row">
+                            <span class="label">Lokasi Asal &rarr; Tujuan</span>
+                            <span class="value">
+                                {{ $data['locations']['origin'] ?? '—' }} &rarr; {{ $data['locations']['destination'] ?? '—' }}
+                            </span>
+                        </div>
+                    @elseif(isset($data['origin_location']) || isset($data['destination_location']))
+                        <div class="info-row">
+                            <span class="label">Lokasi Asal &rarr; Tujuan</span>
+                            <span class="value">
+                                {{ $data['origin_location'] ?? '—' }} &rarr; {{ $data['destination_location'] ?? '—' }}
+                            </span>
+                        </div>
+                    @endif
+
+                    @if(isset($data['purpose']))
+                        <div class="info-row">
+                            <span class="label">Keperluan</span>
+                            <span class="value">{{ $data['purpose'] }}</span>
+                        </div>
+                    @endif
+
+                    @if(isset($data['items_summary']))
+                        <div class="info-row">
+                            <span class="label">Ringkasan Muatan</span>
+                            <span class="value">
+                                {{ $data['items_summary']['total_item_types'] ?? 0 }} jenis barang
+                                ({{ $data['items_summary']['total_quantity_approved'] ?? 0 }} unit)
+                            </span>
+                        </div>
+                    @elseif(isset($data['total_items']))
+                        <div class="info-row">
+                            <span class="label">Ringkasan Muatan</span>
+                            <span class="value">
+                                {{ $data['total_items'] }} jenis barang
+                                @if(isset($data['total_quantity']))
+                                    ({{ (float)$data['total_quantity'] }} unit)
+                                @endif
+                            </span>
+                        </div>
+                    @endif
+                </div>
+
+                <!-- Riwayat Otorisasi -->
+                @if(!empty($data['approval_summary']))
+                    <div class="section-title">🛡️ Riwayat Persetujuan</div>
+                    <div class="info-grid" style="padding: 12px;">
+                        <div class="approval-list">
+                            @foreach($data['approval_summary'] as $appr)
+                                <div class="approval-item">
+                                    <div class="approval-role">{{ $appr['role'] ?? 'Approver' }}</div>
+                                    <div class="approval-status">
+                                        {{ $appr['status'] ?? 'DISETUJUI' }}
+                                        @if(!empty($appr['approved_at']))
+                                            <span style="font-size: 11px; font-weight: normal; opacity: 0.8; margin-left: 4px;">({{ $appr['approved_at'] }})</span>
+                                        @endif
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+
+                <!-- Security Fingerprint -->
+                <div class="security-badge">
+                    Digital Fingerprint SHA256: <code>{{ $data['fingerprint'] }}</code><br>
+                    Halaman {{ $data['page_number'] }} dari {{ $data['total_pages'] }}
                 </div>
             @endif
 
+            <!-- Footer -->
             <div class="footer">
-                ID Validasi: <span style="font-family: monospace; color: var(--text-primary);">{{ $validation_id }}</span><br>
-                @if(isset($sha256_token))
-                <span style="display: block; margin-top: 8px; font-size: 10px; word-break: break-all; font-family: monospace; color: var(--text-secondary);">
-                    Token: {{ $sha256_token }}
-                </span>
-                @endif
-                <span style="display: block; margin-top: 12px; color: var(--text-secondary);">
-                    &copy; 2026 E-SPPB Enterprise. Hak Cipta Dilindungi.
-                </span>
+                ID Validasi: <code style="font-size: 11px;">{{ $validation_id }}</code><br>
+                &copy; 2026 E-SPPB Enterprise — PT Santos Jaya Abadi.
             </div>
         </div>
     </div>

@@ -172,4 +172,47 @@ class SppbServiceTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $this->sppbService->queueSubmit($sppb->id, $this->requester->id);
     }
+
+    public function test_cannot_add_detail_with_zero_or_negative_quantity(): void
+    {
+        $data = new CreateSppbData(
+            plantId: $this->plant->id,
+            departmentId: $this->department->id,
+            requesterId: $this->requester->id,
+            originLocationId: $this->originLocation->id,
+            destinationLocationId: $this->destinationLocation->id,
+            requestDate: '2026-07-14',
+            purpose: 'Test Purpose',
+            neededName: 'Needed Item',
+            dateNeeded: '2026-07-15',
+            isUrgent: true,
+        );
+        $sppb = $this->sppbService->createDraft($data);
+
+        $detailData = new SppbDetailData(
+            barcodeConfirmed: false,
+            itemId: $this->item->id,
+            assetId: null,
+            referenceCode: 'ITEM-123',
+            itemAssetName: 'Test Item',
+            unitId: $this->unit->id,
+            quantity: 0, // Invalid zero quantity
+            remarks: 'Zero qty',
+        );
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->sppbService->addDetail($sppb->id, $detailData);
+    }
+
+    public function test_cannot_queue_submit_if_not_editable(): void
+    {
+        $sppb = SppbHeader::factory()->create([
+            'status' => SppbStatus::APPROVED->value,
+            'plant_id' => $this->plant->id,
+            'department_id' => $this->department->id,
+        ]);
+
+        $this->expectException(SppbNotEditableException::class);
+        $this->sppbService->queueSubmit($sppb->id, $this->requester->id);
+    }
 }

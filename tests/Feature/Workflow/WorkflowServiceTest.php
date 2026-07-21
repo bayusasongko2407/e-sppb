@@ -18,12 +18,14 @@ use App\Models\Plant;
 use App\Models\Position;
 use App\Models\SppbHeader;
 use App\Models\User;
+use App\Models\WorkflowDelegation;
 use App\Models\WorkflowInstanceStep;
 use App\Models\WorkflowStep;
 use App\Models\WorkflowTemplate;
 use App\Services\WorkflowService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class WorkflowServiceTest extends TestCase
@@ -322,5 +324,116 @@ class WorkflowServiceTest extends TestCase
         $this->assertEquals(SppbStatus::APPROVED->value, $sppb->status);
         $this->assertEquals(WorkflowInstanceStatus::APPROVED->value, $instance->status);
         $this->assertEquals(WorkflowInstanceStepStatus::CANCELLED->value, $thirdStep->status);
+    }
+
+    public function test_multi_hop_and_circular_delegation_handling(): void
+    {
+        [$sppb, $requester, $manager, $template, $step1, $step2] = $this->setupSppbAndWorkflow();
+
+        // User A (Manager), User B, User C
+        $userB = User::factory()->create(['plant_id' => $sppb->plant_id]);
+        $userC = User::factory()->create(['plant_id' => $sppb->plant_id]);
+
+        DB::table('user_positions')->insert([
+            'user_id' => $userC->id,
+            'position_id' => $step2->approver_position_ids[0],
+            'is_active' => true,
+        ]);
+
+        // Delegation chain: Manager -> UserB -> UserC
+        WorkflowDelegation::create([
+            'delegator_id' => $manager->id,
+            'delegate_id' => $userB->id,
+            'plant_id' => $sppb->plant_id,
+            'starts_at' => now()->subDay(),
+            'ends_at' => now()->addDay(),
+            'reason' => 'Cuti',
+            'is_active' => true,
+        ]);
+
+        WorkflowDelegation::create([
+            'delegator_id' => $userB->id,
+            'delegate_id' => $userC->id,
+            'plant_id' => $sppb->plant_id,
+            'starts_at' => now()->subDay(),
+            'ends_at' => now()->addDay(),
+            'reason' => 'Dinas Luar',
+            'is_active' => true,
+        ]);
+
+        // Circular delegation: UserC -> Manager (A) to test loop protection
+        WorkflowDelegation::create([
+            'delegator_id' => $userC->id,
+            'delegate_id' => $manager->id,
+            'plant_id' => $sppb->plant_id,
+            'starts_at' => now()->subDay(),
+            'ends_at' => now()->addDay(),
+            'reason' => 'Circular Delegation',
+            'is_active' => true,
+        ]);
+
+        // Verify resolveDelegatorIds doesn't crash on circular loop and resolves multi-hop delegators
+        $delegatorsForUserC = $this->workflowService->resolveDelegatorIds($userC->id);
+        $this->assertContains($userB->id, $delegatorsForUserC);
+        $this->assertContains($manager->id, $delegatorsForUserC);
+
+        // User C can approve for Manager via multi-hop delegation
+        $sppb->status = SppbStatus::SUBMISSION_QUEUED->value;
+        $sppb->save();
+        $instance = $this->workflowService->generateWorkflow($sppb->id, 'corr-123');
+        $firstStep = $instance->workflowInstanceSteps()->where('sequence', 1)->first();
+
+        $data = new ApprovalDecisionData(
+            workflowInstanceStepId: $firstStep->id,
+            actorId: $userC->id,
+            decision: 'APPROVE',
+            commandUuid: 'cmd-uuid-multihop',
+            correlationId: 'corr-multihop',
+            remarks: 'Multi-hop Delegation Approval OK',
+            delegatedFromId: $manager->id
+        );
+
+        $this->workflowService->queueApproval($data);
+
+        $firstStep->refresh();
+        $this->assertEquals(WorkflowInstanceStepStatus::APPROVED->value, $firstStep->status);
+    }
+
+    public function test_requester_manager_fallback_when_manager_id_null_or_inactive(): void
+    {
+        [$sppb, $requester, $manager, $template, $step1, $step2] = $this->setupSppbAndWorkflow();
+
+        // Requester manager is inactive
+        $manager->update(['is_active' => false]);
+
+        // Create a department manager as fallback
+        Role::firstOrCreate(['name' => 'manager', 'guard_name' => 'web']);
+        $deptManager = User::factory()->create([
+            'plant_id' => $sppb->plant_id,
+            'department_id' => $sppb->department_id,
+            'is_active' => true,
+        ]);
+        $deptManager->assignRole('manager');
+
+        // User for step 2 position
+        $step2User = User::factory()->create(['plant_id' => $sppb->plant_id]);
+        DB::table('user_positions')->insert([
+            'user_id' => $step2User->id,
+            'position_id' => $step2->approver_position_ids[0],
+            'is_active' => true,
+        ]);
+
+        $sppb->status = SppbStatus::SUBMISSION_QUEUED->value;
+        $sppb->save();
+
+        // Should resolve fallback deptManager without throwing ApproverNotFoundException
+        $instance = $this->workflowService->generateWorkflow($sppb->id, 'corr-fallback');
+
+        $firstStep = $instance->workflowInstanceSteps()->where('sequence', 1)->first();
+        $this->assertDatabaseHas('workflow_step_approvers', [
+            'workflow_instance_step_id' => $firstStep->id,
+            'approver_id' => $deptManager->id,
+            'status' => ApproverStatus::PENDING->value,
+        ]);
     }
 }

@@ -6,7 +6,9 @@ use App\Traits\SecureRouteBinding;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 class GoodsRelease extends Model
 {
@@ -58,7 +60,7 @@ class GoodsRelease extends Model
             'created_by_id' => 'integer',
             'sender_user_id' => 'integer',
             'receiver_user_id' => 'integer',
-            'delivery_date' => 'date',
+            'delivery_date' => 'date:Y-m-d',
             'received_at' => 'timestamp',
             'received_by_id' => 'integer',
             'sender_user_id_id' => 'integer',
@@ -66,9 +68,29 @@ class GoodsRelease extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::created(function (GoodsRelease $release) {
+            if ($release->sppb_header_id) {
+                $release->sppbHeaders()->syncWithoutDetaching([$release->sppb_header_id]);
+            }
+        });
+
+        static::updated(function (GoodsRelease $release) {
+            if ($release->sppb_header_id) {
+                $release->sppbHeaders()->syncWithoutDetaching([$release->sppb_header_id]);
+            }
+        });
+    }
+
     public function sppbHeader(): BelongsTo
     {
         return $this->belongsTo(SppbHeader::class);
+    }
+
+    public function sppbHeaders(): BelongsToMany
+    {
+        return $this->belongsToMany(SppbHeader::class, 'goods_release_sppb', 'goods_release_id', 'sppb_header_id');
     }
 
     public function createdBy(): BelongsTo
@@ -94,5 +116,17 @@ class GoodsRelease extends Model
     public function goodsReleaseItems(): HasMany
     {
         return $this->hasMany(GoodsReleaseItem::class);
+    }
+
+    public function getStatusAttribute($value): string
+    {
+        if ($value === 'RELEASED' && $this->delivery_date) {
+            $deliveryDate = Carbon::parse($this->delivery_date)->startOfDay();
+            if ($deliveryDate->lt(today())) {
+                return 'RECEIVED';
+            }
+        }
+
+        return $value;
     }
 }

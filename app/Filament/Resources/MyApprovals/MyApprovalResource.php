@@ -96,6 +96,11 @@ class MyApprovalResource extends Resource
             ]);
     }
 
+    public static function getRecordRouteBindingQuery($record, string $property = 'record'): Builder
+    {
+        return parent::getEloquentQuery();
+    }
+
     public static function getEloquentQuery(): Builder
     {
         $userId = auth()->id();

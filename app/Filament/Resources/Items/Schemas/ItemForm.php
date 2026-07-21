@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Items\Schemas;
 
 use App\Models\EnumControl;
+use App\Models\Unit;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -27,7 +28,10 @@ class ItemForm
                     ->default(null)
                     ->columnSpanFull(),
                 Select::make('unit_id')
-                    ->relationship('unit', 'name')
+                    ->label('Satuan')
+                    ->options(fn () => Unit::getGroupedOptions())
+                    ->searchable()
+                    ->preload()
                     ->required(),
                 Select::make('item_category')
                     ->label('Kategori')

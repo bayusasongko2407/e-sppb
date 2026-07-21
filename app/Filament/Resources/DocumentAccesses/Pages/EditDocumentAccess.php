@@ -19,7 +19,13 @@ class EditDocumentAccess extends EditRecord
         return [
             DeleteAction::make()
                 ->action(function (DocumentAccess $record, DeleteAction $action) {
-                    DocumentAccess::where('user_id', $record->user_id)->delete();
+                    $query = DocumentAccess::query();
+                    if ($record->role_id) {
+                        $query->where('role_id', $record->role_id);
+                    } else {
+                        $query->where('user_id', $record->user_id);
+                    }
+                    $query->delete();
                     $action->success();
                     $action->redirect(DocumentAccessResource::getUrl('index'));
                 }),
@@ -28,58 +34,74 @@ class EditDocumentAccess extends EditRecord
 
     protected function mutateFormDataBeforeFill(array $data): array
     {
-        $userId = $data['user_id'];
+        $receiverType = isset($data['role_id']) && $data['role_id'] ? 'role' : 'user';
+        $data['receiver_type'] = $receiverType;
 
-        $data['plant_id'] = DocumentAccess::where('user_id', $userId)->pluck('plant_id')->unique()->toArray();
-        $data['department_id'] = DocumentAccess::where('user_id', $userId)->pluck('department_id')->unique()->toArray();
-        $data['module'] = DocumentAccess::where('user_id', $userId)->pluck('module')->unique()->toArray();
+        $query = DocumentAccess::query();
+        if ($receiverType === 'role') {
+            $query->where('role_id', $data['role_id']);
+        } else {
+            $query->where('user_id', $data['user_id']);
+        }
+
+        $accesses = $query->get();
+
+        $data['access_items'] = $accesses->map(fn ($access) => [
+            'plant_id' => $access->plant_id,
+            'department_id' => $access->department_id,
+            'module' => $access->module,
+            'can_view' => $access->can_view,
+            'can_create' => $access->can_create,
+            'can_edit' => $access->can_edit,
+            'can_delete' => $access->can_delete,
+        ])->toArray();
 
         return $data;
     }
 
     protected function handleRecordUpdate(Model $record, array $data): Model
     {
-        $originalUserId = $record->getOriginal('user_id') ?? $record->user_id;
-        $newUserId = $data['user_id'];
+        $receiverType = $data['receiver_type'] ?? 'user';
 
-        // Delete all accesses for the original user
-        DocumentAccess::where('user_id', $originalUserId)->delete();
+        $originalUserId = $record->getOriginal('user_id');
+        $originalRoleId = $record->getOriginal('role_id');
 
-        // Also delete for the new user if user_id was changed to avoid duplicates
-        if ($originalUserId !== $newUserId) {
-            DocumentAccess::where('user_id', $newUserId)->delete();
+        // Delete original accesses
+        $deleteQuery = DocumentAccess::query();
+        if ($originalRoleId) {
+            $deleteQuery->where('role_id', $originalRoleId);
+        } else {
+            $deleteQuery->where('user_id', $originalUserId);
         }
+        $deleteQuery->delete();
 
-        $plants = $data['plant_id'] ?? [];
-        $departments = $data['department_id'] ?? [];
-        $modules = $data['module'] ?? [];
+        $newUserId = $receiverType === 'user' ? $data['user_id'] : null;
+        $newRoleId = $receiverType === 'role' ? $data['role_id'] : null;
 
-        if (! is_array($plants)) {
-            $plants = [$plants];
+        // Delete potential duplicates for new recipient
+        $newDeleteQuery = DocumentAccess::query();
+        if ($newRoleId) {
+            $newDeleteQuery->where('role_id', $newRoleId);
+        } else {
+            $newDeleteQuery->where('user_id', $newUserId);
         }
-        if (! is_array($departments)) {
-            $departments = [$departments];
-        }
-        if (! is_array($modules)) {
-            $modules = [$modules];
-        }
+        $newDeleteQuery->delete();
+
+        $accessItems = $data['access_items'] ?? [];
 
         $lastRecord = null;
-        foreach ($plants as $plantId) {
-            foreach ($departments as $departmentId) {
-                foreach ($modules as $module) {
-                    $lastRecord = DocumentAccess::create([
-                        'user_id' => $newUserId,
-                        'plant_id' => $plantId,
-                        'department_id' => $departmentId,
-                        'module' => $module,
-                        'can_view' => $data['can_view'] ?? false,
-                        'can_create' => $data['can_create'] ?? false,
-                        'can_edit' => $data['can_edit'] ?? false,
-                        'can_delete' => $data['can_delete'] ?? false,
-                    ]);
-                }
-            }
+        foreach ($accessItems as $item) {
+            $lastRecord = DocumentAccess::create([
+                'user_id' => $newUserId,
+                'role_id' => $newRoleId,
+                'plant_id' => $item['plant_id'] ?? null,
+                'department_id' => $item['department_id'] ?? null,
+                'module' => $item['module'],
+                'can_view' => $item['can_view'] ?? false,
+                'can_create' => $item['can_create'] ?? false,
+                'can_edit' => $item['can_edit'] ?? false,
+                'can_delete' => $item['can_delete'] ?? false,
+            ]);
         }
 
         return $lastRecord ?? $record;

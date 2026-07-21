@@ -1,0 +1,24 @@
+{
+    "workspace": {
+        "name": "E-SPPB Enterprise",
+        "version": "2.0.0",
+        "rules_path": ".agents/rules",
+        "context_file": ".agents/context.md",
+        "knowledge_path": ".agents/knowledge",
+        "design_system_path": ".agents/design"
+    },
+    "indexing": {
+        "exclude": [
+            "node_modules",
+            "vendor",
+            "storage",
+            "bootstrap/cache"
+        ],
+        "incremental": true,
+        "watch_interval_seconds": 5
+    },
+    "mcp": {
+        "enabled": true,
+        "servers_config": ".agents/mcp/config.json"
+    }
+}

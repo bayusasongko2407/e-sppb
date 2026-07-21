@@ -1,11 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Feature;
 
 use App\Enums\SppbStatus;
 use App\Filament\Resources\DocumentAccesses\DocumentAccessResource;
-use App\Filament\Resources\DocumentAccesses\Pages\CreateDocumentAccess;
-use App\Filament\Resources\DocumentAccesses\Pages\EditDocumentAccess;
 use App\Filament\Resources\GoodsReleases\GoodsReleaseResource;
 use App\Filament\Resources\SppbHeaders\SppbHeaderResource;
 use App\Models\Department;
@@ -18,6 +18,7 @@ use App\Policies\GoodsReleasePolicy;
 use App\Policies\SppbHeaderPolicy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class DocumentAccessTest extends TestCase
@@ -29,6 +30,11 @@ class DocumentAccessTest extends TestCase
         $user = User::factory()->create();
         $plant = Plant::factory()->create();
         $department = Department::factory()->create();
+
+        // Create Spatie permissions
+        $p1 = Permission::firstOrCreate(['name' => 'view_sppbheader', 'guard_name' => 'web']);
+        $p2 = Permission::firstOrCreate(['name' => 'create_sppbheader', 'guard_name' => 'web']);
+        $user->givePermissionTo($p1, $p2);
 
         // Initially no access
         $this->assertFalse($user->hasDocumentAccess('sppb', 'view', $plant->id, $department->id));
@@ -53,9 +59,11 @@ class DocumentAccessTest extends TestCase
     public function test_sppb_policy_utilizes_document_access(): void
     {
         // Create the permission to prevent Spatie throwing PermissionDoesNotExist
-        Permission::create(['name' => 'view_sppbheader', 'guard_name' => 'web']);
+        $p = Permission::firstOrCreate(['name' => 'view_sppbheader', 'guard_name' => 'web']);
 
         $user = User::factory()->create(['is_active' => true]);
+        $user->givePermissionTo($p);
+
         $plant = Plant::factory()->create();
         $department = Department::factory()->create();
 
@@ -86,6 +94,9 @@ class DocumentAccessTest extends TestCase
     public function test_filament_resource_query_scoping(): void
     {
         $user = User::factory()->create(['is_active' => true]);
+        $p = Permission::firstOrCreate(['name' => 'view_any_sppbheader', 'guard_name' => 'web']);
+        $user->givePermissionTo($p);
+
         $plant1 = Plant::factory()->create();
         $plant2 = Plant::factory()->create();
         $department = Department::factory()->create();
@@ -123,9 +134,11 @@ class DocumentAccessTest extends TestCase
     public function test_goods_release_policy_and_query_scoping(): void
     {
         // Spatie permission setup
-        Permission::create(['name' => 'view_goodsrelease', 'guard_name' => 'web']);
+        $p = Permission::firstOrCreate(['name' => 'view_goodsrelease', 'guard_name' => 'web']);
 
         $user = User::factory()->create(['is_active' => true]);
+        $user->givePermissionTo($p);
+
         $plant1 = Plant::factory()->create();
         $plant2 = Plant::factory()->create();
         $department = Department::factory()->create();
@@ -176,84 +189,46 @@ class DocumentAccessTest extends TestCase
         $this->assertFalse($query2->where('id', $release2->id)->exists());
     }
 
-    public function test_filament_document_access_multiple_combinations_creation_and_update(): void
+    public function test_hybrid_and_wildcard_document_access(): void
     {
         $user = User::factory()->create();
-        $plant1 = Plant::factory()->create();
-        $plant2 = Plant::factory()->create();
-        $dept1 = Department::factory()->create();
-        $dept2 = Department::factory()->create();
+        $role = Role::create(['name' => 'manager', 'guard_name' => 'web']);
+        $user->assignRole($role);
 
-        // 1. Test Creation of Multiple Combinations
-        $createPage = new CreateDocumentAccess;
-        $refMethod = new \ReflectionMethod($createPage, 'handleRecordCreation');
-        $refMethod->setAccessible(true);
-        $refMethod->invoke($createPage, [
-            'user_id' => $user->id,
-            'plant_id' => [$plant1->id, $plant2->id],
-            'department_id' => [$dept1->id, $dept2->id],
-            'module' => ['sppb', 'goods_release'],
-            'can_view' => true,
-            'can_create' => true,
-            'can_edit' => false,
-            'can_delete' => false,
-        ]);
+        $pSppb = Permission::firstOrCreate(['name' => 'view_sppbheader', 'guard_name' => 'web']);
+        $role->givePermissionTo($pSppb);
 
-        // Assert all 2 * 2 * 2 = 8 combinations exist
-        foreach ([$plant1->id, $plant2->id] as $plantId) {
-            foreach ([$dept1->id, $dept2->id] as $deptId) {
-                foreach (['sppb', 'goods_release'] as $module) {
-                    $this->assertDatabaseHas('document_accesses', [
-                        'user_id' => $user->id,
-                        'plant_id' => $plantId,
-                        'department_id' => $deptId,
-                        'module' => $module,
-                        'can_view' => true,
-                    ]);
-                }
-            }
-        }
+        $plant = Plant::factory()->create();
+        $department = Department::factory()->create();
 
-        // 2. Test Edit/Update of Multiple Combinations
-        $record = DocumentAccess::where('user_id', $user->id)
-            ->where('plant_id', $plant1->id)
-            ->where('department_id', $dept1->id)
-            ->where('module', 'sppb')
-            ->first();
-
-        $editPage = new EditDocumentAccess;
-        $editPage->record = $record;
-
-        $refUpdateMethod = new \ReflectionMethod($editPage, 'handleRecordUpdate');
-        $refUpdateMethod->setAccessible(true);
-        // Change selection to only (plant1, dept1, goods_release)
-        $refUpdateMethod->invoke($editPage, $record, [
-            'user_id' => $user->id,
-            'plant_id' => [$plant1->id],
-            'department_id' => [$dept1->id],
-            'module' => ['goods_release'],
-            'can_view' => true,
-            'can_create' => true,
-            'can_edit' => true,
-            'can_delete' => false,
-        ]);
-
-        // (plant1, dept1, sppb) should be deleted because it is no longer in the list
-        $this->assertDatabaseMissing('document_accesses', [
-            'user_id' => $user->id,
-            'plant_id' => $plant1->id,
-            'department_id' => $dept1->id,
+        // Test 1: Wildcard Plant & Dept (null) via Role
+        DocumentAccess::create([
+            'role_id' => $role->id,
+            'plant_id' => null, // Semua plant
+            'department_id' => null, // Semua departemen
             'module' => 'sppb',
+            'can_view' => true,
         ]);
 
-        // (plant1, dept1, goods_release) should still exist and have can_edit updated to true
-        $this->assertDatabaseHas('document_accesses', [
-            'user_id' => $user->id,
-            'plant_id' => $plant1->id,
-            'department_id' => $dept1->id,
+        $this->assertTrue($user->hasDocumentAccess('sppb', 'view', $plant->id, $department->id));
+        $this->assertTrue($user->hasDocumentAccess('sppb', 'view', null, null));
+
+        // Test 2: Specific Plant but Wildcard Dept via User
+        $user2 = User::factory()->create();
+        $pRelease = Permission::firstOrCreate(['name' => 'create_goodsrelease', 'guard_name' => 'web']);
+        $user2->givePermissionTo($pRelease);
+
+        $plant2 = Plant::factory()->create();
+        DocumentAccess::create([
+            'user_id' => $user2->id,
+            'plant_id' => $plant2->id,
+            'department_id' => null, // Semua departemen di plant2
             'module' => 'goods_release',
-            'can_edit' => true,
+            'can_create' => true,
         ]);
+
+        $this->assertTrue($user2->hasDocumentAccess('goods_release', 'create', $plant2->id, 999));
+        $this->assertFalse($user2->hasDocumentAccess('goods_release', 'create', 999, null));
     }
 
     public function test_document_access_query_groups_by_user_id_and_eager_loads_relations(): void

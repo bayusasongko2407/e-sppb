@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\Locations\Pages;
 
+use App\Filament\Exports\LocationExporter;
 use App\Filament\Resources\Locations\LocationResource;
 use Filament\Actions\CreateAction;
+use Filament\Actions\ExportAction;
 use Filament\Resources\Pages\ListRecords;
 
 class ListLocations extends ListRecords
@@ -16,6 +18,9 @@ class ListLocations extends ListRecords
     {
         return [
             CreateAction::make(),
+            ExportAction::make()
+                ->label('Export Data')
+                ->exporter(LocationExporter::class),
         ];
     }
 }

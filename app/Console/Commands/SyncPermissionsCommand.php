@@ -29,11 +29,27 @@ class SyncPermissionsCommand extends Command
     {
         $this->info('Mulai sinkronisasi permissions...');
 
-        $modelPath = app_path('Models');
-        $files = File::files($modelPath);
-
         $actions = ['view', 'view_any', 'create', 'update', 'delete', 'restore', 'force_delete'];
         $count = 0;
+
+        // Custom models from vendor/other namespaces that need permissions
+        $customModels = ['role', 'permission'];
+        foreach ($customModels as $modelLower) {
+            foreach ($actions as $action) {
+                $permissionName = $action.'_'.$modelLower;
+                $permission = Permission::firstOrCreate(
+                    ['name' => $permissionName, 'guard_name' => 'web']
+                );
+
+                if ($permission->wasRecentlyCreated) {
+                    $this->line("Dibuat: {$permissionName}");
+                    $count++;
+                }
+            }
+        }
+
+        $modelPath = app_path('Models');
+        $files = File::files($modelPath);
 
         foreach ($files as $file) {
             $modelName = $file->getFilenameWithoutExtension();

@@ -32,7 +32,9 @@ class UserInfolist
                     ->label('Nama'),
                 TextEntry::make('email')
                     ->label('Email')
-                    ->label('Email address')
+                    ->placeholder('-'),
+                TextEntry::make('phone')
+                    ->label('No. Telepon / WhatsApp')
                     ->placeholder('-'),
                 TextEntry::make('email_verified_at')
                     ->label('Email Diverifikasi Pada')

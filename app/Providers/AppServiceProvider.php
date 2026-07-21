@@ -7,6 +7,7 @@ namespace App\Providers;
 use App\Contracts\DocumentRendererInterface;
 use App\Contracts\SppbServiceContract;
 use App\Contracts\WorkflowServiceContract;
+use App\Policies\RolePolicy;
 use App\Services\DummyDocumentRenderer;
 use App\Services\RunningNumberService;
 use App\Services\SppbService;
@@ -16,6 +17,7 @@ use App\Services\WorkflowService;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
+use Spatie\Permission\Models\Role;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -56,5 +58,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::before(function ($user, $ability) {
             return $user->hasRole('super_admin') ? true : null;
         });
+
+        Gate::policy(Role::class, RolePolicy::class);
     }
 }

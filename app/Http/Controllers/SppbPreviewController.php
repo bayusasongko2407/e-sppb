@@ -15,9 +15,9 @@ use Illuminate\Support\Str;
 
 class SppbPreviewController extends Controller
 {
-    public function preview(int $id, DocumentGenerationService $generationService, DocumentRendererInterface $renderer)
+    public function preview(SppbHeader $record, DocumentGenerationService $generationService, DocumentRendererInterface $renderer)
     {
-        $sppbHeader = SppbHeader::with(['sppbDetails.unit', 'plant', 'department', 'requester'])->findOrFail($id);
+        $sppbHeader = $record->loadMissing(['sppbDetails.unit', 'plant', 'department', 'requester']);
 
         Gate::authorize('view', $sppbHeader);
 

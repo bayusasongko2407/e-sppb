@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\SppbHeaders\Tables;
 
-use App\Contracts\WorkflowServiceContract;
-use App\DTOs\Workflow\SubmitSppbData;
 use App\Enums\SppbStatus;
 use App\Models\SppbHeader;
 use Filament\Actions\Action;
@@ -15,12 +13,10 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
-use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
-use Illuminate\Support\Str;
 
 class SppbHeadersTable
 {
@@ -98,36 +94,6 @@ class SppbHeadersTable
                 TrashedFilter::make(),
             ])
             ->recordActions([
-                Action::make('submit_approval')
-                    ->label('Ajukan Persetujuan')
-                    ->icon('heroicon-o-paper-airplane')
-                    ->color('primary')
-                    ->requiresConfirmation()
-                    ->modalHeading('Ajukan SPPB')
-                    ->modalDescription('Apakah Anda yakin ingin mengajukan SPPB ini untuk proses persetujuan?')
-                    ->modalSubmitActionLabel('Ya, Ajukan')
-                    ->visible(fn (SppbHeader $record): bool => in_array($record->status, [SppbStatus::DRAFT->value, SppbStatus::REJECTED->value]))
-                    ->action(function (SppbHeader $record, WorkflowServiceContract $workflowService) {
-                        try {
-                            $workflowService->queueSubmission(new SubmitSppbData(
-                                sppbHeaderId: $record->id,
-                                actorId: auth()->id(),
-                                commandUuid: Str::uuid()->toString(),
-                            ));
-
-                            Notification::make()
-                                ->title('Berhasil')
-                                ->body('SPPB berhasil masuk antrean pengajuan.')
-                                ->success()
-                                ->send();
-                        } catch (\Exception $e) {
-                            Notification::make()
-                                ->title('Gagal')
-                                ->body('Terjadi kesalahan: '.$e->getMessage())
-                                ->danger()
-                                ->send();
-                        }
-                    }),
                 ViewAction::make(),
                 EditAction::make(),
 
@@ -135,7 +101,7 @@ class SppbHeadersTable
                     ->label('Cetak PDF')
                     ->color('info')
                     ->icon('heroicon-o-document-arrow-down')
-                    ->url(fn (SppbHeader $record) => route('sppb.preview', ['id' => $record->id]))
+                    ->url(fn (SppbHeader $record) => route('sppb.preview', ['record' => $record]))
                     ->openUrlInNewTab()
                     ->visible(fn (SppbHeader $record): bool => in_array($record->status, [
                         SppbStatus::APPROVED->value,

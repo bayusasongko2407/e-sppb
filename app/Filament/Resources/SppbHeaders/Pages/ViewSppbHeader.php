@@ -9,13 +9,16 @@ use App\DTOs\Workflow\ApprovalDecisionData;
 use App\DTOs\Workflow\SubmitSppbData;
 use App\Enums\ApproverStatus;
 use App\Enums\SppbStatus;
+use App\Filament\Resources\GoodsReleases\GoodsReleaseResource;
 use App\Filament\Resources\MyApprovals\MyApprovalResource;
+use App\Filament\Resources\SppbHeaders\Schemas\SppbHeaderForm;
 use App\Filament\Resources\SppbHeaders\SppbHeaderResource;
 use App\Models\SppbStatusLog;
 use App\Models\WorkflowInstanceStep;
 use App\Models\WorkflowStepApprover;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
@@ -80,7 +83,7 @@ class ViewSppbHeader extends ViewRecord
                 ->modalHeading('Ajukan SPPB')
                 ->modalDescription('Apakah Anda yakin ingin mengajukan SPPB ini untuk proses persetujuan? Dokumen yang diajukan tidak dapat diubah lagi.')
                 ->modalSubmitActionLabel('Ya, Ajukan')
-                ->visible(fn (): bool => in_array($this->record->status, [SppbStatus::DRAFT->value, SppbStatus::REJECTED->value]))
+                ->visible(fn (): bool => (auth()->user()?->hasRole('pemohon') || auth()->user()?->hasRole('super_admin')) && in_array($this->record->status, [SppbStatus::DRAFT->value, SppbStatus::REJECTED->value]))
                 ->action(function (WorkflowServiceContract $workflowService) {
                     try {
                         $workflowService->queueSubmission(new SubmitSppbData(
@@ -95,7 +98,7 @@ class ViewSppbHeader extends ViewRecord
                             ->success()
                             ->send();
 
-                        return redirect()->to(SppbHeaderResource::getUrl('view', ['record' => $this->record->id]));
+                        return redirect()->to(SppbHeaderResource::getUrl('view', ['record' => $this->record]));
                     } catch (\Exception $e) {
                         Notification::make()
                             ->title('Gagal')
@@ -246,16 +249,56 @@ class ViewSppbHeader extends ViewRecord
             EditAction::make(),
 
             Action::make('print_pdf')
-                ->label('Cetak PDF')
+                ->label('Cetak')
                 ->color('info')
                 ->icon('heroicon-o-document-arrow-down')
-                ->url(fn () => route('sppb.preview', ['id' => $this->record->id]))
+                ->url(fn () => route('sppb.preview', ['record' => $this->record]))
                 ->openUrlInNewTab()
                 ->visible(fn (): bool => in_array($this->record->status, [
                     SppbStatus::APPROVED->value,
                     SppbStatus::RELEASE_IN_PROGRESS->value,
                     SppbStatus::COMPLETED->value,
                 ])),
+
+            Action::make('kirim_barang')
+                ->label('Kirim Barang')
+                ->color('primary')
+                ->icon('heroicon-o-truck')
+                ->form([
+                    Radio::make('metode')
+                        ->label('Metode Pengiriman')
+                        ->options([
+                            'sistem' => 'Surat Jalan Sistem',
+                            'manual' => 'Surat Jalan Manual',
+                        ])
+                        ->default('sistem')
+                        ->required(),
+                ])
+                ->modalHeading('Metode Pengiriman')
+                ->modalDescription('Apakah Surat Jalan akan dibuat menggunakan sistem?')
+                ->modalSubmitActionLabel('Lanjut')
+                ->visible(fn (): bool => in_array($this->record->status, [
+                    SppbStatus::APPROVED->value,
+                    SppbStatus::RELEASE_IN_PROGRESS->value,
+                ]))
+                ->action(function (array $data) {
+                    $isManual = $data['metode'] === 'manual' ? '1' : '0';
+
+                    return redirect()->to(
+                        GoodsReleaseResource::getUrl('create').
+                        '?sppb_header_id='.$this->record->id.
+                        '&is_manual='.$isManual
+                    );
+                }),
+
+            Action::make('riwayat')
+                ->label('Riwayat')
+                ->color('gray')
+                ->icon('heroicon-o-clock')
+                ->modalHeading('Riwayat Workflow Persetujuan')
+                ->modalContent(fn () => SppbHeaderForm::renderWorkflowTimeline($this->record))
+                ->modalSubmitAction(false)
+                ->modalCancelActionLabel('Tutup'),
         ];
     }
 }

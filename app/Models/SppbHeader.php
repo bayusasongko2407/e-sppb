@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -124,8 +125,8 @@ class SppbHeader extends Model
             'requester_id' => 'integer',
             'origin_location_id' => 'integer',
             'destination_location_id' => 'integer',
-            'request_date' => 'date',
-            'date_needed' => 'date',
+            'request_date' => 'date:Y-m-d',
+            'date_needed' => 'date:Y-m-d',
             'is_urgent' => 'boolean',
             'revision_no' => 'integer',
             'current_workflow_instance_id' => 'integer',
@@ -206,6 +207,11 @@ class SppbHeader extends Model
     public function goodsReleases(): HasMany
     {
         return $this->hasMany(GoodsRelease::class);
+    }
+
+    public function goodsReleasesPivot(): BelongsToMany
+    {
+        return $this->belongsToMany(GoodsRelease::class, 'goods_release_sppb', 'sppb_header_id', 'goods_release_id');
     }
 
     public function getSppbNoAttribute(): ?string

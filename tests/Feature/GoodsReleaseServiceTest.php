@@ -140,4 +140,43 @@ class GoodsReleaseServiceTest extends TestCase
         $this->assertEquals(SppbStatus::COMPLETED->value, $this->sppb->status);
         $this->assertNotNull($this->sppb->completed_at);
     }
+
+    public function test_cannot_create_goods_release_with_empty_or_zero_quantity_items(): void
+    {
+        $this->goodsReleaseService = app(GoodsReleaseService::class);
+        $data = new CreateGoodsReleaseData(
+            sppbHeaderId: $this->sppb->id,
+            actorId: $this->actor->id,
+            driverName: 'Budi',
+            vehicleNumber: 'B 1234 CD',
+            items: [
+                new GoodsReleaseItemData(sppbDetailId: $this->detail1->id, quantityReleased: 0),
+            ]
+        );
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->goodsReleaseService->createGoodsRelease($data);
+    }
+
+    public function test_partial_release_omitting_unreleased_details_remains_in_progress(): void
+    {
+        $this->goodsReleaseService = app(GoodsReleaseService::class);
+
+        // Only release detail1 (full 10), omitting detail2 (quantity 5) from items array
+        $data = new CreateGoodsReleaseData(
+            sppbHeaderId: $this->sppb->id,
+            actorId: $this->actor->id,
+            driverName: 'Budi',
+            vehicleNumber: 'B 1234 CD',
+            items: [
+                new GoodsReleaseItemData(sppbDetailId: $this->detail1->id, quantityReleased: 10),
+            ]
+        );
+
+        $this->goodsReleaseService->createGoodsRelease($data);
+
+        $this->sppb->refresh();
+        // Should be RELEASE_IN_PROGRESS because detail2 is not yet released
+        $this->assertEquals(SppbStatus::RELEASE_IN_PROGRESS->value, $this->sppb->status);
+    }
 }

@@ -87,6 +87,10 @@ final class SppbService implements SppbServiceContract
                 throw new SppbNotEditableException;
             }
 
+            if ($data->quantity <= 0) {
+                throw new \InvalidArgumentException('Kuantitas barang harus lebih besar dari 0.');
+            }
+
             $lastLineNo = SppbDetail::where('sppb_header_id', $sppbHeaderId)->max('line_no') ?? 0;
 
             return SppbDetail::create([
@@ -121,9 +125,13 @@ final class SppbService implements SppbServiceContract
 
     public function queueSubmit(int $sppbHeaderId, int $actorId): WorkflowCommand
     {
-        SppbHeader::findOrFail($sppbHeaderId);
+        $header = SppbHeader::findOrFail($sppbHeaderId);
 
-        if (! SppbDetail::where('sppb_header_id', $sppbHeaderId)->exists()) {
+        if (! SppbStatus::from($header->status)->isEditable()) {
+            throw new SppbNotEditableException;
+        }
+
+        if (! SppbDetail::where('sppb_header_id', $sppbHeaderId)->where('quantity', '>', 0)->exists()) {
             throw new \InvalidArgumentException('SPPB harus memiliki minimal satu detail barang sebelum diajukan.');
         }
 

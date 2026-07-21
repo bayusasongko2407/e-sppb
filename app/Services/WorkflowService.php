@@ -15,8 +15,8 @@ use App\Enums\WorkflowInstanceStepStatus;
 use App\Exceptions\Workflow\InvalidSppbTransitionException;
 use App\Exceptions\Workflow\StaleWorkflowCommandException;
 use App\Exceptions\Workflow\UnauthorizedApprovalException;
-use App\Filament\Resources\MyApprovals\MyApprovalResource;
 use App\Filament\Resources\SppbHeaders\SppbHeaderResource;
+use App\Models\AppSetting;
 use App\Models\SppbHeader;
 use App\Models\SppbStatusLog;
 use App\Models\User;
@@ -31,6 +31,7 @@ use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Ramsey\Uuid\Uuid;
 
 final class WorkflowService implements WorkflowServiceContract
@@ -167,8 +168,9 @@ final class WorkflowService implements WorkflowServiceContract
                     $this->sendNotification(
                         $approver,
                         'Persetujuan Baru',
-                        "SPPB dengan nomor {$header->sppb_number} (Pemohon: {$header->requester?->name}) memerlukan persetujuan/verifikasi Anda.",
-                        MyApprovalResource::getUrl('view', ['record' => $header->id])
+                        "SPPB dengan nomor {$header->document_number} (Pemohon: {$header->requester?->name}) memerlukan persetujuan/verifikasi Anda.",
+                        SppbHeaderResource::getUrl('view', ['record' => $header]),
+                        'approval_requested'
                     );
                 }
                 $header->current_workflow_instance_id = $instance->id;
@@ -196,6 +198,14 @@ final class WorkflowService implements WorkflowServiceContract
                 null,
                 null,
                 'WORKFLOW_GENERATED',
+            );
+
+            $this->sendNotification(
+                $header->requester,
+                'Pengajuan SPPB Berhasil',
+                "SPPB dengan nomor {$header->document_number} telah berhasil diajukan dan sedang menunggu persetujuan.",
+                SppbHeaderResource::getUrl('view', ['record' => $header]),
+                'sppb_created'
             );
 
             return $instance;
@@ -227,19 +237,15 @@ final class WorkflowService implements WorkflowServiceContract
                 ->first();
 
             if (! $assignment) {
-                // Cek delegasi
-                $delegation = WorkflowDelegation::where('delegate_id', $data->actorId)
-                    ->where('is_active', true)
-                    ->where('starts_at', '<=', now())
-                    ->where('ends_at', '>=', now())
-                    ->first();
+                // Cek delegasi (multi-hop & circular safe)
+                $delegatorIds = $this->resolveDelegatorIds($data->actorId);
 
-                if (! $delegation) {
+                if (empty($delegatorIds)) {
                     throw new UnauthorizedApprovalException;
                 }
 
                 $assignment = WorkflowStepApprover::where('workflow_instance_step_id', $step->id)
-                    ->where('approver_id', $delegation->delegator_id)
+                    ->whereIn('approver_id', $delegatorIds)
                     ->where('status', ApproverStatus::PENDING->value)
                     ->first();
 
@@ -305,20 +311,28 @@ final class WorkflowService implements WorkflowServiceContract
             $instance = $step->workflowInstance()->lockForUpdate()->first();
             $header = $instance->sppbHeader()->lockForUpdate()->first();
 
+            $targetApproverIds = array_merge([$data->actorId], $this->resolveDelegatorIds($data->actorId));
+
             // Catat keputusan approver
-            WorkflowStepApprover::where('workflow_instance_step_id', $step->id)
-                ->where('approver_id', $data->actorId)
+            $assignment = WorkflowStepApprover::where('workflow_instance_step_id', $step->id)
+                ->whereIn('approver_id', $targetApproverIds)
                 ->where('status', ApproverStatus::PENDING->value)
-                ->update([
+                ->first();
+
+            $actedApproverId = $assignment ? $assignment->approver_id : $data->actorId;
+
+            if ($assignment) {
+                $assignment->update([
                     'status' => ApproverStatus::APPROVED->value,
                     'acted_at' => now(),
                     'remarks' => $data->remarks,
                 ]);
+            }
 
             // Cancel sibling approvers (jika mode ANY)
             if ($step->approval_mode === 'ANY') {
                 WorkflowStepApprover::where('workflow_instance_step_id', $step->id)
-                    ->where('approver_id', '!=', $data->actorId)
+                    ->where('approver_id', '!=', $actedApproverId)
                     ->where('status', ApproverStatus::PENDING->value)
                     ->update(['status' => ApproverStatus::CANCELLED->value, 'acted_at' => now()]);
             }
@@ -379,8 +393,9 @@ final class WorkflowService implements WorkflowServiceContract
                             $this->sendNotification(
                                 $approver,
                                 'Persetujuan Baru',
-                                "SPPB dengan nomor {$header->sppb_number} (Pemohon: {$header->requester?->name}) memerlukan persetujuan/verifikasi Anda.",
-                                MyApprovalResource::getUrl('view', ['record' => $header->id])
+                                "SPPB dengan nomor {$header->document_number} (Pemohon: {$header->requester?->name}) memerlukan persetujuan/verifikasi Anda.",
+                                SppbHeaderResource::getUrl('view', ['record' => $header]),
+                                'approval_requested'
                             );
                         }
                         $header->current_step_sequence = $nextStep->sequence;
@@ -421,6 +436,14 @@ final class WorkflowService implements WorkflowServiceContract
                         'STEP_APPROVED',
                         $data->remarks,
                     );
+
+                    $this->sendNotification(
+                        $header->requester,
+                        'Update Persetujuan SPPB',
+                        "Tahap persetujuan SPPB dengan nomor {$header->document_number} telah disetujui dan berlanjut ke tahap berikutnya.",
+                        SppbHeaderResource::getUrl('view', ['record' => $header]),
+                        'approval_stage_updated'
+                    );
                 } else {
                     // Ini step final — SPPB disetujui!
                     $instance->status = WorkflowInstanceStatus::APPROVED->value;
@@ -445,8 +468,9 @@ final class WorkflowService implements WorkflowServiceContract
                     $this->sendNotification(
                         $header->requester,
                         'SPPB Disetujui',
-                        "SPPB dengan nomor {$header->sppb_number} telah disetujui sepenuhnya.",
-                        SppbHeaderResource::getUrl('view', ['record' => $header->id])
+                        "SPPB dengan nomor {$header->document_number} telah disetujui sepenuhnya.",
+                        SppbHeaderResource::getUrl('view', ['record' => $header]),
+                        'sppb_approved'
                     );
                 }
 
@@ -470,17 +494,26 @@ final class WorkflowService implements WorkflowServiceContract
             $instance = $step->workflowInstance()->lockForUpdate()->first();
             $header = $instance->sppbHeader()->lockForUpdate()->first();
 
-            WorkflowStepApprover::where('workflow_instance_step_id', $step->id)
-                ->where('approver_id', $data->actorId)
-                ->update([
+            $targetApproverIds = array_merge([$data->actorId], $this->resolveDelegatorIds($data->actorId));
+
+            $assignment = WorkflowStepApprover::where('workflow_instance_step_id', $step->id)
+                ->whereIn('approver_id', $targetApproverIds)
+                ->where('status', ApproverStatus::PENDING->value)
+                ->first();
+
+            $actedApproverId = $assignment ? $assignment->approver_id : $data->actorId;
+
+            if ($assignment) {
+                $assignment->update([
                     'status' => ApproverStatus::REJECTED->value,
                     'acted_at' => now(),
                     'remarks' => $data->remarks,
                 ]);
+            }
 
             // Cancel semua approver lain di step ini
             WorkflowStepApprover::where('workflow_instance_step_id', $step->id)
-                ->where('approver_id', '!=', $data->actorId)
+                ->where('approver_id', '!=', $actedApproverId)
                 ->where('status', ApproverStatus::PENDING->value)
                 ->update(['status' => ApproverStatus::CANCELLED->value, 'acted_at' => now()]);
 
@@ -521,8 +554,9 @@ final class WorkflowService implements WorkflowServiceContract
             $this->sendNotification(
                 $header->requester,
                 'SPPB Ditolak',
-                "SPPB dengan nomor {$header->sppb_number} telah ditolak oleh {$actorName}. Alasan: {$data->remarks}",
-                SppbHeaderResource::getUrl('view', ['record' => $header->id])
+                "SPPB dengan nomor {$header->document_number} telah ditolak oleh {$actorName}. Alasan: {$data->remarks}",
+                SppbHeaderResource::getUrl('view', ['record' => $header]),
+                'sppb_rejected_revised'
             );
 
             return $step->refresh();
@@ -589,8 +623,9 @@ final class WorkflowService implements WorkflowServiceContract
             $this->sendNotification(
                 $header->requester,
                 'Permintaan Revisi SPPB',
-                "SPPB dengan nomor {$header->sppb_number} dikembalikan untuk direvisi oleh {$actorName}. Catatan: {$data->remarks}",
-                SppbHeaderResource::getUrl('view', ['record' => $header->id])
+                "SPPB dengan nomor {$header->document_number} dikembalikan untuk direvisi oleh {$actorName}. Catatan: {$data->remarks}",
+                SppbHeaderResource::getUrl('view', ['record' => $header]),
+                'sppb_rejected_revised'
             );
 
             return $step->refresh();
@@ -673,25 +708,108 @@ final class WorkflowService implements WorkflowServiceContract
         ]);
     }
 
-    private function sendNotification($user, string $title, string $body, string $url): void
+    /**
+     * Resolves all valid delegator IDs for a given actor ID recursively.
+     * Guards against circular delegation loops and limits recursion depth.
+     *
+     * @return array<int, int>
+     */
+    public function resolveDelegatorIds(int $actorId, int $maxDepth = 5): array
+    {
+        $delegatorIds = [];
+        $currentDelegateIds = [$actorId];
+        $visited = [$actorId => true];
+
+        for ($depth = 0; $depth < $maxDepth; $depth++) {
+            if (empty($currentDelegateIds)) {
+                break;
+            }
+
+            $delegations = WorkflowDelegation::whereIn('delegate_id', $currentDelegateIds)
+                ->where('is_active', true)
+                ->where('starts_at', '<=', now())
+                ->where('ends_at', '>=', now())
+                ->get();
+
+            if ($delegations->isEmpty()) {
+                break;
+            }
+
+            $nextDelegateIds = [];
+            foreach ($delegations as $delegation) {
+                $delegatorId = (int) $delegation->delegator_id;
+                if (! isset($visited[$delegatorId])) {
+                    $visited[$delegatorId] = true;
+                    $delegatorIds[] = $delegatorId;
+                    $nextDelegateIds[] = $delegatorId;
+                }
+            }
+
+            $currentDelegateIds = $nextDelegateIds;
+        }
+
+        return array_unique($delegatorIds);
+    }
+
+    private function sendNotification(?User $user, string $title, string $body, string $url, ?string $eventType = null): void
     {
         if (! $user) {
             return;
         }
 
-        try {
-            Notification::make()
-                ->title($title)
-                ->body($body)
-                ->icon('heroicon-o-document-text')
-                ->actions([
-                    Action::make('view')
-                        ->label('Lihat Detail')
-                        ->url($url),
-                ])
-                ->sendToDatabase($user);
-        } catch (\Throwable $e) {
-            Log::error('Gagal mengirim notifikasi: '.$e->getMessage());
+        // 1. In-App System Notification
+        $systemEnabled = (bool) AppSetting::get('notify_system_enabled', true);
+        $eventAllowed = true;
+
+        if ($eventType) {
+            $eventSettingKey = 'notify_event_'.$eventType;
+            $eventAllowed = (bool) AppSetting::get($eventSettingKey, true);
+        }
+
+        if ($systemEnabled && $eventAllowed) {
+            try {
+                Notification::make()
+                    ->title($title)
+                    ->body($body)
+                    ->icon('heroicon-o-document-text')
+                    ->actions([
+                        Action::make('view')
+                            ->label('Lihat Detail')
+                            ->url($url),
+                    ])
+                    ->sendToDatabase($user, isEventDispatched: true);
+            } catch (\Throwable $e) {
+                Log::error('Gagal mengirim notifikasi sistem: '.$e->getMessage());
+            }
+        }
+
+        // 2. Email Notification
+        $emailEnabled = (bool) AppSetting::get('notify_email_enabled', false);
+        if ($emailEnabled && ! empty($user->email)) {
+            try {
+                $mailFromAddress = (string) AppSetting::get('mail_from_address', 'no-reply@esppb.perusahaan.com');
+                $mailFromName = (string) AppSetting::get('mail_from_name', 'E-SPPB Enterprise');
+
+                Mail::raw("{$body}\n\nLihat detail: {$url}", function ($message) use ($user, $title, $mailFromAddress, $mailFromName) {
+                    $message->to($user->email)
+                        ->from($mailFromAddress, $mailFromName)
+                        ->subject("[E-SPPB] {$title}");
+                });
+            } catch (\Throwable $e) {
+                Log::error('Gagal mengirim email notifikasi: '.$e->getMessage());
+            }
+        }
+
+        // 3. WhatsApp Notification
+        $waEnabled = (bool) AppSetting::get('notify_wa_enabled', false);
+        if ($waEnabled && ! empty($user->phone)) {
+            try {
+                $whatsAppService = app(WhatsAppService::class);
+                $messageText = "*[E-SPPB Enterprise]*\n*{$title}*\n\n{$body}\n\n🔗 Link: {$url}";
+                $whatsAppService->sendMessage($user->phone, $messageText);
+            } catch (\Throwable $e) {
+                Log::error('Gagal mengirim notifikasi WhatsApp: '.$e->getMessage());
+            }
         }
     }
 }

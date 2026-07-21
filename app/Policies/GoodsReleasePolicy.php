@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\GoodsRelease;
 use App\Models\User;
+use Spatie\Permission\Exceptions\PermissionDoesNotExist;
 
 class GoodsReleasePolicy
 {
@@ -12,7 +13,15 @@ class GoodsReleasePolicy
      */
     public function viewAny(User $user): bool
     {
-        return true;
+        if ($user->hasRole('super_admin')) {
+            return true;
+        }
+
+        try {
+            return $user->hasPermissionTo('view_any_goodsrelease');
+        } catch (PermissionDoesNotExist $e) {
+            return false;
+        }
     }
 
     /**
@@ -44,6 +53,14 @@ class GoodsReleasePolicy
     {
         if ($user->hasRole('super_admin')) {
             return true;
+        }
+
+        try {
+            if (! $user->hasPermissionTo('create_goodsrelease')) {
+                return false;
+            }
+        } catch (PermissionDoesNotExist $e) {
+            return false;
         }
 
         return $user->documentAccesses()

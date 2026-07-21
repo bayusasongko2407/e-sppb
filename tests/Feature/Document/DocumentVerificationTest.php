@@ -219,11 +219,24 @@ class DocumentVerificationTest extends TestCase
         $this->assertEquals('VALID', $result['status']);
         $this->assertArrayHasKey('document_type', $result['data']);
         $this->assertArrayHasKey('document_number', $result['data']);
-        $this->assertArrayHasKey('plant_code', $result['data']);
+        $this->assertArrayHasKey('status_sppb', $result['data']);
         $this->assertArrayHasKey('plant_name', $result['data']);
         $this->assertArrayHasKey('page_number', $result['data']);
         $this->assertArrayHasKey('total_pages', $result['data']);
         $this->assertArrayHasKey('fingerprint', $result['data']);
+    }
+
+    public function test_verify_returns_not_found_when_document_generation_relation_missing(): void
+    {
+        [$generation, $page] = $this->createReadyGenerationWithPage();
+
+        // Delete parent generation record directly in DB to simulate orphan page
+        DocumentGeneration::where('id', $generation->id)->delete();
+
+        $result = $this->verificationService->verifyBySha256Token($page->verification_token_hash);
+
+        $this->assertEquals('NOT_FOUND', $result['status']);
+        $this->assertNull($result['data']);
     }
 
     // =========================================================================

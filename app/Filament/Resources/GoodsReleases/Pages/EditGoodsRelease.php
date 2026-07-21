@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\GoodsReleases\Pages;
 
 use App\Filament\Resources\GoodsReleases\GoodsReleaseResource;
+use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 
@@ -16,6 +17,42 @@ class EditGoodsRelease extends EditRecord
     {
         return [
             DeleteAction::make(),
+        ];
+    }
+
+    protected function getFormActions(): array
+    {
+        $record = $this->getRecord();
+
+        if ($record && $record->status !== 'DRAFT') {
+            return [
+                $this->getSaveFormAction()
+                    ->label('Simpan Perubahan'),
+                $this->getCancelFormAction(),
+            ];
+        }
+
+        return [
+            Action::make('saveDraft')
+                ->label('Simpan Sebagai Draft')
+                ->action(function () {
+                    $this->data['status'] = 'DRAFT';
+                    $this->save();
+                })
+                ->color('gray'),
+
+            Action::make('saveFinal')
+                ->label('Simpan Final')
+                ->requiresConfirmation()
+                ->modalHeading('Simpan Final Surat Jalan')
+                ->modalDescription('Apakah Anda yakin? Setelah disimpan final, Anda tidak dapat mengubah data selain Nama Pengemudi, No. Kendaraan, Ekspedisi, dan Tanggal Pengiriman.')
+                ->action(function () {
+                    $this->data['status'] = 'RELEASED';
+                    $this->save();
+                })
+                ->color('primary'),
+
+            $this->getCancelFormAction(),
         ];
     }
 }

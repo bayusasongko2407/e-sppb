@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\DocumentVerificationController;
 use App\Http\Controllers\SppbPreviewController;
 use Illuminate\Support\Facades\Route;
@@ -12,5 +13,17 @@ Route::middleware('throttle:60,1')->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
-    Route::get('/sppb/{id}/preview', [SppbPreviewController::class, 'preview'])->name('sppb.preview');
+    Route::get('/sppb/{record}/preview', [SppbPreviewController::class, 'preview'])->name('sppb.preview');
 });
+
+Route::get('/attachments/{attachment:uuid}/preview', [AttachmentController::class, 'preview'])
+    ->name('attachments.preview')
+    ->middleware('signed');
+
+Route::get('/attachments/{attachment:uuid}/download', [AttachmentController::class, 'download'])
+    ->name('attachments.download')
+    ->middleware('signed');
+
+Route::get('/attachments/{attachment:uuid}/delete', [AttachmentController::class, 'delete'])
+    ->name('attachments.delete')
+    ->middleware('signed');

@@ -8,6 +8,8 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Illuminate\Support\HtmlString;
 
@@ -39,11 +41,26 @@ class RunningNumberForm
                             Select::make('plant_id')
                                 ->label('Pabrik / Plant')
                                 ->relationship('plant', 'name')
-                                ->required(),
+                                ->required()
+                                ->live()
+                                ->afterStateUpdated(fn (Set $set) => $set('department_id', null)),
 
                             Select::make('department_id')
                                 ->label('Departemen (Opsional)')
-                                ->relationship('department', 'name')
+                                ->relationship(
+                                    name: 'department',
+                                    titleAttribute: 'name',
+                                    modifyQueryUsing: function ($query, Get $get) {
+                                        $query->with('plant');
+                                        $plantId = $get('plant_id');
+                                        if ($plantId) {
+                                            $query->where('plant_id', $plantId);
+                                        }
+
+                                        return $query;
+                                    }
+                                )
+                                ->getOptionLabelFromRecordUsing(fn ($record) => "[{$record->plant?->code}] - {$record->name}")
                                 ->default(null)
                                 ->helperText('Kosongkan jika format berlaku untuk semua departemen di plant ini.'),
 

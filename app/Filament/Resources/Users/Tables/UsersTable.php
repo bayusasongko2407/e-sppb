@@ -37,8 +37,11 @@ class UsersTable
                     ->searchable(),
                 TextColumn::make('email')
                     ->label('Email')
-                    ->label('Email address')
                     ->searchable(),
+                TextColumn::make('phone')
+                    ->label('No. WhatsApp')
+                    ->searchable()
+                    ->placeholder('—'),
                 TextColumn::make('email_verified_at')
                     ->label('Email Diverifikasi Pada')
                     ->dateTime()

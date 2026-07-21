@@ -1,0 +1,21 @@
+{
+    "mcpServers": {
+        "database": {
+            "command": "node",
+            "args": [
+                ".agents/mcp/servers/database.js"
+            ],
+            "env": {
+                "DB_CONNECTION": "mysql",
+                "DB_HOST": "localhost",
+                "DB_DATABASE": "e_sppb_enterprise"
+            }
+        },
+        "workflow": {
+            "command": "node",
+            "args": [
+                ".agents/mcp/servers/workflow.js"
+            ]
+        }
+    }
+}

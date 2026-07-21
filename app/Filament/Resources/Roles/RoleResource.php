@@ -2,16 +2,21 @@
 
 namespace App\Filament\Resources\Roles;
 
-use App\Filament\Resources\Roles\Pages\ManageRoles;
+use App\Filament\Resources\Roles\Pages\CreateRole;
+use App\Filament\Resources\Roles\Pages\EditRole;
+use App\Filament\Resources\Roles\Pages\ListRoles;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Forms\Components\Select;
+use Filament\Forms\Components\CheckboxList;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
@@ -38,6 +43,97 @@ class RoleResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
+        $modules = [
+            'plant' => 'Plant (Pabrik)',
+            'department' => 'Departemen',
+            'location' => 'Lokasi Gudang',
+            'unit' => 'Satuan Kerja / Unit',
+            'position' => 'Jabatan',
+            'user' => 'Pengguna (User)',
+            'userposition' => 'Jabatan Pengguna',
+            'item' => 'Barang (Item)',
+            'asset' => 'Aset',
+            'enumcontrol' => 'Master Klasifikasi (Enum)',
+            'sppbheader' => 'Dokumen SPPB',
+            'sppbdetail' => 'Detail Barang SPPB',
+            'sppbstatuslog' => 'Log Status SPPB',
+            'goodsrelease' => 'Pelepasan Barang',
+            'goodsreleaseitem' => 'Detail Rilis Barang',
+            'activitylog' => 'Audit Log Aktivitas',
+            'attachment' => 'Lampiran File',
+            'workflowtemplate' => 'Master Workflow Template',
+            'workflowstep' => 'Langkah Persetujuan',
+            'workflowstepapprover' => 'Approver Workflow',
+            'workflowinstance' => 'Instance Approval SPPB',
+            'workflowinstancestep' => 'Log Approval Workflow',
+            'workflowdelegation' => 'Delegasi Persetujuan',
+            'workflowcommand' => 'Perintah Approval',
+            'runningnumber' => 'Nomor Seri Dokumen (Sequence)',
+            'legacyreference' => 'Referensi Warisan (Legacy)',
+        ];
+
+        $allPermissions = Permission::all();
+        $checkboxes = [];
+
+        foreach ($modules as $module => $displayName) {
+            $modulePermissions = $allPermissions->filter(function ($permission) use ($module) {
+                $prefixes = ['view_any_', 'view_', 'create_', 'update_', 'delete_', 'restore_', 'force_delete_'];
+                $modelName = $permission->name;
+                foreach ($prefixes as $prefix) {
+                    if (str_starts_with($permission->name, $prefix)) {
+                        $modelName = substr($permission->name, strlen($prefix));
+                        break;
+                    }
+                }
+
+                return $modelName === $module;
+            });
+
+            $options = $modulePermissions->mapWithKeys(function ($p) {
+                $label = $p->name;
+                if (str_starts_with($p->name, 'view_any_')) {
+                    $label = 'Lihat Daftar';
+                } elseif (str_starts_with($p->name, 'view_')) {
+                    $label = 'Lihat Detail';
+                } elseif (str_starts_with($p->name, 'create_')) {
+                    $label = 'Tambah';
+                } elseif (str_starts_with($p->name, 'update_')) {
+                    $label = 'Ubah';
+                } elseif (str_starts_with($p->name, 'delete_')) {
+                    $label = 'Hapus';
+                } elseif (str_starts_with($p->name, 'restore_')) {
+                    $label = 'Pulihkan';
+                } elseif (str_starts_with($p->name, 'force_delete_')) {
+                    $label = 'Hapus Permanen';
+                }
+
+                return [$p->id => $label];
+            })->toArray();
+
+            if (empty($options)) {
+                continue;
+            }
+
+            $checkboxes[] = Section::make($displayName)
+                ->schema([
+                    CheckboxList::make("permissions_{$module}")
+                        ->label('')
+                        ->options($options)
+                        ->afterStateHydrated(function ($component, $record) use ($modulePermissions) {
+                            if (! $record) {
+                                return;
+                            }
+                            $rolePermissionIds = $record->permissions->pluck('id')->toArray();
+                            $modulePermIds = $modulePermissions->pluck('id')->toArray();
+                            $state = array_values(array_intersect($rolePermissionIds, $modulePermIds));
+                            $component->state($state);
+                        })
+                        ->dehydrated(false)
+                        ->bulkToggleable(),
+                ])
+                ->columnSpan(1);
+        }
+
         return $schema
             ->schema([
                 Toggle::make('is_superadmin')
@@ -67,39 +163,27 @@ class RoleResource extends Resource
                             $set('name', 'super_admin');
                         }
                     }),
-                Select::make('permissions')
-                    ->label('Izin Modul (Hak Akses)')
-                    ->multiple()
-                    ->preload()
-                    ->searchable()
-                    ->options(function () {
-                        return Permission::all()
-                            ->groupBy(function ($permission) {
-                                $parts = explode('.', $permission->name);
-                                if (count($parts) > 1) {
-                                    return strtoupper(str_replace('_', ' ', $parts[0]));
-                                }
 
-                                return 'LAINNYA';
-                            })
-                            ->map(function ($group) {
-                                return $group->pluck('name', 'id')->toArray();
-                            })
-                            ->toArray();
-                    })
-                    ->afterStateHydrated(function ($component, $state, $record) {
-                        if ($record) {
-                            $component->state($record->permissions->pluck('id')->toArray());
-                        }
-                    })
-                    ->saveRelationshipsUsing(function ($component, $state, $record) {
-                        if ($record) {
-                            $record->permissions()->sync($state ?? []);
-                        }
-                    })
-                    ->dehydrated(false)
+                Grid::make(3)
+                    ->schema($checkboxes)
                     ->hidden(fn (Get $get) => $get('is_superadmin'))
                     ->columnSpanFull(),
+
+                Hidden::make('permissions_sync')
+                    ->dehydrated(false)
+                    ->saveRelationshipsUsing(function ($record, $get) use ($modules) {
+                        if (! $record) {
+                            return;
+                        }
+                        $allPermissionIds = [];
+                        foreach (array_keys($modules) as $module) {
+                            $ids = $get("permissions_{$module}") ?? [];
+                            if (is_array($ids)) {
+                                $allPermissionIds = array_merge($allPermissionIds, $ids);
+                            }
+                        }
+                        $record->permissions()->sync($allPermissionIds);
+                    }),
             ]);
     }
 
@@ -128,7 +212,9 @@ class RoleResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => ManageRoles::route('/'),
+            'index' => ListRoles::route('/'),
+            'create' => CreateRole::route('/create'),
+            'edit' => EditRole::route('/{record}/edit'),
         ];
     }
 }

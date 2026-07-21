@@ -8,6 +8,7 @@ use App\Contracts\WorkflowServiceContract;
 use App\DTOs\Workflow\ApprovalDecisionData;
 use App\Enums\ApproverStatus;
 use App\Filament\Resources\MyApprovals\MyApprovalResource;
+use App\Filament\Resources\SppbHeaders\SppbHeaderResource;
 use App\Models\WorkflowStepApprover;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
@@ -18,6 +19,15 @@ use Illuminate\Support\Str;
 class ViewMyApproval extends ViewRecord
 {
     protected static string $resource = MyApprovalResource::class;
+
+    public function mount(int|string $record): void
+    {
+        parent::mount($record);
+
+        if ($this->record) {
+            $this->redirect(SppbHeaderResource::getUrl('view', ['record' => $this->record]));
+        }
+    }
 
     protected function getHeaderActions(): array
     {

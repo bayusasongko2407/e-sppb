@@ -10,11 +10,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
+use Spatie\Permission\Exceptions\PermissionDoesNotExist;
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-    use HasFactory, HasRoles, Notifiable, SecureRouteBinding;
+    use HasApiTokens, HasFactory, HasRoles, Notifiable, SecureRouteBinding;
 
     /**
      * The attributes that are mass assignable.
@@ -28,12 +30,16 @@ class User extends Authenticatable
         'nik',
         'name',
         'email',
+        'phone',
         'email_verified_at',
         'password',
         'is_active',
         'last_login_at',
         'failed_login_attempts',
         'locked_until',
+        'theme_color',
+        'theme_font',
+        'theme_preset',
     ];
 
     /**
@@ -148,14 +154,63 @@ class User extends Authenticatable
             return true;
         }
 
-        $query = $this->documentAccesses()->where('module', $module);
+        // 1. Spatie Permission Check (Gerbang Utama)
+        $moduleToModelMap = [
+            'sppb' => 'sppbheader',
+            'goodsrelease' => 'goodsrelease',
+            'goods_release' => 'goodsrelease',
+        ];
+        $model = $moduleToModelMap[$module] ?? $module;
 
-        if ($plantId !== null) {
-            $query->where('plant_id', $plantId);
+        $spatieAction = $action === 'edit' ? 'update' : $action;
+
+        $hasSpatieAccess = false;
+        try {
+            if ($spatieAction === 'view') {
+                $hasSpatieAccess = $this->hasPermissionTo("view_{$model}") || $this->hasPermissionTo("view_any_{$model}");
+            } else {
+                $hasSpatieAccess = $this->hasPermissionTo("{$spatieAction}_{$model}");
+            }
+        } catch (PermissionDoesNotExist $e) {
+            $hasSpatieAccess = false;
         }
 
+        if (! $hasSpatieAccess) {
+            return false;
+        }
+
+        $roleIds = $this->roles->pluck('id')->toArray();
+
+        $query = DocumentAccess::query()->where('module', $module);
+
+        // Check if assigned directly to user OR inherited from Spatie roles
+        $query->where(function ($q) use ($roleIds) {
+            $q->where('user_id', $this->id);
+            if (! empty($roleIds)) {
+                $q->orWhereIn('role_id', $roleIds);
+            }
+        });
+
+        // Wildcard check for Plant: If parameter is set, match record with that plant OR null (all plants).
+        // If parameter is null, only match record with null plant (all plants).
+        if ($plantId !== null) {
+            $query->where(function ($q) use ($plantId) {
+                $q->where('plant_id', $plantId)
+                    ->orWhereNull('plant_id');
+            });
+        } else {
+            $query->whereNull('plant_id');
+        }
+
+        // Wildcard check for Department: If parameter is set, match record with that department OR null (all departments).
+        // If parameter is null, only match record with null department (all departments).
         if ($departmentId !== null) {
-            $query->where('department_id', $departmentId);
+            $query->where(function ($q) use ($departmentId) {
+                $q->where('department_id', $departmentId)
+                    ->orWhereNull('department_id');
+            });
+        } else {
+            $query->whereNull('department_id');
         }
 
         switch ($action) {
@@ -176,5 +231,13 @@ class User extends Authenticatable
         }
 
         return $query->exists();
+    }
+
+    /**
+     * Route notifications for WhatsApp channel.
+     */
+    public function routeNotificationForWhatsApp(): ?string
+    {
+        return $this->phone;
     }
 }

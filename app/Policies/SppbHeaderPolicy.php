@@ -5,6 +5,7 @@ namespace App\Policies;
 use App\Enums\SppbStatus;
 use App\Models\SppbHeader;
 use App\Models\User;
+use Spatie\Permission\Exceptions\PermissionDoesNotExist;
 
 class SppbHeaderPolicy
 {
@@ -13,7 +14,15 @@ class SppbHeaderPolicy
      */
     public function viewAny(User $user): bool
     {
-        return true;
+        if ($user->hasRole('super_admin')) {
+            return true;
+        }
+
+        try {
+            return $user->hasPermissionTo('view_any_sppbheader');
+        } catch (PermissionDoesNotExist $e) {
+            return false;
+        }
     }
 
     /**
@@ -45,6 +54,14 @@ class SppbHeaderPolicy
     {
         if ($user->hasRole('super_admin')) {
             return true;
+        }
+
+        try {
+            if (! $user->hasPermissionTo('create_sppbheader')) {
+                return false;
+            }
+        } catch (PermissionDoesNotExist $e) {
+            return false;
         }
 
         if ($user->hasRole('requester')) {

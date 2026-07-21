@@ -19,6 +19,7 @@ class WorkflowDelegationForm
                     ->required(),
                 Select::make('delegate_id')
                     ->relationship('delegate', 'name')
+                    ->different('delegator_id')
                     ->required(),
                 Select::make('plant_id')
                     ->relationship('plant', 'name')

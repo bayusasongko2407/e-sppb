@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\Pages\Auth\CustomLogin;
 use App\Filament\Pages\MyProfile;
+use App\Models\AppSetting;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -25,6 +26,39 @@ use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 class AdminPanelProvider extends PanelProvider
 {
+    public const THEME_PRESETS = [
+        'default' => [
+            'color' => '#2563EB',
+            'font' => 'Inter',
+            'gray' => Color::Slate,
+        ],
+        'nord' => [
+            'color' => '#0D9488',
+            'font' => 'Inter',
+            'gray' => Color::Slate,
+        ],
+        'sunset' => [
+            'color' => '#EA580C',
+            'font' => 'Outfit',
+            'gray' => Color::Zinc,
+        ],
+        'forest' => [
+            'color' => '#059669',
+            'font' => 'Plus Jakarta Sans',
+            'gray' => Color::Stone,
+        ],
+        'dracula' => [
+            'color' => '#9333EA',
+            'font' => 'Outfit',
+            'gray' => Color::Zinc,
+        ],
+        'min' => [
+            'color' => '#475569',
+            'font' => 'Plus Jakarta Sans',
+            'gray' => Color::Neutral,
+        ],
+    ];
+
     public function panel(Panel $panel): Panel
     {
         return $panel
@@ -34,26 +68,71 @@ class AdminPanelProvider extends PanelProvider
             ->databaseNotifications()
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->login(CustomLogin::class)
-            ->brandName('E-SPPB Enterprise')
-            ->brandLogo(fn () => request()->routeIs('filament.admin.auth.login') ? asset('images/logo-lanscape.png') : asset('images/logo.png'))
-            ->brandLogoHeight('2.5rem')
-            ->favicon(asset('images/logo.png'))
+            ->brandName(fn () => AppSetting::get('app_custom_name', 'E-SPPB Enterprise'))
+            ->brandLogo(function () {
+                $isLogin = request()->routeIs('filament.admin.auth.login');
+                if ($isLogin) {
+                    $loginLogo = AppSetting::get('logo_login');
+                    if ($loginLogo) {
+                        return asset('storage/'.$loginLogo);
+                    }
+                }
+                $themeLogo = AppSetting::get('logo_light');
+                if ($themeLogo) {
+                    return asset('storage/'.$themeLogo);
+                }
+
+                return $isLogin ? asset('images/logo-lanscape.png') : asset('images/logo.png');
+            })
+            ->brandLogoHeight(fn () => AppSetting::get('logo_height', 36).'px')
+            ->favicon(function () {
+                $favicon = AppSetting::get('logo_favicon');
+
+                return $favicon ? asset('storage/'.$favicon) : asset('images/logo.png');
+            })
             ->userMenuItems([
                 'profile' => MenuItem::make()
                     ->label('Profil & Pengaturan Akun')
                     ->url(fn (): string => MyProfile::getUrl())
                     ->icon('heroicon-o-user'),
             ])
+            ->colors(function () {
+                $user = auth()->user();
+                $preset = $user?->theme_preset ?? 'default';
 
-            ->colors([
-                'primary' => Color::hex('#2563EB'),
-                'success' => Color::hex('#16A34A'),
-                'warning' => Color::hex('#F59E0B'),
-                'danger' => Color::hex('#DC2626'),
-                'info' => Color::hex('#0891B2'),
-                'gray' => Color::Slate,
-            ])
-            ->font('Inter')
+                $primaryColor = Color::hex('#2563EB');
+                $grayColor = Color::Slate;
+
+                if ($preset === 'custom') {
+                    $primaryColor = $user->theme_color ? Color::hex($user->theme_color) : Color::hex('#2563EB');
+                } elseif (isset(self::THEME_PRESETS[$preset])) {
+                    $primaryColor = Color::hex(self::THEME_PRESETS[$preset]['color']);
+                    $grayColor = self::THEME_PRESETS[$preset]['gray'];
+                }
+
+                return [
+                    'primary' => $primaryColor,
+                    'success' => Color::hex('#16A34A'),
+                    'warning' => Color::hex('#F59E0B'),
+                    'danger' => Color::hex('#DC2626'),
+                    'info' => Color::hex('#0891B2'),
+                    'gray' => $grayColor,
+                ];
+            })
+            ->font(function () {
+                $user = auth()->user();
+                $preset = $user?->theme_preset ?? 'default';
+
+                if ($preset === 'custom') {
+                    return $user->theme_font ?? 'Inter';
+                }
+
+                if (isset(self::THEME_PRESETS[$preset])) {
+                    return self::THEME_PRESETS[$preset]['font'];
+                }
+
+                return 'Inter';
+            })
             ->maxContentWidth(Width::Full)
             ->sidebarCollapsibleOnDesktop()
             ->navigationGroups([

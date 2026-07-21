@@ -54,9 +54,9 @@ class DocumentAccessResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with(['user.documentAccesses.plant', 'user.documentAccesses.department'])
-            ->selectRaw('MIN(id) as id, user_id')
-            ->groupBy('user_id');
+            ->with(['user', 'role', 'plant', 'department'])
+            ->selectRaw('MIN(id) as id, user_id, role_id')
+            ->groupBy('user_id', 'role_id');
     }
 
     public static function getPages(): array

@@ -9,52 +9,199 @@ use App\Models\Asset;
 use App\Models\Item;
 use App\Models\Location;
 use App\Models\SppbHeader;
+use App\Models\Unit;
+use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\ToggleButtons;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\HtmlString;
 
 class SppbHeaderForm
 {
     public static function configure(Schema $schema): Schema
     {
+        $getRequestDateField = fn () => TextInput::make('request_date')
+            ->label('Tanggal Permintaan')
+            ->readOnly()
+            ->prefixIcon('heroicon-m-calendar')
+            ->placeholder(now()->translatedFormat('d/m/Y'))
+            ->default(fn () => now()->toDateString())
+            ->extraInputAttributes(['class' => 'text-center']);
+
+        $getDateNeededField = fn () => DatePicker::make('date_needed')
+            ->label('Tanggal Dibutuhkan')
+            ->native(false)
+            ->displayFormat('d/m/Y')
+            ->prefixIcon('heroicon-m-calendar')
+            ->extraInputAttributes(['class' => 'text-center'])
+            ->required()
+            ->default(fn () => now()->addDay()->toDateString())
+            ->minDate(now()->toDateString());
+
+        $getPlantIdField = fn () => Select::make('plant_id')
+            ->label('Plant')
+            ->relationship('plant', 'name', function ($query) {
+                $user = auth()->user();
+                if (! $user) {
+                    return $query->whereRaw('1=0');
+                }
+                if ($user->hasRole('super_admin')) {
+                    return $query;
+                }
+
+                return $query->whereIn('id', function ($sub) use ($user) {
+                    $sub->select('plant_id')
+                        ->from('document_accesses')
+                        ->where('user_id', $user->id)
+                        ->where('module', 'sppb')
+                        ->where(function ($q) {
+                            $q->where('can_create', true)
+                                ->orWhere('can_view', true)
+                                ->orWhere('can_edit', true);
+                        });
+                });
+            })
+            ->searchable()
+            ->preload()
+            ->required()
+            ->default(fn () => auth()->user()?->plant_id)
+            ->live()
+            ->afterStateUpdated(function (Set $set) {
+                $set('department_id', null);
+                if (auth()->user()?->hasRole('super_admin')) {
+                    $set('requester_id', null);
+                } else {
+                    $set('requester_id', auth()->id());
+                }
+            });
+
+        $getDepartmentIdField = fn () => Select::make('department_id')
+            ->label('Department')
+            ->relationship('department', 'name', function ($query, Get $get) {
+                $plantId = $get('plant_id');
+                if (! $plantId) {
+                    return $query->whereRaw('1=0');
+                }
+                $query->where('plant_id', $plantId);
+
+                $user = auth()->user();
+                if ($user && ! $user->hasRole('super_admin')) {
+                    $query->whereIn('id', function ($sub) use ($user, $plantId) {
+                        $sub->select('department_id')
+                            ->from('document_accesses')
+                            ->where('user_id', $user->id)
+                            ->where('plant_id', $plantId)
+                            ->where('module', 'sppb')
+                            ->where(function ($q) {
+                                $q->where('can_create', true)
+                                    ->orWhere('can_view', true)
+                                    ->orWhere('can_edit', true);
+                            });
+                    });
+                }
+
+                return $query;
+            })
+            ->searchable()
+            ->preload()
+            ->required()
+            ->default(fn () => auth()->user()?->department_id ?? null)
+            ->live()
+            ->afterStateUpdated(function (Set $set) {
+                if (auth()->user()?->hasRole('super_admin')) {
+                    $set('requester_id', null);
+                } else {
+                    $set('requester_id', auth()->id());
+                }
+            });
+
+        $getRequesterIdField = fn () => Select::make('requester_id')
+            ->label('Pemohon')
+            ->relationship('requester', 'name', function ($query, Get $get) {
+                $user = auth()->user();
+                if (! $user) {
+                    return $query->whereRaw('1=0');
+                }
+
+                // For regular users (non super_admin), ALWAYS restrict query to auth user so default(auth()->id()) is always matched and displayed
+                if (! $user->hasRole('super_admin')) {
+                    return $query->where('id', $user->id);
+                }
+
+                // For Super Admin: filter dynamically based on selected Plant & Department
+                $plantId = $get('plant_id');
+                $deptId = $get('department_id');
+                if (! $plantId || ! $deptId) {
+                    return $query;
+                }
+
+                return $query->where(function ($q) use ($plantId, $deptId) {
+                    $q->where('plant_id', $plantId)
+                        ->where('department_id', $deptId)
+                        ->orWhereIn('id', function ($sub) use ($plantId, $deptId) {
+                            $sub->select('user_id')
+                                ->from('document_accesses')
+                                ->where('plant_id', $plantId)
+                                ->where('department_id', $deptId)
+                                ->where('module', 'sppb')
+                                ->where(function ($accessQ) {
+                                    $accessQ->where('can_create', true)
+                                        ->orWhere('can_view', true)
+                                        ->orWhere('can_edit', true);
+                                });
+                        });
+                });
+            })
+            ->searchable(fn () => auth()->user()?->hasRole('super_admin'))
+            ->preload()
+            ->required()
+            ->default(fn () => auth()->id())
+            ->disabled(fn () => ! auth()->user()?->hasRole('super_admin'))
+            ->dehydrated();
+
         return $schema
             ->components([
                 // ─── SECTION 1: INFORMASI HEADER ──────────────────────────────
                 Section::make('Informasi Header')
                     ->schema([
-                        // ROW 1: No. SPPB | Tgl Permintaan | Status | Plant | Department | Requester
+                        // Create Mode Top Row: Tgl Permintaan | Plant | Department | Pemohon (4 columns)
                         Grid::make([
                             'default' => 1,
                             'sm' => 2,
-                            'lg' => 6,
+                            'lg' => 4,
                         ])->schema([
-                            // No. SPPB — readonly, hidden on create
+                            $getRequestDateField(),
+                            $getPlantIdField(),
+                            $getDepartmentIdField(),
+                            $getRequesterIdField(),
+                        ])
+                            ->visibleOn('create'),
+
+                        // Edit Mode Row 1: No. SPPB | Tgl Permintaan | Status (3 columns)
+                        Grid::make([
+                            'default' => 1,
+                            'sm' => 2,
+                            'lg' => 3,
+                        ])->schema([
                             TextInput::make('document_number')
                                 ->label('No. SPPB')
                                 ->readOnly()
-                                ->placeholder('Dibuat otomatis')
-                                ->hiddenOn('create'),
+                                ->placeholder('Dibuat otomatis'),
 
-                            // Tanggal Permintaan — readonly
-                            TextInput::make('request_date')
-                                ->label('Tanggal Permintaan')
-                                ->readOnly()
-                                ->placeholder(now()->translatedFormat('d/m/Y'))
-                                ->default(fn () => now()->toDateString()),
+                            $getRequestDateField(),
 
-                            // Status — readonly badge via Placeholder, hidden on create
                             Placeholder::make('status_display')
                                 ->label('Status')
                                 ->content(function ($record): HtmlString {
@@ -83,93 +230,81 @@ class SppbHeaderForm
                                         .e($status->label())
                                         .'</span>'
                                     );
-                                })
-                                ->hiddenOn('create'),
+                                }),
+                        ])
+                            ->hiddenOn('create'),
 
-                            // Plant — editable
-                            Select::make('plant_id')
-                                ->label('Plant')
-                                ->relationship('plant', 'name')
-                                ->searchable()
-                                ->preload()
-                                ->required()
-                                ->default(fn () => auth()->user()?->plant_id)
-                                ->live(),
-
-                            // Department — editable
-                            Select::make('department_id')
-                                ->label('Department')
-                                ->relationship('department', 'name', fn ($query, $get) => $query->when($get('plant_id'), fn ($q, $plantId) => $q->where('plant_id', $plantId)))
-                                ->searchable()
-                                ->preload()
-                                ->required()
-                                ->default(fn () => auth()->user()?->department_id ?? null),
-
-                            // Requester — editable
-                            Select::make('requester_id')
-                                ->label('Requester')
-                                ->relationship('requester', 'name')
-                                ->searchable()
-                                ->preload()
-                                ->required()
-                                ->default(fn () => auth()->id()),
-                        ]),
-
-                        // ROW 2: Lokasi Asal | Lokasi Tujuan | Keperluan (span rest)
+                        // Edit Mode Row 2: Plant | Department | Pemohon (3 columns)
                         Grid::make([
                             'default' => 1,
                             'sm' => 2,
-                            'lg' => 6,
+                            'lg' => 3,
                         ])->schema([
-                            // Lokasi Asal
-                            Select::make('origin_location_id')
-                                ->label('Lokasi Asal')
-                                ->relationship('originLocation', 'name')
-                                ->searchable()
-                                ->preload()
-                                ->required()
-                                ->live()
-                                ->afterStateUpdated(fn (Set $set, ?int $state) => $set(
-                                    'origin_address_display',
-                                    static::getLocationAddress($state)
-                                ))
-                                ->columnSpan(1),
+                            $getPlantIdField(),
+                            $getDepartmentIdField(),
+                            $getRequesterIdField(),
+                        ])
+                            ->hiddenOn('create'),
 
-                            // Lokasi Tujuan
-                            Select::make('destination_location_id')
-                                ->label('Lokasi Tujuan')
-                                ->relationship('destinationLocation', 'name')
-                                ->searchable()
-                                ->preload()
-                                ->required()
-                                ->live()
-                                ->afterStateUpdated(fn (Set $set, ?int $state) => $set(
-                                    'destination_address_display',
-                                    static::getLocationAddress($state)
-                                ))
-                                ->columnSpan(1),
-
-                            // Keperluan — manual text, spans remaining 4 columns
+                        // ROW 3: Keperluan (80%) | Tanggal Dibutuhkan (20%)
+                        Grid::make([
+                            'default' => 1,
+                            'lg' => 10,
+                        ])->schema([
                             TextInput::make('needed_name')
                                 ->label('Keperluan')
                                 ->required()
                                 ->maxLength(255)
                                 ->placeholder('Isi keperluan permintaan...')
-                                ->columnSpan([
-                                    'default' => 1,
-                                    'sm' => 2,
-                                    'lg' => 4,
-                                ]),
+                                ->columnSpan(8),
+
+                            $getDateNeededField()
+                                ->columnSpan(2),
                         ]),
 
-                        // ROW 3: Alamat Asal | Alamat Tujuan (readonly, multiline)
+                        // ROW 4: Lokasi Asal | Lokasi Tujuan
                         Grid::make([
                             'default' => 1,
-                            'sm' => 2,
+                            'lg' => 2,
+                        ])->schema([
+                            Select::make('origin_location_id')
+                                ->label('Lokasi Asal')
+                                ->relationship('originLocation', 'name', fn ($query, $get) => $query->when($get('destination_location_id'), fn ($q, $destId) => $q->where('id', '!=', $destId)))
+                                ->searchable()
+                                ->preload()
+                                ->required()
+                                ->live()
+                                ->afterStateUpdated(function (Set $set, Get $get, ?int $state) {
+                                    $set('origin_address_display', static::getLocationAddress($state));
+                                    if ($state && $state === (int) $get('destination_location_id')) {
+                                        $set('destination_location_id', null);
+                                        $set('destination_address_display', null);
+                                    }
+                                }),
+
+                            Select::make('destination_location_id')
+                                ->label('Lokasi Tujuan')
+                                ->relationship('destinationLocation', 'name', fn ($query, $get) => $query->when($get('origin_location_id'), fn ($q, $originId) => $q->where('id', '!=', $originId)))
+                                ->searchable()
+                                ->preload()
+                                ->required()
+                                ->live()
+                                ->afterStateUpdated(function (Set $set, Get $get, ?int $state) {
+                                    $set('destination_address_display', static::getLocationAddress($state));
+                                    if ($state && $state === (int) $get('origin_location_id')) {
+                                        $set('origin_location_id', null);
+                                        $set('origin_address_display', null);
+                                    }
+                                }),
+                        ]),
+
+                        // ROW 5: Alamat Asal | Alamat Tujuan (readonly)
+                        Grid::make([
+                            'default' => 1,
                             'lg' => 2,
                         ])->schema([
                             Textarea::make('origin_address_display')
-                                ->label('Alamat')
+                                ->label('Alamat Asal')
                                 ->readOnly()
                                 ->rows(3)
                                 ->placeholder('Alamat akan terisi otomatis setelah lokasi asal dipilih')
@@ -179,7 +314,7 @@ class SppbHeaderForm
                                 ->dehydrated(false),
 
                             Textarea::make('destination_address_display')
-                                ->label('Alamat')
+                                ->label('Alamat Tujuan')
                                 ->readOnly()
                                 ->rows(3)
                                 ->placeholder('Alamat akan terisi otomatis setelah lokasi tujuan dipilih')
@@ -189,39 +324,52 @@ class SppbHeaderForm
                                 ->dehydrated(false),
                         ]),
 
-                        // ROW 4: Tanggal Kebutuhan | Keterangan (textarea, span rest)
-                        Grid::make([
-                            'default' => 1,
-                            'sm' => 2,
-                            'lg' => 6,
-                        ])->schema([
-                            DatePicker::make('date_needed')
-                                ->label('Tanggal Kebutuhan')
-                                ->native(false)
-                                ->displayFormat('d/m/Y')
-                                ->columnSpan([
-                                    'default' => 1,
-                                    'sm' => 1,
-                                    'lg' => 1,
-                                ]),
+                        // ROW 6: Keterangan (Full Width, visible on Create & Edit)
+                        Textarea::make('purpose')
+                            ->label('Keterangan')
+                            ->rows(3)
+                            ->maxLength(65535)
+                            ->placeholder('Isi keterangan tambahan atau instruksi khusus (opsional)...')
+                            ->columnSpanFull(),
 
-                            Textarea::make('purpose')
-                                ->label('Keterangan')
-                                ->rows(3)
-                                ->maxLength(65535)
-                                ->placeholder('Keterangan tambahan permintaan...')
-                                ->columnSpan([
-                                    'default' => 1,
-                                    'sm' => 1,
-                                    'lg' => 5,
-                                ]),
-                        ]),
+                        // ROW 7: Lampiran Saat Ini (Edit Mode Only)
+                        Placeholder::make('existing_attachments')
+                            ->label('Lampiran Saat Ini')
+                            ->content(function ($record): HtmlString {
+                                if (! $record || $record->attachments->isEmpty()) {
+                                    return new HtmlString('<p class="text-xs text-gray-500 italic">Belum ada lampiran</p>');
+                                }
 
-                        // ROW 5: Lampiran — full width
-                        FileUpload::make('attachments')
-                            ->label('Lampiran')
+                                $html = '<ul class="divide-y divide-gray-200 dark:divide-white/5 border border-gray-200 dark:border-white/10 rounded-lg bg-white dark:bg-gray-900 shadow-sm overflow-hidden">';
+                                foreach ($record->attachments as $attachment) {
+                                    $previewUrl = URL::signedRoute('attachments.preview', ['attachment' => $attachment->uuid]);
+                                    $downloadUrl = URL::signedRoute('attachments.download', ['attachment' => $attachment->uuid]);
+                                    $deleteUrl = URL::signedRoute('attachments.delete', ['attachment' => $attachment->uuid]);
+
+                                    $html .= '<li class="flex items-center justify-between p-2 hover:bg-gray-50 dark:hover:bg-white/5">';
+                                    $html .= '<div class="flex items-center space-x-2 min-w-0 flex-1 mr-2">';
+                                    $html .= '<span class="text-xs text-gray-700 dark:text-gray-300 truncate font-medium" title="'.e($attachment->original_name).'">'.e($attachment->original_name).'</span>';
+                                    $html .= '</div>';
+                                    $html .= '<div class="flex items-center space-x-1.5 flex-shrink-0">';
+                                    $html .= '<a href="'.$previewUrl.'" target="_blank" class="text-[10px] font-semibold text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-950/30 px-1.5 py-0.5 rounded hover:bg-primary-100 transition-colors">Preview</a>';
+                                    $html .= '<a href="'.$downloadUrl.'" class="text-[10px] font-semibold text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 px-1.5 py-0.5 rounded hover:bg-gray-100 transition-colors">Download</a>';
+                                    $html .= '<a href="'.$deleteUrl.'" onclick="return confirm(\'Hapus lampiran ini?\')" class="text-[10px] font-semibold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 px-1.5 py-0.5 rounded hover:bg-red-100 transition-colors">Hapus</a>';
+                                    $html .= '</div>';
+                                    $html .= '</li>';
+                                }
+                                $html .= '</ul>';
+
+                                return new HtmlString($html);
+                            })
+                            ->columnSpanFull()
+                            ->hiddenOn('create'),
+
+                        // ROW 8: Upload Lampiran (Create & Edit Mode)
+                        FileUpload::make('uploaded_attachments')
+                            ->label('Upload Lampiran (File / Gambar / PDF)')
                             ->multiple()
                             ->directory('sppb-attachments')
+                            ->preserveFilenames()
                             ->downloadable()
                             ->previewable(true)
                             ->reorderable(true)
@@ -233,117 +381,164 @@ class SppbHeaderForm
                 // ─── SECTION 2: DETAIL BARANG / ASSET ────────────────────────
                 Section::make('Detail Barang / Asset')
                     ->schema([
+                        // Header Grid (Hanya tampil di Desktop)
+                        Grid::make([
+                            'default' => 1,
+                            'sm' => 4,
+                            'lg' => 16,
+                        ])
+                            ->schema([
+                                Placeholder::make('hdr_jenis')
+                                    ->hiddenLabel()
+                                    ->content(new HtmlString('<span class="text-xs font-semibold text-gray-500 uppercase dark:text-gray-400">Jenis</span>'))
+                                    ->columnSpan(1),
+
+                                Placeholder::make('hdr_barcode_kode')
+                                    ->hiddenLabel()
+                                    ->content(new HtmlString('<span class="text-xs font-semibold text-gray-500 uppercase dark:text-gray-400">Barcode/Kode <span class="text-red-600 dark:text-red-400">*</span></span>'))
+                                    ->columnSpan(2),
+
+                                Placeholder::make('hdr_nama_aset_barang')
+                                    ->hiddenLabel()
+                                    ->content(new HtmlString('<span class="text-xs font-semibold text-gray-500 uppercase dark:text-gray-400">Nama Aset/Barang <span class="text-red-600 dark:text-red-400">*</span></span>'))
+                                    ->columnSpan(6),
+
+                                Placeholder::make('hdr_qty')
+                                    ->hiddenLabel()
+                                    ->content(new HtmlString('<span class="text-xs font-semibold text-gray-500 uppercase dark:text-gray-400">Qty <span class="text-red-600 dark:text-red-400">*</span></span>'))
+                                    ->columnSpan(1),
+
+                                Placeholder::make('hdr_satuan')
+                                    ->hiddenLabel()
+                                    ->content(new HtmlString('<span class="text-xs font-semibold text-gray-500 uppercase dark:text-gray-400">Satuan <span class="text-red-600 dark:text-red-400">*</span></span>'))
+                                    ->columnSpan(2),
+
+                                Placeholder::make('hdr_remarks')
+                                    ->hiddenLabel()
+                                    ->content(new HtmlString('<span class="text-xs font-semibold text-gray-500 uppercase dark:text-gray-400">Keterangan / Spesifikasi</span>'))
+                                    ->columnSpan(4),
+                            ])
+                            ->extraAttributes(['class' => 'hidden lg:grid mb-2']),
+
                         Repeater::make('sppbDetails')
                             ->relationship('sppbDetails')
-                            ->label('')
+                            ->hiddenLabel()
                             ->addActionLabel('Tambah Item')
                             ->schema([
                                 // Asset / Non Asset toggle
-                                ToggleButtons::make('barcode_confirmed')
+                                Checkbox::make('barcode_confirmed')
                                     ->label('Jenis')
-                                    ->options([
-                                        0 => 'Non Asset',
-                                        1 => 'Asset',
-                                    ])
-                                    ->default(0)
-                                    ->inline()
+                                    ->default(false)
+                                    ->inline(false)
                                     ->live()
-                                    ->afterStateHydrated(function ($component, $state) {
-                                        if ($state === null) {
-                                            $component->state(0);
-                                        } else {
-                                            $component->state($state ? 1 : 0);
-                                        }
-                                    })
                                     ->afterStateUpdated(function (Set $set, $state) {
-                                        if ($state == 1) {
+                                        $set('item_id', null);
+                                        $set('asset_id', null);
+                                        $set('reference_code', null);
+                                        $set('item_asset_name', null);
+                                        $set('unit_id', null);
+                                        if ($state) {
                                             $set('quantity', 1);
                                         }
                                     })
+                                    ->extraFieldWrapperAttributes(['class' => 'lg:[&_label]:hidden'])
                                     ->columnSpan(1),
 
-                                // Kode — readonly, auto-filled
-                                TextInput::make('reference_code')
-                                    ->label('Kode')
-                                    ->readOnly()
-                                    ->placeholder('Otomatis')
-                                    ->columnSpan(1),
+                                Hidden::make('reference_code'),
 
-                                // Nama Barang / Asset — depends on toggle
                                 Select::make('item_id')
-                                    ->label('Nama Barang')
-                                    ->relationship('item', 'name')
-                                    ->searchable()
+                                    ->label('Barcode/Kode')
+                                    ->relationship('item', 'code')
+                                    ->searchable(['name'])
                                     ->preload()
+                                    ->required()
                                     ->live()
-                                    ->afterStateUpdated(function (Set $set, ?int $state): void {
+                                    ->afterStateUpdated(function (Set $set, ?int $state) {
                                         if (! $state) {
                                             $set('reference_code', null);
+                                            $set('item_asset_name', null);
                                             $set('unit_id', null);
-                                            $set('remarks', null);
 
                                             return;
                                         }
-                                        $item = Item::with('unit')->find($state);
+                                        $item = Item::find($state);
                                         if ($item) {
                                             $set('reference_code', $item->code);
+                                            $set('item_asset_name', $item->name);
                                             $set('unit_id', $item->unit_id);
-                                            $set('remarks', $item->specification ?? null);
                                         }
                                     })
-                                    ->visible(fn (Get $get): bool => $get('barcode_confirmed') != 1)
+                                    ->visible(fn (Get $get): bool => ! $get('barcode_confirmed'))
+                                    ->extraFieldWrapperAttributes(['class' => 'lg:[&_label]:hidden'])
                                     ->columnSpan(2),
 
                                 Select::make('asset_id')
-                                    ->label('Nama Asset')
-                                    ->relationship('asset', 'asset_name')
-                                    ->searchable()
+                                    ->label('Barcode/Kode')
+                                    ->relationship('asset', 'barcode')
+                                    ->searchable(['barcode'])
+                                    ->required()
                                     ->live()
-                                    ->afterStateUpdated(function (Set $set, ?int $state): void {
+                                    ->afterStateUpdated(function (Set $set, ?int $state) {
                                         if (! $state) {
                                             $set('reference_code', null);
+                                            $set('item_asset_name', null);
                                             $set('unit_id', null);
 
                                             return;
                                         }
                                         $asset = Asset::find($state);
                                         if ($asset) {
-                                            $set('reference_code', $asset->barcode ?? null);
-                                            $set('unit_id', $asset->unit_id ?? null);
+                                            $set('reference_code', $asset->barcode);
+                                            $set('item_asset_name', $asset->asset_name);
+                                            $set('unit_id', $asset->unit_id);
                                             $set('quantity', 1);
                                         }
                                     })
-                                    ->visible(fn (Get $get): bool => $get('barcode_confirmed') == 1)
+                                    ->visible(fn (Get $get): bool => (bool) $get('barcode_confirmed'))
+                                    ->extraFieldWrapperAttributes(['class' => 'lg:[&_label]:hidden'])
                                     ->columnSpan(2),
 
-                                // Qty
+                                Textarea::make('item_asset_name')
+                                    ->label('Nama Aset/Barang')
+                                    ->placeholder(fn (Get $get) => $get('barcode_confirmed') ? 'Nama aset terisi otomatis' : 'Isi nama barang...')
+                                    ->required()
+                                    ->readOnly(fn (Get $get): bool => (bool) $get('barcode_confirmed'))
+                                    ->maxLength(200)
+                                    ->rows(2)
+                                    ->extraFieldWrapperAttributes(['class' => 'lg:[&_label]:hidden'])
+                                    ->columnSpan(6),
+
                                 TextInput::make('quantity')
                                     ->label('Qty')
                                     ->numeric()
                                     ->minValue(0.01)
                                     ->required()
-                                    ->readOnly(fn (Get $get): bool => $get('barcode_confirmed') == 1)
+                                    ->readOnly(fn (Get $get): bool => (bool) $get('barcode_confirmed'))
+                                    ->extraFieldWrapperAttributes(['class' => 'lg:[&_label]:hidden'])
                                     ->columnSpan(1),
 
-                                // Satuan — readonly, auto-filled
                                 Select::make('unit_id')
                                     ->label('Satuan')
-                                    ->relationship('unit', 'name')
-                                    ->disabled()
+                                    ->options(fn () => Unit::getGroupedOptions())
+                                    ->searchable()
+                                    ->preload()
+                                    ->required()
+                                    ->disabled(fn (Get $get): bool => (bool) $get('barcode_confirmed'))
                                     ->dehydrated()
-                                    ->columnSpan(1),
+                                    ->extraFieldWrapperAttributes(['class' => 'lg:[&_label]:hidden'])
+                                    ->columnSpan(2),
 
-                                // Keterangan / Spesifikasi — editable
                                 Textarea::make('remarks')
                                     ->label('Keterangan / Spesifikasi')
                                     ->rows(2)
                                     ->maxLength(65535)
-                                    ->columnSpan(2),
+                                    ->extraFieldWrapperAttributes(['class' => 'lg:[&_label]:hidden'])
+                                    ->columnSpan(4),
                             ])
                             ->columns([
                                 'default' => 1,
                                 'sm' => 4,
-                                'lg' => 8,
+                                'lg' => 16,
                             ])
                             ->reorderable(false)
                             ->columnSpanFull(),
@@ -449,7 +644,7 @@ class SppbHeaderForm
                 }
             }
 
-            $posSuffix = $posName ? " {{$posName}}" : '';
+            $posSuffix = $posName ? " {$posName}" : '';
 
             $stepCode = $log->workflowInstanceStep?->code ?? '';
             $stepName = $log->workflowInstanceStep?->name ?? '';

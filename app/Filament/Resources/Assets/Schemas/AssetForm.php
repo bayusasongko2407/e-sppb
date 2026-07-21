@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources\Assets\Schemas;
 
 use App\Models\EnumControl;
+use App\Models\Unit;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -52,7 +53,9 @@ class AssetForm
                     ->default('AVAILABLE'),
                 Select::make('unit_id')
                     ->label('Satuan')
-                    ->relationship('unit', 'name')
+                    ->options(fn () => Unit::getGroupedOptions())
+                    ->searchable()
+                    ->preload()
                     ->required()
                     ->default(2),
                 Textarea::make('notes')

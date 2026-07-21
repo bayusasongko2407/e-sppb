@@ -6,6 +6,7 @@ use App\Traits\SecureRouteBinding;
 use Database\Factories\DocumentAccessFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Permission\Models\Role;
 
 class DocumentAccess extends Model
 {
@@ -14,6 +15,7 @@ class DocumentAccess extends Model
 
     protected $fillable = [
         'user_id',
+        'role_id',
         'plant_id',
         'department_id',
         'module',
@@ -33,6 +35,11 @@ class DocumentAccess extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function role()
+    {
+        return $this->belongsTo(Role::class);
     }
 
     public function plant()

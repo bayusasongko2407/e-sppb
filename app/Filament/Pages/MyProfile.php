@@ -7,7 +7,9 @@ namespace App\Filament\Pages;
 use App\Filament\Resources\EmailChangeRequests\EmailChangeRequestResource;
 use App\Models\EmailChangeRequest;
 use App\Models\User;
+use App\Providers\Filament\AdminPanelProvider;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -41,6 +43,10 @@ class MyProfile extends Page implements HasForms
         $this->form->fill([
             'name' => $user->name,
             'email' => $user->email,
+            'phone' => $user->phone,
+            'theme_preset' => $user->theme_preset ?? 'default',
+            'theme_color' => $user->theme_color ?? '#2563EB',
+            'theme_font' => $user->theme_font ?? 'Inter',
         ]);
     }
 
@@ -55,6 +61,12 @@ class MyProfile extends Page implements HasForms
                         TextInput::make('name')
                             ->label('Nama Lengkap')
                             ->required(),
+                        TextInput::make('phone')
+                            ->label('Nomor Telepon / WhatsApp')
+                            ->tel()
+                            ->placeholder('Contoh: 081234567890')
+                            ->helperText('Nomor WhatsApp aktif Anda untuk menerima notifikasi pesan singkat dari sistem E-SPPB.')
+                            ->nullable(),
                         TextInput::make('email')
                             ->label('Email')
                             ->email()
@@ -68,7 +80,8 @@ class MyProfile extends Page implements HasForms
                                 }
 
                                 return 'Perubahan email memerlukan persetujuan dari Super Admin sebelum aktif.';
-                            }),
+                            })
+                            ->columnSpanFull(),
                     ])->columns(2),
 
                 Section::make('Ubah Kata Sandi')
@@ -97,6 +110,61 @@ class MyProfile extends Page implements HasForms
                             ->requiredWith('password')
                             ->same('password'),
                     ])->columns(2),
+
+                Section::make('Pengaturan Tema Aplikasi')
+                    ->description('Sesuaikan tema visual dan jenis huruf (font) untuk kenyamanan Anda.')
+                    ->schema([
+                        Select::make('theme_preset')
+                            ->label('Tema Preset (Hasnayeen Style)')
+                            ->options([
+                                'default' => 'Default (Biru Corporate)',
+                                'nord' => 'Nord (Teal & Slate)',
+                                'sunset' => 'Sunset (Orange & Zinc)',
+                                'forest' => 'Forest (Emerald & Stone)',
+                                'dracula' => 'Dracula (Purple & Dark Slate)',
+                                'min' => 'Min (Slate & Neutral)',
+                                'custom' => 'Kustom (Pilih Warna & Font Sendiri)',
+                            ])
+                            ->live()
+                            ->afterStateUpdated(function ($state, callable $set) {
+                                $presets = AdminPanelProvider::THEME_PRESETS;
+                                if (isset($presets[$state])) {
+                                    $set('theme_color', $presets[$state]['color']);
+                                    $set('theme_font', $presets[$state]['font']);
+                                }
+                            })
+                            ->required()
+                            ->columnSpanFull(),
+                        Select::make('theme_color')
+                            ->label('Warna Tema Utama')
+                            ->options([
+                                '#2563EB' => 'Biru Corporate (Blue)',
+                                '#0D9488' => 'Teal Nord',
+                                '#EA580C' => 'Orange Sunset',
+                                '#059669' => 'Hijau Forest (Emerald)',
+                                '#9333EA' => 'Ungu Dracula (Purple)',
+                                '#475569' => 'Slate Min',
+                                '#7C3AED' => 'Ungu Premium (Violet)',
+                                '#D97706' => 'Kuning Amber (Amber)',
+                                '#E11D48' => 'Merah Rose (Rose)',
+                                '#0891B2' => 'Teal Modern (Teal)',
+                            ])
+                            ->disabled(fn (callable $get) => $get('theme_preset') !== 'custom')
+                            ->required(fn (callable $get) => $get('theme_preset') === 'custom')
+                            ->dehydrated(),
+                        Select::make('theme_font')
+                            ->label('Jenis Huruf (Font)')
+                            ->options([
+                                'Inter' => 'Inter (Modern & Bersih)',
+                                'Outfit' => 'Outfit (Trendy & Bulat)',
+                                'Plus Jakarta Sans' => 'Plus Jakarta Sans (Profesional & Dinamis)',
+                                'Roboto' => 'Roboto (Fungsional)',
+                                'Open Sans' => 'Open Sans (Klasik)',
+                            ])
+                            ->disabled(fn (callable $get) => $get('theme_preset') !== 'custom')
+                            ->required(fn (callable $get) => $get('theme_preset') === 'custom')
+                            ->dehydrated(),
+                    ])->columns(2),
             ])
             ->statePath('data');
     }
@@ -116,6 +184,7 @@ class MyProfile extends Page implements HasForms
         $formData = $this->form->getState();
 
         $user->name = $formData['name'];
+        $user->phone = $formData['phone'] ?? null;
 
         // Handle email change request
         if ($formData['email'] !== $user->email) {
@@ -173,18 +242,28 @@ class MyProfile extends Page implements HasForms
                 ->send();
         }
 
+        $preset = $formData['theme_preset'];
+        $user->theme_preset = $preset;
+
+        if ($preset === 'custom') {
+            $user->theme_color = $formData['theme_color'];
+            $user->theme_font = $formData['theme_font'];
+        } else {
+            $presets = AdminPanelProvider::THEME_PRESETS;
+            if (isset($presets[$preset])) {
+                $user->theme_color = $presets[$preset]['color'];
+                $user->theme_font = $presets[$preset]['font'];
+            }
+        }
         $user->save();
 
         Notification::make()
             ->title('Berhasil')
-            ->body('Profil Anda berhasil diperbarui.')
+            ->body('Profil dan Pengaturan Tema Anda berhasil diperbarui.')
             ->success()
             ->send();
 
-        // Refresh form to show current information
-        $this->form->fill([
-            'name' => $user->name,
-            'email' => $user->email,
-        ]);
+        // Redirect to reload the page and apply the new theme immediately
+        $this->redirect(static::getUrl());
     }
 }

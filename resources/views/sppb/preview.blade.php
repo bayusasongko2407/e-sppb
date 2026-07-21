@@ -8,9 +8,10 @@
             margin: 15mm;
         }
         body {
-            font-family: Arial, sans-serif;
-            font-size: 11px;
-            color: #222;
+            font-family: 'Helvetica Neue', Helvetica, Arial, 'Liberation Sans', sans-serif;
+            font-size: 10pt;
+            line-height: 1.35;
+            color: #111;
             margin: 0;
             padding: 0;
         }
@@ -20,17 +21,18 @@
         .pdf-header {
             width: 100%;
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 18px;
         }
         .header-title {
-            font-size: 18px;
+            font-size: 16pt;
             font-weight: bold;
-            margin-bottom: 5px;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
         }
         .header-date {
-            font-size: 14px;
+            font-size: 12pt;
             font-weight: bold;
-            margin-bottom: 20px;
+            margin-bottom: 18px;
         }
         .info-layout {
             width: 100%;
@@ -54,7 +56,7 @@
             border: none !important;
             padding: 3px 2px;
             vertical-align: top;
-            font-size: 11px;
+            font-size: 9.5pt;
         }
         .label {
             width: 85px;
@@ -80,11 +82,11 @@
         .date-title {
             font-weight: bold;
             padding: 5px;
-            font-size: 11px;
+            font-size: 9.5pt;
         }
         .date-value {
-            padding-top: 10px;
-            font-size: 11px;
+            padding-top: 8px;
+            font-size: 9.5pt;
         }
         .address-box {
             height: 70px;
@@ -93,16 +95,16 @@
         .address-title {
             text-align: left;
             font-weight: bold;
-            padding: 8px;
-            font-size: 11px;
+            padding: 6px 8px;
+            font-size: 9.5pt;
         }
         .address-content {
-            padding: 8px;
-            font-size: 11px;
+            padding: 6px 8px;
+            font-size: 9.5pt;
         }
         .location-name {
             font-weight: bold;
-            font-size: 12px;
+            font-size: 10pt;
         }
         .project-box {
             height: 50px;
@@ -118,8 +120,8 @@
         }
         .items-title {
             font-weight: bold;
-            margin-bottom: 5px;
-            font-size: 13px;
+            margin-bottom: 6px;
+            font-size: 11pt;
         }
         .items-table {
             width: 100%;
@@ -127,15 +129,17 @@
         }
         .items-table th {
             border: 1px solid #000;
-            background: #d9d9d9;
-            padding: 6px;
+            background: #e5e7eb;
+            padding: 5px 6px;
             text-align: center;
             font-weight: bold;
+            font-size: 9.5pt;
         }
         .items-table td {
             border: 1px solid #000;
-            padding: 6px;
+            padding: 5px 6px;
             vertical-align: top;
+            font-size: 9pt;
         }
         .text-center {
             text-align: center;
@@ -145,7 +149,7 @@
             height: 24px;
         }
         .approval-section {
-            margin-top: 35px;
+            margin-top: 30px;
             margin-bottom: 20px;
         }
         .approval-table {
@@ -158,7 +162,7 @@
             vertical-align: top;
         }
         .approval-title {
-            font-size: 12px;
+            font-size: 10pt;
             margin-bottom: 5px;
         }
         .approval-space {
@@ -169,20 +173,22 @@
             position: absolute;
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -50%) rotate(-15deg);
-            font-size: 20px;
-            color: rgba(255, 0, 0, 0.25);
+            transform: translate(-50%, -50%) rotate(-12deg);
+            font-size: 15pt;
+            color: rgba(16, 185, 129, 0.35);
             font-weight: bold;
-            border: 2px solid rgba(255, 0, 0, 0.25);
+            letter-spacing: 1px;
+            border: 2px solid rgba(16, 185, 129, 0.40);
+            background-color: rgba(16, 185, 129, 0.06);
             border-radius: 4px;
-            padding: 4px 8px;
+            padding: 4px 10px;
             z-index: -1;
             pointer-events: none;
             white-space: nowrap;
         }
         .approval-name {
             font-weight: bold;
-            font-size: 12px;
+            font-size: 10pt;
         }
         .qr-table {
             width: 100%;
@@ -211,7 +217,7 @@
             display: block;
         }
         .qr-text {
-            font-size: 9px;
+            font-size: 8pt;
             margin-top: 4px;
             text-align: center;
         }
@@ -220,9 +226,9 @@
         }
         .footer-notes {
             border-top: 1px solid #000;
-            padding-top: 8px;
-            font-size: 11px;
-            line-height: 1.5;
+            padding-top: 6px;
+            font-size: 8.5pt;
+            line-height: 1.4;
         }
         tr {
             page-break-inside: avoid;
@@ -258,7 +264,6 @@
     <div class="page">
         <!-- HEADER -->
         <div class="pdf-header" style="position: relative;">
-            <img src="{{ asset('images/logo-lanscape.png') }}" style="position: absolute; left: 0; top: 0; height: 100%; z-index: -1;" alt="Logo">
             <div class="header-title">{{ strtoupper($header->plant?->name ?? 'PT SANTOS JAYA ABADI') }}</div>
             <div class="header-title">SURAT PERMOHONAN PENGIRIMAN BARANG</div>
             <div class="header-date">
@@ -470,7 +475,7 @@
                         <div class="approval-title">{{ $signer['title'] }}</div>
                         <div class="approval-space">
                             @if($signer['status'] === 'APPROVED')
-                                <div class="watermark-approved">APPROVED</div>
+                                <div class="watermark-approved">DISETUJUI</div>
                             @endif
                         </div>
                         <div class="approval-name">{!! $signer['name'] !!}</div>
@@ -489,9 +494,11 @@
                 <td class="qr-left">
                     <div class="footer-section">
                         <div class="footer-notes">
-                            Catatan:<br>
-                            1. Dokumen ini sah dan valid secara hukum sebagai Surat Permohonan Pengiriman Barang yang disetujui secara digital.<br>
-                            2. Silakan scan QR code di samping untuk memverifikasi keaslian dan status terkini dokumen ini langsung pada sistem E-SPPB.
+                            <strong>Catatan:</strong><br>
+                            1. Dokumen ini merupakan SPPB yang sah dan telah disetujui secara digital.<br>
+                            2. SPPB hanya sebagai instruksi penyiapan barang, bukan Surat Jalan.<br>
+                            3. Bukti pengiriman atau penyerahan barang wajib menggunakan Surat Jalan resmi.<br>
+                            4. Scan QR Code untuk memverifikasi keaslian dan status dokumen di sistem E-SPPB.
                         </div>
                     </div>
                 </td>

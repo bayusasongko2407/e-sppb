@@ -1,8 +1,8 @@
 ## Active Checkpoint
 
-- Updated at: 2026-07-15 Asia/Jakarta
-- Phase: Perbaikan Infrastruktur Testing & Koreksi Skema Workflow (SELESAI)
-- Status: Menghilangkan infinite loop pada DocumentGenerationFactory, memperbarui test suite (WorkflowServiceTest, SppbEndToEndTest, DocumentGenerationServiceTest) agar selaras dengan skema database terbaru (kolom JSON approver_position_ids) dan perilaku eksekusi sinkron. Seluruh 27 unit/feature test lulus 100% (PASS).
+- Updated at: 2026-07-21 Asia/Jakarta
+- Phase: Implementasi Tampilan Web Verifikasi QR SPPB Terlengkap (SELESAI)
+- Status: Berhasil memperbarui berkas tampilan verify.blade.php dan DocumentVerificationService untuk menampilkan rincian operasional SPPB (Departemen, Pemohon, Tingkat Prioritas, Lokasi Asal & Tujuan, Keperluan, dan Ringkasan Muatan). PHPStan, Pint, dan seluruh 34 test suite lulus 100% (PASS).
 
 ## Ringkasan UI/UX Refactoring SPPB Resource (Selesai)
 

@@ -35,8 +35,13 @@ class UserForm
                     ->required(),
                 TextInput::make('email')
                     ->label('Email')
-                    ->label('Email address')
                     ->email()
+                    ->default(null),
+                TextInput::make('phone')
+                    ->label('Nomor Telepon / WhatsApp')
+                    ->tel()
+                    ->placeholder('Contoh: 081234567890')
+                    ->helperText('Nomor HP/WA aktif untuk penerimaan notifikasi WhatsApp OpenWA.')
                     ->default(null),
                 TextInput::make('password')
                     ->label('Kata Sandi')

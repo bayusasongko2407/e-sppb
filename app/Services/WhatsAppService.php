@@ -39,8 +39,18 @@ class WhatsAppService
             return false;
         }
 
-        if (! str_contains($serverUrl, '/send-message')) {
-            $serverUrl = rtrim($serverUrl, '/').'/send-message';
+        // Parse base URL (e.g. http://127.0.0.1:2785)
+        $parsed = parse_url($serverUrl);
+        $baseUrl = isset($parsed['scheme'], $parsed['host'])
+            ? $parsed['scheme'].'://'.$parsed['host'].(isset($parsed['port']) ? ':'.$parsed['port'] : '')
+            : 'http://127.0.0.1:3000';
+
+        // Resolve dynamic session ID UUID
+        $sessionId = $this->resolveSessionId($baseUrl, $apiSecret, $senderNumber);
+        if (empty($sessionId)) {
+            Log::warning('WhatsApp notification failed: Gagal menemukan session ID aktif di OpenWA Gateway.');
+
+            return false;
         }
 
         try {
@@ -50,20 +60,19 @@ class WhatsAppService
             ];
 
             if (! empty($apiSecret)) {
-                $headers['X-Api-Secret'] = $apiSecret;
-                $headers['Authorization'] = 'Bearer '.$apiSecret;
+                $headers['X-API-Key'] = $apiSecret;
             }
 
             $payload = [
-                'phone' => $formattedPhone,
-                'to' => $formattedPhone.'@c.us',
-                'message' => $message,
-                'sender' => $senderNumber,
+                'chatId' => $formattedPhone.'@c.us',
+                'text' => $message,
             ];
+
+            $sendUrl = $baseUrl.'/api/sessions/'.$sessionId.'/messages/send-text';
 
             $response = Http::withHeaders($headers)
                 ->timeout(5)
-                ->post($serverUrl, $payload);
+                ->post($sendUrl, $payload);
 
             if ($response->successful()) {
                 Log::info("WhatsApp message sent successfully to {$formattedPhone}");
@@ -82,6 +91,55 @@ class WhatsAppService
     }
 
     /**
+     * Resolve the active session UUID from OpenWA Gateway.
+     */
+    protected function resolveSessionId(string $baseUrl, string $apiSecret, ?string $senderNumber = null): ?string
+    {
+        try {
+            $headers = [
+                'Accept' => 'application/json',
+            ];
+            if (! empty($apiSecret)) {
+                $headers['X-API-Key'] = $apiSecret;
+            }
+
+            $response = Http::withHeaders($headers)
+                ->timeout(3)
+                ->get($baseUrl.'/api/sessions');
+
+            if ($response->successful()) {
+                $sessions = $response->json();
+                if (is_array($sessions) && count($sessions) > 0) {
+                    // Try to match by phone or name if senderNumber is provided
+                    if (! empty($senderNumber)) {
+                        $cleanSender = preg_replace('/[^0-9]/', '', $senderNumber);
+                        foreach ($sessions as $session) {
+                            $sessionPhone = isset($session['phone']) ? preg_replace('/[^0-9]/', '', (string) $session['phone']) : '';
+                            if (($sessionPhone && $sessionPhone === $cleanSender) || ($session['name'] ?? '') === $senderNumber) {
+                                return $session['id'];
+                            }
+                        }
+                    }
+
+                    // Fallback to first session where status is ready
+                    foreach ($sessions as $session) {
+                        if (($session['status'] ?? '') === 'ready') {
+                            return $session['id'];
+                        }
+                    }
+
+                    // Dynamic default fallback
+                    return $sessions[0]['id'];
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::error('Gagal resolve session ID dari OpenWA: '.$e->getMessage());
+        }
+
+        return null;
+    }
+
+    /**
      * Get OpenWA Gateway live connection status and QR code if available.
      *
      * @return array{connected: bool, status_label: string, qr_code: ?string, message: string}
@@ -90,6 +148,7 @@ class WhatsAppService
     {
         $serverUrl = (string) AppSetting::get('wa_server_url', 'http://127.0.0.1:3000/send-message');
         $apiSecret = (string) AppSetting::get('wa_api_secret', '');
+        $senderNumber = (string) AppSetting::get('wa_sender_number', '');
 
         if (empty($serverUrl)) {
             return [
@@ -107,26 +166,77 @@ class WhatsAppService
             : 'http://127.0.0.1:3000';
 
         try {
-            $headers = ['Accept' => 'application/json'];
+            $headers = [
+                'Accept' => 'application/json',
+            ];
             if (! empty($apiSecret)) {
-                $headers['X-Api-Secret'] = $apiSecret;
-                $headers['Authorization'] = 'Bearer '.$apiSecret;
+                $headers['X-API-Key'] = $apiSecret;
             }
 
             $response = Http::withHeaders($headers)
                 ->timeout(3)
-                ->get($baseUrl.'/status');
+                ->get($baseUrl.'/api/sessions');
 
             if ($response->successful()) {
-                $data = $response->json();
-                $isConnected = (bool) ($data['connected'] ?? $data['authenticated'] ?? true);
-                $qrCode = $data['qr'] ?? $data['qr_code'] ?? null;
+                $sessions = $response->json();
+                if (is_array($sessions) && count($sessions) > 0) {
+                    // Try to find the session corresponding to senderNumber
+                    $activeSession = null;
+                    if (! empty($senderNumber)) {
+                        $cleanSender = preg_replace('/[^0-9]/', '', $senderNumber);
+                        foreach ($sessions as $session) {
+                            $sessionPhone = isset($session['phone']) ? preg_replace('/[^0-9]/', '', (string) $session['phone']) : '';
+                            if (($sessionPhone && $sessionPhone === $cleanSender) || ($session['name'] ?? '') === $senderNumber) {
+                                $activeSession = $session;
+                                break;
+                            }
+                        }
+                    }
+
+                    // Fallback to first session
+                    if (! $activeSession) {
+                        $activeSession = $sessions[0];
+                    }
+
+                    $status = $activeSession['status'] ?? 'unknown';
+                    $isConnected = ($status === 'ready');
+                    $sessionId = $activeSession['id'];
+
+                    $qrCode = null;
+                    if ($status === 'qr_ready') {
+                        // Fetch QR Code
+                        $qrResponse = Http::withHeaders($headers)
+                            ->timeout(3)
+                            ->get($baseUrl.'/api/sessions/'.$sessionId.'/qr');
+                        if ($qrResponse->successful()) {
+                            $qrData = $qrResponse->json();
+                            $qrCode = $qrData['qrCode'] ?? null;
+                        }
+                    }
+
+                    $statusMsg = match ($status) {
+                        'ready' => 'Terhubung dengan OpenWA Gateway.',
+                        'qr_ready' => 'Perangkat belum terhubung (Perlu Scan QR).',
+                        'authenticating' => 'Sedang melakukan autentikasi...',
+                        'initializing' => 'Sedang menginisialisasi sesi...',
+                        'disconnected' => 'Sesi terputus.',
+                        'failed' => 'Inisialisasi sesi gagal: '.($activeSession['lastError'] ?? 'Unknown error'),
+                        default => 'Status sesi: '.ucfirst($status),
+                    };
+
+                    return [
+                        'connected' => $isConnected,
+                        'status_label' => $isConnected ? 'CONNECTED' : 'DISCONNECTED',
+                        'qr_code' => $qrCode,
+                        'message' => $statusMsg,
+                    ];
+                }
 
                 return [
-                    'connected' => $isConnected,
-                    'status_label' => $isConnected ? 'CONNECTED' : 'DISCONNECTED',
-                    'qr_code' => is_string($qrCode) ? $qrCode : null,
-                    'message' => $isConnected ? 'Terhubung dengan OpenWA Gateway.' : 'Perangkat belum terhubung (Perlu Scan QR).',
+                    'connected' => false,
+                    'status_label' => 'DISCONNECTED',
+                    'qr_code' => null,
+                    'message' => 'Tidak ada sesi terdaftar di OpenWA Gateway.',
                 ];
             }
         } catch (\Throwable $e) {

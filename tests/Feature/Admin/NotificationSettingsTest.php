@@ -73,6 +73,9 @@ class NotificationSettingsTest extends TestCase
                 'notify_system_retention_days' => 60,
                 'notify_event_sppb_created' => true,
                 'notify_event_approval_requested' => false,
+                'notify_template_sppb_created_email_subject' => 'Subjek Kustom: {document_number}',
+                'notify_template_sppb_created_email_body' => 'Bodi Kustom',
+                'notify_template_sppb_created_wa_body' => 'WA Kustom',
                 'notify_email_enabled' => true,
                 'mail_driver' => 'smtp',
                 'mail_host' => 'smtp.mailtrap.io',
@@ -86,6 +89,9 @@ class NotificationSettingsTest extends TestCase
 
         $this->assertEquals(60, AppSetting::get('notify_system_retention_days'));
         $this->assertFalse(AppSetting::get('notify_event_approval_requested'));
+        $this->assertEquals('Subjek Kustom: {document_number}', AppSetting::get('notify_template_sppb_created_email_subject'));
+        $this->assertEquals('Bodi Kustom', AppSetting::get('notify_template_sppb_created_email_body'));
+        $this->assertEquals('WA Kustom', AppSetting::get('notify_template_sppb_created_wa_body'));
         $this->assertTrue(AppSetting::get('notify_email_enabled'));
         $this->assertEquals(2525, AppSetting::get('mail_port'));
         $this->assertTrue(AppSetting::get('notify_wa_enabled'));

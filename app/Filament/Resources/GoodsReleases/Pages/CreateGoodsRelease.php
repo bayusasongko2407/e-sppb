@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\GoodsReleases\Pages;
 
+use App\Contracts\WorkflowServiceContract;
 use App\Filament\Resources\GoodsReleases\GoodsReleaseResource;
 use App\Filament\Resources\SppbHeaders\SppbHeaderResource;
 use Filament\Actions\Action;
-use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateGoodsRelease extends CreateRecord
@@ -20,16 +20,19 @@ class CreateGoodsRelease extends CreateRecord
         if ($goodsRelease && $goodsRelease->sppbHeader && $goodsRelease->sppbHeader->requester) {
             $header = $goodsRelease->sppbHeader;
             $statusText = $goodsRelease->status === 'RELEASED' ? 'telah diterbitkan (Final)' : 'telah dibuat (Draft)';
-            Notification::make()
-                ->title('Update Pengeluaran Barang')
-                ->body("Surat Jalan #{$goodsRelease->release_number} untuk SPPB {$header->document_number} {$statusText}.")
-                ->icon('heroicon-o-truck')
-                ->actions([
-                    Action::make('view')
-                        ->label('Lihat Detail')
-                        ->url(SppbHeaderResource::getUrl('view', ['record' => $header])),
-                ])
-                ->sendToDatabase($header->requester, isEventDispatched: true);
+            app(WorkflowServiceContract::class)->sendNotification(
+                $header->requester,
+                'Update Pengeluaran Barang',
+                "Surat Jalan #{$goodsRelease->release_number} untuk SPPB {$header->document_number} {$statusText}.",
+                SppbHeaderResource::getUrl('view', ['record' => $header]),
+                'goods_released',
+                [
+                    'document_number' => $header->document_number,
+                    'requester_name' => $header->requester?->name,
+                    'url' => SppbHeaderResource::getUrl('view', ['record' => $header]),
+                    'notes' => "Surat Jalan #{$goodsRelease->release_number} {$statusText}",
+                ]
+            );
         }
     }
 

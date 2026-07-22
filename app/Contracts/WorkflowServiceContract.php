@@ -6,6 +6,7 @@ namespace App\Contracts;
 
 use App\DTOs\Workflow\ApprovalDecisionData;
 use App\DTOs\Workflow\SubmitSppbData;
+use App\Models\User;
 use App\Models\WorkflowCommand;
 use App\Models\WorkflowInstance;
 use App\Models\WorkflowInstanceStep;
@@ -25,4 +26,6 @@ interface WorkflowServiceContract
     public function requestRevision(ApprovalDecisionData $data): WorkflowInstanceStep;
 
     public function cancelWorkflow(int $sppbHeaderId, int $actorId, string $reason): void;
+
+    public function sendNotification(?User $user, string $title, string $body, string $url, ?string $eventType = null, array $context = []): void;
 }

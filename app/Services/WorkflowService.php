@@ -170,7 +170,12 @@ final class WorkflowService implements WorkflowServiceContract
                         'Persetujuan Baru',
                         "SPPB dengan nomor {$header->document_number} (Pemohon: {$header->requester?->name}) memerlukan persetujuan/verifikasi Anda.",
                         SppbHeaderResource::getUrl('view', ['record' => $header]),
-                        'approval_requested'
+                        'approval_requested',
+                        [
+                            'document_number' => $header->document_number,
+                            'requester_name' => $header->requester?->name,
+                            'url' => SppbHeaderResource::getUrl('view', ['record' => $header]),
+                        ]
                     );
                 }
                 $header->current_workflow_instance_id = $instance->id;
@@ -205,7 +210,12 @@ final class WorkflowService implements WorkflowServiceContract
                 'Pengajuan SPPB Berhasil',
                 "SPPB dengan nomor {$header->document_number} telah berhasil diajukan dan sedang menunggu persetujuan.",
                 SppbHeaderResource::getUrl('view', ['record' => $header]),
-                'sppb_created'
+                'sppb_created',
+                [
+                    'document_number' => $header->document_number,
+                    'requester_name' => $header->requester?->name,
+                    'url' => SppbHeaderResource::getUrl('view', ['record' => $header]),
+                ]
             );
 
             return $instance;
@@ -395,7 +405,12 @@ final class WorkflowService implements WorkflowServiceContract
                                 'Persetujuan Baru',
                                 "SPPB dengan nomor {$header->document_number} (Pemohon: {$header->requester?->name}) memerlukan persetujuan/verifikasi Anda.",
                                 SppbHeaderResource::getUrl('view', ['record' => $header]),
-                                'approval_requested'
+                                'approval_requested',
+                                [
+                                    'document_number' => $header->document_number,
+                                    'requester_name' => $header->requester?->name,
+                                    'url' => SppbHeaderResource::getUrl('view', ['record' => $header]),
+                                ]
                             );
                         }
                         $header->current_step_sequence = $nextStep->sequence;
@@ -442,7 +457,12 @@ final class WorkflowService implements WorkflowServiceContract
                         'Update Persetujuan SPPB',
                         "Tahap persetujuan SPPB dengan nomor {$header->document_number} telah disetujui dan berlanjut ke tahap berikutnya.",
                         SppbHeaderResource::getUrl('view', ['record' => $header]),
-                        'approval_stage_updated'
+                        'approval_stage_updated',
+                        [
+                            'document_number' => $header->document_number,
+                            'requester_name' => $header->requester?->name,
+                            'url' => SppbHeaderResource::getUrl('view', ['record' => $header]),
+                        ]
                     );
                 } else {
                     // Ini step final — SPPB disetujui!
@@ -470,7 +490,12 @@ final class WorkflowService implements WorkflowServiceContract
                         'SPPB Disetujui',
                         "SPPB dengan nomor {$header->document_number} telah disetujui sepenuhnya.",
                         SppbHeaderResource::getUrl('view', ['record' => $header]),
-                        'sppb_approved'
+                        'sppb_approved',
+                        [
+                            'document_number' => $header->document_number,
+                            'requester_name' => $header->requester?->name,
+                            'url' => SppbHeaderResource::getUrl('view', ['record' => $header]),
+                        ]
                     );
                 }
 
@@ -556,7 +581,14 @@ final class WorkflowService implements WorkflowServiceContract
                 'SPPB Ditolak',
                 "SPPB dengan nomor {$header->document_number} telah ditolak oleh {$actorName}. Alasan: {$data->remarks}",
                 SppbHeaderResource::getUrl('view', ['record' => $header]),
-                'sppb_rejected_revised'
+                'sppb_rejected_revised',
+                [
+                    'document_number' => $header->document_number,
+                    'requester_name' => $header->requester?->name,
+                    'url' => SppbHeaderResource::getUrl('view', ['record' => $header]),
+                    'notes' => $data->remarks,
+                    'actor_name' => $actorName,
+                ]
             );
 
             return $step->refresh();
@@ -625,7 +657,14 @@ final class WorkflowService implements WorkflowServiceContract
                 'Permintaan Revisi SPPB',
                 "SPPB dengan nomor {$header->document_number} dikembalikan untuk direvisi oleh {$actorName}. Catatan: {$data->remarks}",
                 SppbHeaderResource::getUrl('view', ['record' => $header]),
-                'sppb_rejected_revised'
+                'sppb_rejected_revised',
+                [
+                    'document_number' => $header->document_number,
+                    'requester_name' => $header->requester?->name,
+                    'url' => SppbHeaderResource::getUrl('view', ['record' => $header]),
+                    'notes' => $data->remarks,
+                    'actor_name' => $actorName,
+                ]
             );
 
             return $step->refresh();
@@ -751,10 +790,46 @@ final class WorkflowService implements WorkflowServiceContract
         return array_unique($delegatorIds);
     }
 
-    private function sendNotification(?User $user, string $title, string $body, string $url, ?string $eventType = null): void
+    public function sendNotification(?User $user, string $title, string $body, string $url, ?string $eventType = null, array $context = []): void
     {
         if (! $user) {
             return;
+        }
+
+        // Resolve templates if eventType is set
+        $emailSubject = $title;
+        $emailBody = $body;
+        $waBody = $body;
+
+        if ($eventType) {
+            $tplEmailSubject = AppSetting::get('notify_template_'.$eventType.'_email_subject');
+            $tplEmailBody = AppSetting::get('notify_template_'.$eventType.'_email_body');
+            $tplWaBody = AppSetting::get('notify_template_'.$eventType.'_wa_body');
+
+            $placeholders = array_merge([
+                'document_number' => '',
+                'requester_name' => $user->name ?? '',
+                'url' => $url,
+                'notes' => '',
+                'actor_name' => '',
+            ], $context);
+
+            $replaceKeys = [];
+            $replaceVals = [];
+            foreach ($placeholders as $k => $v) {
+                $replaceKeys[] = '{'.$k.'}';
+                $replaceVals[] = (string) ($v ?? '');
+            }
+
+            if (! empty($tplEmailSubject)) {
+                $emailSubject = str_replace($replaceKeys, $replaceVals, $tplEmailSubject);
+            }
+            if (! empty($tplEmailBody)) {
+                $emailBody = str_replace($replaceKeys, $replaceVals, $tplEmailBody);
+            }
+            if (! empty($tplWaBody)) {
+                $waBody = str_replace($replaceKeys, $replaceVals, $tplWaBody);
+            }
         }
 
         // 1. In-App System Notification
@@ -769,8 +844,8 @@ final class WorkflowService implements WorkflowServiceContract
         if ($systemEnabled && $eventAllowed) {
             try {
                 Notification::make()
-                    ->title($title)
-                    ->body($body)
+                    ->title($emailSubject)
+                    ->body($emailBody)
                     ->icon('heroicon-o-document-text')
                     ->actions([
                         Action::make('view')
@@ -813,10 +888,10 @@ final class WorkflowService implements WorkflowServiceContract
 
                 Mail::purge();
 
-                Mail::raw("{$body}\n\nLihat detail: {$url}", function ($message) use ($user, $title, $mailFromAddress, $mailFromName) {
+                Mail::raw("{$emailBody}\n\nLihat detail: {$url}", function ($message) use ($user, $emailSubject, $mailFromAddress, $mailFromName) {
                     $message->to($user->email)
                         ->from($mailFromAddress, $mailFromName)
-                        ->subject("[E-SPPB] {$title}");
+                        ->subject($emailSubject);
                 });
             } catch (\Throwable $e) {
                 Log::error('Gagal mengirim email notifikasi: '.$e->getMessage());
@@ -828,8 +903,7 @@ final class WorkflowService implements WorkflowServiceContract
         if ($waEnabled && ! empty($user->phone)) {
             try {
                 $whatsAppService = app(WhatsAppService::class);
-                $messageText = "*[E-SPPB Enterprise]*\n*{$title}*\n\n{$body}\n\n🔗 Link: {$url}";
-                $whatsAppService->sendMessage($user->phone, $messageText);
+                $whatsAppService->sendMessage($user->phone, $waBody);
             } catch (\Throwable $e) {
                 Log::error('Gagal mengirim notifikasi WhatsApp: '.$e->getMessage());
             }

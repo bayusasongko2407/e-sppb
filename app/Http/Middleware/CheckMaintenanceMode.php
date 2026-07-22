@@ -18,7 +18,11 @@ class CheckMaintenanceMode
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $maintenanceEnabled = filter_var(AppSetting::get('op_maintenance_mode', false), FILTER_VALIDATE_BOOLEAN);
+        try {
+            $maintenanceEnabled = filter_var(AppSetting::get('op_maintenance_mode', false), FILTER_VALIDATE_BOOLEAN);
+        } catch (\Throwable $e) {
+            $maintenanceEnabled = false;
+        }
 
         if ($maintenanceEnabled) {
             $user = auth()->user();
@@ -46,9 +50,12 @@ class CheckMaintenanceMode
             if (str_starts_with($path, 'livewire/')) {
                 $isAllowedPath = true;
             }
-
             if (! $isExempted && ! $isAllowedPath) {
-                $message = AppSetting::get('op_maintenance_message', 'Aplikasi sedang dalam pemeliharaan berkala. Silakan coba beberapa saat lagi.');
+                try {
+                    $message = AppSetting::get('op_maintenance_message', 'Aplikasi sedang dalam pemeliharaan berkala. Silakan coba beberapa saat lagi.');
+                } catch (\Throwable $e) {
+                    $message = 'Aplikasi sedang dalam pemeliharaan berkala. Silakan coba beberapa saat lagi.';
+                }
 
                 if ($request->expectsJson() || $request->isXmlHttpRequest()) {
                     return response()->json([

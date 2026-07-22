@@ -39,6 +39,10 @@ class WhatsAppService
             return false;
         }
 
+        if (! str_contains($serverUrl, '/send-message')) {
+            $serverUrl = rtrim($serverUrl, '/').'/send-message';
+        }
+
         try {
             $headers = [
                 'Content-Type' => 'application/json',

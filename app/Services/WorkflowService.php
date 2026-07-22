@@ -787,8 +787,31 @@ final class WorkflowService implements WorkflowServiceContract
         $emailEnabled = (bool) AppSetting::get('notify_email_enabled', false);
         if ($emailEnabled && ! empty($user->email)) {
             try {
+                $driver = (string) AppSetting::get('mail_driver', 'smtp');
                 $mailFromAddress = (string) AppSetting::get('mail_from_address', 'no-reply@esppb.perusahaan.com');
                 $mailFromName = (string) AppSetting::get('mail_from_name', 'E-SPPB Enterprise');
+
+                // Dynamic configuration
+                config([
+                    'mail.default' => $driver,
+                    'mail.from.address' => $mailFromAddress,
+                    'mail.from.name' => $mailFromName,
+                ]);
+
+                if ($driver === 'smtp') {
+                    config([
+                        'mail.mailers.smtp.host' => AppSetting::get('mail_host', '127.0.0.1'),
+                        'mail.mailers.smtp.port' => (int) AppSetting::get('mail_port', 1025),
+                        'mail.mailers.smtp.username' => AppSetting::get('mail_username', ''),
+                        'mail.mailers.smtp.password' => AppSetting::get('mail_password', ''),
+                    ]);
+                } elseif ($driver === 'resend') {
+                    config([
+                        'resend.api_key' => AppSetting::get('resend_api_key', ''),
+                    ]);
+                }
+
+                Mail::purge();
 
                 Mail::raw("{$body}\n\nLihat detail: {$url}", function ($message) use ($user, $title, $mailFromAddress, $mailFromName) {
                     $message->to($user->email)

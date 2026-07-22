@@ -141,6 +141,7 @@ class NotificationSettingsTest extends TestCase
 
     public function test_send_test_email(): void
     {
+        Mail::shouldReceive('purge')->andReturnNull();
         Mail::shouldReceive('raw')
             ->once()
             ->withArgs(function ($body, $callback) {
@@ -150,6 +151,36 @@ class NotificationSettingsTest extends TestCase
         $this->actingAs($this->superAdmin);
 
         Livewire::test(NotificationSettings::class)
+            ->fillForm([
+                'mail_driver' => 'smtp',
+                'mail_host' => '127.0.0.1',
+                'mail_port' => 1025,
+                'mail_from_address' => 'admin@esppb.local',
+                'mail_from_name' => 'E-SPPB',
+            ])
+            ->set('test_email_recipient', 'test@example.com')
+            ->call('sendTestEmail')
+            ->assertHasNoFormErrors();
+    }
+
+    public function test_send_test_email_via_resend(): void
+    {
+        Mail::shouldReceive('purge')->andReturnNull();
+        Mail::shouldReceive('raw')
+            ->once()
+            ->withArgs(function ($body, $callback) {
+                return str_contains($body, 'uji coba');
+            });
+
+        $this->actingAs($this->superAdmin);
+
+        Livewire::test(NotificationSettings::class)
+            ->fillForm([
+                'mail_driver' => 'resend',
+                'resend_api_key' => 're_123456',
+                'mail_from_address' => 'admin@esppb.local',
+                'mail_from_name' => 'E-SPPB',
+            ])
             ->set('test_email_recipient', 'test@example.com')
             ->call('sendTestEmail')
             ->assertHasNoFormErrors();

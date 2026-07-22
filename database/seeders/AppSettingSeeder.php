@@ -105,6 +105,7 @@ class AppSettingSeeder extends Seeder
         AppSetting::set('mail_password', '', 'notification', 'string');
         AppSetting::set('mail_from_address', 'no-reply@esppb.perusahaan.com', 'notification', 'string');
         AppSetting::set('mail_from_name', 'E-SPPB Enterprise', 'notification', 'string');
+        AppSetting::set('resend_api_key', '', 'notification', 'string');
 
         // 13. Pengaturan Notifikasi WhatsApp (OpenWA)
         AppSetting::set('notify_wa_enabled', false, 'notification', 'boolean');

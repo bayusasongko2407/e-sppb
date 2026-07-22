@@ -98,6 +98,7 @@ class NotificationSettings extends Page implements HasForms
             'mail_port' => 1025,
             'mail_username' => '',
             'mail_password' => '',
+            'resend_api_key' => '',
             'mail_from_address' => 'no-reply@esppb.perusahaan.com',
             'mail_from_name' => 'E-SPPB Enterprise',
 
@@ -185,41 +186,65 @@ class NotificationSettings extends Page implements HasForms
                         Tab::make('Notifikasi Email')
                             ->icon('heroicon-m-envelope')
                             ->schema([
-                                Section::make('Konfigurasi Email SMTP')
-                                    ->description('Pengaturan koneksi SMTP server untuk pengiriman surel notifikasi.')
+                                Section::make('Konfigurasi Pengiriman Email')
+                                    ->description('Pengaturan pengiriman surel notifikasi (SMTP Server atau Resend API).')
                                     ->schema([
                                         Toggle::make('notify_email_enabled')
                                             ->label('Aktifkan Notifikasi Email')
                                             ->helperText('Jika aktif, sistem akan mengirim email otomatis ke pengguna terkait.')
                                             ->columnSpanFull(),
 
+                                        Select::make('mail_driver')
+                                            ->label('Metode Pengiriman (Mail Driver)')
+                                            ->options([
+                                                'smtp' => 'SMTP Server',
+                                                'resend' => 'Resend API',
+                                            ])
+                                            ->required()
+                                            ->default('smtp')
+                                            ->live()
+                                            ->columnSpanFull(),
+
+                                        Grid::make(2)
+                                            ->schema([
+                                                TextInput::make('mail_host')
+                                                    ->label('SMTP Host')
+                                                    ->required(fn ($get) => $get('mail_driver') === 'smtp')
+                                                    ->placeholder('smtp.mailtrap.io'),
+
+                                                TextInput::make('mail_port')
+                                                    ->label('Port SMTP')
+                                                    ->numeric()
+                                                    ->required(fn ($get) => $get('mail_driver') === 'smtp')
+                                                    ->placeholder('587'),
+
+                                                TextInput::make('mail_username')
+                                                    ->label('Username SMTP')
+                                                    ->nullable(),
+
+                                                TextInput::make('mail_password')
+                                                    ->label('Password SMTP')
+                                                    ->password()
+                                                    ->revealable()
+                                                    ->nullable(),
+                                            ])
+                                            ->visible(fn ($get) => $get('mail_driver') === 'smtp')
+                                            ->columnSpanFull(),
+
+                                        Grid::make(2)
+                                            ->schema([
+                                                TextInput::make('resend_api_key')
+                                                    ->label('Resend API Key')
+                                                    ->password()
+                                                    ->revealable()
+                                                    ->required(fn ($get) => $get('mail_driver') === 'resend')
+                                                    ->placeholder('re_xxxxxxxx')
+                                                    ->columnSpanFull(),
+                                            ])
+                                            ->visible(fn ($get) => $get('mail_driver') === 'resend')
+                                            ->columnSpanFull(),
+
                                         Grid::make(2)->schema([
-                                            TextInput::make('mail_driver')
-                                                ->label('Mail Driver')
-                                                ->required()
-                                                ->default('smtp'),
-
-                                            TextInput::make('mail_host')
-                                                ->label('SMTP Host')
-                                                ->required()
-                                                ->placeholder('smtp.mailtrap.io'),
-
-                                            TextInput::make('mail_port')
-                                                ->label('Port SMTP')
-                                                ->numeric()
-                                                ->required()
-                                                ->placeholder('587'),
-
-                                            TextInput::make('mail_username')
-                                                ->label('Username SMTP')
-                                                ->nullable(),
-
-                                            TextInput::make('mail_password')
-                                                ->label('Password SMTP')
-                                                ->password()
-                                                ->revealable()
-                                                ->nullable(),
-
                                             TextInput::make('mail_from_address')
                                                 ->label('Email Pengirim (Sender Email)')
                                                 ->email()
@@ -299,11 +324,33 @@ class NotificationSettings extends Page implements HasForms
 
         try {
             $data = $this->form->getState();
+            $driver = $data['mail_driver'] ?? 'smtp';
             $fromAddress = $data['mail_from_address'] ?? 'no-reply@esppb.perusahaan.com';
             $fromName = $data['mail_from_name'] ?? 'E-SPPB Enterprise';
-            $user = auth()->user();
 
-            Mail::raw("Halo,\n\nIni adalah email uji coba dari modul Pengaturan Notifikasi E-SPPB Enterprise.\nPengaturan SMTP Anda berfungsi dengan baik!", function ($message) use ($recipient, $fromAddress, $fromName) {
+            // Dynamic mail configuration
+            config([
+                'mail.default' => $driver,
+                'mail.from.address' => $fromAddress,
+                'mail.from.name' => $fromName,
+            ]);
+
+            if ($driver === 'smtp') {
+                config([
+                    'mail.mailers.smtp.host' => $data['mail_host'] ?? '127.0.0.1',
+                    'mail.mailers.smtp.port' => (int) ($data['mail_port'] ?? 1025),
+                    'mail.mailers.smtp.username' => $data['mail_username'] ?? '',
+                    'mail.mailers.smtp.password' => $data['mail_password'] ?? '',
+                ]);
+            } elseif ($driver === 'resend') {
+                config([
+                    'resend.api_key' => $data['resend_api_key'] ?? '',
+                ]);
+            }
+
+            Mail::purge();
+
+            Mail::raw("Halo,\n\nIni adalah email uji coba dari modul Pengaturan Notifikasi E-SPPB Enterprise.\nPengaturan pengiriman email Anda berfungsi dengan baik!", function ($message) use ($recipient, $fromAddress, $fromName) {
                 $message->to($recipient)
                     ->from($fromAddress, $fromName)
                     ->subject('[UJI COBA] Notifikasi Email E-SPPB Enterprise');
@@ -376,6 +423,7 @@ class NotificationSettings extends Page implements HasForms
             'mail_port' => 'integer',
             'mail_username' => 'string',
             'mail_password' => 'string',
+            'resend_api_key' => 'string',
             'mail_from_address' => 'string',
             'mail_from_name' => 'string',
 

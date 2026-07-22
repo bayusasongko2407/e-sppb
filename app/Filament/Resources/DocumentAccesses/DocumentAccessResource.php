@@ -21,7 +21,9 @@ class DocumentAccessResource extends Resource
 {
     protected static ?string $model = DocumentAccess::class;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Setup';
+    protected static string|\UnitEnum|null $navigationGroup = 'Sistem & Konfigurasi';
+
+    protected static ?int $navigationSort = 4;
 
     protected static ?string $navigationLabel = 'Document Accesses';
 

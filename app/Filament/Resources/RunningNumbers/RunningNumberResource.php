@@ -19,7 +19,7 @@ class RunningNumberResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-hashtag';
 
-    protected static \UnitEnum|string|null $navigationGroup = 'Sistem';
+    protected static \UnitEnum|string|null $navigationGroup = 'Sistem & Konfigurasi';
 
     protected static ?string $navigationLabel = 'Format Penomoran';
 

@@ -444,39 +444,15 @@ class SppbHeaderForm
                                     ->extraFieldWrapperAttributes(['class' => 'lg:[&_label]:hidden'])
                                     ->columnSpan(1),
 
+                                Hidden::make('item_id'),
+
                                 Hidden::make('reference_code'),
-
-                                Select::make('item_id')
-                                    ->label('Barcode/Kode')
-                                    ->relationship('item', 'code')
-                                    ->searchable(['name'])
-                                    ->preload()
-                                    ->required()
-                                    ->live()
-                                    ->afterStateUpdated(function (Set $set, ?int $state) {
-                                        if (! $state) {
-                                            $set('reference_code', null);
-                                            $set('item_asset_name', null);
-                                            $set('unit_id', null);
-
-                                            return;
-                                        }
-                                        $item = Item::find($state);
-                                        if ($item) {
-                                            $set('reference_code', $item->code);
-                                            $set('item_asset_name', $item->name);
-                                            $set('unit_id', $item->unit_id);
-                                        }
-                                    })
-                                    ->visible(fn (Get $get): bool => ! $get('barcode_confirmed'))
-                                    ->extraFieldWrapperAttributes(['class' => 'lg:[&_label]:hidden'])
-                                    ->columnSpan(2),
 
                                 Select::make('asset_id')
                                     ->label('Barcode/Kode')
                                     ->relationship('asset', 'barcode')
                                     ->searchable(['barcode'])
-                                    ->required()
+                                    ->required(fn (Get $get): bool => (bool) $get('barcode_confirmed'))
                                     ->live()
                                     ->afterStateUpdated(function (Set $set, ?int $state) {
                                         if (! $state) {
@@ -498,15 +474,39 @@ class SppbHeaderForm
                                     ->extraFieldWrapperAttributes(['class' => 'lg:[&_label]:hidden'])
                                     ->columnSpan(2),
 
-                                Textarea::make('item_asset_name')
+                                TextInput::make('item_asset_name')
                                     ->label('Nama Aset/Barang')
-                                    ->placeholder(fn (Get $get) => $get('barcode_confirmed') ? 'Nama aset terisi otomatis' : 'Isi nama barang...')
+                                    ->placeholder(fn (Get $get) => $get('barcode_confirmed') ? 'Nama aset terisi otomatis' : 'Ketik nama barang di sini...')
                                     ->required()
                                     ->readOnly(fn (Get $get): bool => (bool) $get('barcode_confirmed'))
                                     ->maxLength(200)
-                                    ->rows(2)
+                                    ->datalist(fn (Get $get) => $get('barcode_confirmed') ? [] : Item::where('is_active', true)->pluck('name')->toArray())
+                                    ->live(onBlur: true)
+                                    ->afterStateUpdated(function (Set $set, $state, Get $get) {
+                                        if ($get('barcode_confirmed')) {
+                                            return;
+                                        }
+
+                                        if (empty($state)) {
+                                            $set('item_id', null);
+                                            $set('reference_code', null);
+                                            $set('unit_id', null);
+
+                                            return;
+                                        }
+
+                                        $item = Item::where('name', $state)->where('is_active', true)->first();
+                                        if ($item) {
+                                            $set('item_id', $item->id);
+                                            $set('reference_code', $item->code);
+                                            $set('unit_id', $item->unit_id);
+                                        } else {
+                                            $set('item_id', null);
+                                            $set('reference_code', null);
+                                        }
+                                    })
                                     ->extraFieldWrapperAttributes(['class' => 'lg:[&_label]:hidden'])
-                                    ->columnSpan(6),
+                                    ->columnSpan(fn (Get $get) => $get('barcode_confirmed') ? 6 : 8),
 
                                 TextInput::make('quantity')
                                     ->label('Qty')

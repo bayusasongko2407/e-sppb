@@ -87,6 +87,20 @@ class MyProfile extends Page implements HasForms
                 Section::make('Ubah Kata Sandi')
                     ->description('Kosongkan jika Anda tidak ingin mengubah kata sandi.')
                     ->schema([
+                        TextInput::make('current_password')
+                            ->label('Kata Sandi Saat Ini')
+                            ->password()
+                            ->requiredWith('password')
+                            ->dehydrated(false)
+                            ->rule(function () use ($user) {
+                                return function ($attribute, $value, $fail) use ($user) {
+                                    if ($value && ! Hash::check($value, $user->password)) {
+                                        $fail('Kata sandi saat ini tidak cocok.');
+                                    }
+                                };
+                            })
+                            ->columnSpanFull(),
+
                         TextInput::make('password')
                             ->label('Kata Sandi Baru')
                             ->password()

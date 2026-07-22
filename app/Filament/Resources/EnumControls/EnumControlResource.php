@@ -17,7 +17,7 @@ class EnumControlResource extends Resource
 {
     protected static ?string $model = EnumControl::class;
 
-    protected static \UnitEnum|string|null $navigationGroup = 'Sistem';
+    protected static \UnitEnum|string|null $navigationGroup = 'Sistem & Konfigurasi';
 
     protected static ?string $modelLabel = 'Enum Kontrol';
 

@@ -22,7 +22,7 @@ class EmailChangeRequestResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-envelope';
 
-    protected static \UnitEnum|string|null $navigationGroup = 'Sistem';
+    protected static \UnitEnum|string|null $navigationGroup = 'Sistem & Konfigurasi';
 
     protected static ?int $navigationSort = 3;
 

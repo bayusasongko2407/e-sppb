@@ -157,8 +157,8 @@ class SppbHeaderInfolist
                     ])
                     ->columnSpanFull(),
 
-                // ─── SECTION 2: DETAIL BARANG / ASSET ────────────────────────
-                Section::make('Detail Barang / Asset')
+                // ─── SECTION 2A: DETAIL ASET (TERDAFTAR / BER-BARCODE) ───────
+                Section::make('Detail Aset (Terdaftar / Ber-Barcode)')
                     ->schema([
                         // Header Grid (Hanya tampil di Desktop)
                         Grid::make([
@@ -167,37 +167,37 @@ class SppbHeaderInfolist
                             'lg' => 16,
                         ])
                             ->schema([
-                                Placeholder::make('hdr_jenis')
+                                Placeholder::make('hdr_jenis_asset')
                                     ->hiddenLabel()
                                     ->content(new HtmlString('<span class="text-xs font-semibold text-gray-500 uppercase dark:text-gray-400">Jenis</span>'))
                                     ->columnSpan(1),
 
-                                Placeholder::make('hdr_barcode_kode')
+                                Placeholder::make('hdr_barcode_kode_asset')
                                     ->hiddenLabel()
                                     ->content(new HtmlString('<span class="text-xs font-semibold text-gray-500 uppercase dark:text-gray-400">Barcode/Kode <span class="text-red-600 dark:text-red-400">*</span></span>'))
                                     ->columnSpan(2),
 
-                                Placeholder::make('hdr_nama_aset_barang')
+                                Placeholder::make('hdr_nama_aset_barang_asset')
                                     ->hiddenLabel()
                                     ->content(new HtmlString('<span class="text-xs font-semibold text-gray-500 uppercase dark:text-gray-400">Nama Aset/Barang <span class="text-red-600 dark:text-red-400">*</span></span>'))
                                     ->columnSpan(fn ($record) => in_array($record?->status, ['APPROVED', 'RELEASE_IN_PROGRESS', 'COMPLETED']) ? 5 : 6),
 
-                                Placeholder::make('hdr_qty')
+                                Placeholder::make('hdr_qty_asset')
                                     ->hiddenLabel()
                                     ->content(new HtmlString('<span class="text-xs font-semibold text-gray-500 uppercase dark:text-gray-400">Qty <span class="text-red-600 dark:text-red-400">*</span></span>'))
                                     ->columnSpan(1),
 
-                                Placeholder::make('hdr_satuan')
+                                Placeholder::make('hdr_satuan_asset')
                                     ->hiddenLabel()
                                     ->content(new HtmlString('<span class="text-xs font-semibold text-gray-500 uppercase dark:text-gray-400">Satuan <span class="text-red-600 dark:text-red-400">*</span></span>'))
                                     ->columnSpan(2),
 
-                                Placeholder::make('hdr_remarks')
+                                Placeholder::make('hdr_remarks_asset')
                                     ->hiddenLabel()
                                     ->content(new HtmlString('<span class="text-xs font-semibold text-gray-500 uppercase dark:text-gray-400">Keterangan / Spesifikasi</span>'))
                                     ->columnSpan(fn ($record) => in_array($record?->status, ['APPROVED', 'RELEASE_IN_PROGRESS', 'COMPLETED']) ? 3 : 4),
 
-                                Placeholder::make('hdr_status_pengiriman')
+                                Placeholder::make('hdr_status_pengiriman_asset')
                                     ->hiddenLabel()
                                     ->content(new HtmlString('<span class="text-xs font-semibold text-gray-500 uppercase dark:text-gray-400">Status Pengiriman</span>'))
                                     ->columnSpan(2)
@@ -205,8 +205,9 @@ class SppbHeaderInfolist
                             ])
                             ->extraAttributes(['class' => 'hidden lg:grid mb-2']),
 
-                        RepeatableEntry::make('sppbDetails')
+                        RepeatableEntry::make('sppbDetailsAsset')
                             ->hiddenLabel()
+                            ->getStateUsing(fn ($record) => $record?->sppbDetails()->where('barcode_confirmed', true)->get())
                             ->schema([
                                 TextEntry::make('barcode_confirmed')
                                     ->label('Jenis')
@@ -222,17 +223,9 @@ class SppbHeaderInfolist
                                     ->extraEntryWrapperAttributes(['class' => 'lg:[&_.fi-in-entry-label-col]:hidden'])
                                     ->columnSpan(2),
 
-                                TextEntry::make('item.name')
+                                TextEntry::make('item_asset_name')
                                     ->label('Nama Aset/Barang')
                                     ->placeholder('—')
-                                    ->visible(fn ($record): bool => ! $record?->barcode_confirmed)
-                                    ->extraEntryWrapperAttributes(['class' => 'lg:[&_.fi-in-entry-label-col]:hidden'])
-                                    ->columnSpan(fn ($record) => in_array($record?->sppbHeader?->status, ['APPROVED', 'RELEASE_IN_PROGRESS', 'COMPLETED']) ? 5 : 6),
-
-                                TextEntry::make('asset.asset_name')
-                                    ->label('Nama Aset/Barang')
-                                    ->placeholder('—')
-                                    ->visible(fn ($record): bool => (bool) $record?->barcode_confirmed)
                                     ->extraEntryWrapperAttributes(['class' => 'lg:[&_.fi-in-entry-label-col]:hidden'])
                                     ->columnSpan(fn ($record) => in_array($record?->sppbHeader?->status, ['APPROVED', 'RELEASE_IN_PROGRESS', 'COMPLETED']) ? 5 : 6),
 
@@ -292,7 +285,128 @@ class SppbHeaderInfolist
                             ])
                             ->columnSpanFull(),
                     ])
-                    ->columnSpanFull(),
+                    ->columnSpanFull()
+                    ->visible(fn ($record) => $record?->sppbDetails()->where('barcode_confirmed', true)->exists()),
+
+                // ─── SECTION 2B: DETAIL BARANG (NON-ASSET / INPUT BEBAS) ──────
+                Section::make('Detail Barang (Non-Asset / Input Bebas)')
+                    ->schema([
+                        // Header Grid (Hanya tampil di Desktop)
+                        Grid::make([
+                            'default' => 1,
+                            'sm' => 4,
+                            'lg' => 16,
+                        ])
+                            ->schema([
+                                Placeholder::make('hdr_jenis_non_asset')
+                                    ->hiddenLabel()
+                                    ->content(new HtmlString('<span class="text-xs font-semibold text-gray-500 uppercase dark:text-gray-400">Jenis</span>'))
+                                    ->columnSpan(1),
+
+                                Placeholder::make('hdr_nama_aset_barang_non_asset')
+                                    ->hiddenLabel()
+                                    ->content(new HtmlString('<span class="text-xs font-semibold text-gray-500 uppercase dark:text-gray-400">Nama Aset/Barang <span class="text-red-600 dark:text-red-400">*</span></span>'))
+                                    ->columnSpan(fn ($record) => in_array($record?->status, ['APPROVED', 'RELEASE_IN_PROGRESS', 'COMPLETED']) ? 7 : 8),
+
+                                Placeholder::make('hdr_qty_non_asset')
+                                    ->hiddenLabel()
+                                    ->content(new HtmlString('<span class="text-xs font-semibold text-gray-500 uppercase dark:text-gray-400">Qty <span class="text-red-600 dark:text-red-400">*</span></span>'))
+                                    ->columnSpan(1),
+
+                                Placeholder::make('hdr_satuan_non_asset')
+                                    ->hiddenLabel()
+                                    ->content(new HtmlString('<span class="text-xs font-semibold text-gray-500 uppercase dark:text-gray-400">Satuan <span class="text-red-600 dark:text-red-400">*</span></span>'))
+                                    ->columnSpan(2),
+
+                                Placeholder::make('hdr_remarks_non_asset')
+                                    ->hiddenLabel()
+                                    ->content(new HtmlString('<span class="text-xs font-semibold text-gray-500 uppercase dark:text-gray-400">Keterangan / Spesifikasi</span>'))
+                                    ->columnSpan(fn ($record) => in_array($record?->status, ['APPROVED', 'RELEASE_IN_PROGRESS', 'COMPLETED']) ? 3 : 4),
+
+                                Placeholder::make('hdr_status_pengiriman_non_asset')
+                                    ->hiddenLabel()
+                                    ->content(new HtmlString('<span class="text-xs font-semibold text-gray-500 uppercase dark:text-gray-400">Status Pengiriman</span>'))
+                                    ->columnSpan(2)
+                                    ->visible(fn ($record) => in_array($record?->status, ['APPROVED', 'RELEASE_IN_PROGRESS', 'COMPLETED'])),
+                            ])
+                            ->extraAttributes(['class' => 'hidden lg:grid mb-2']),
+
+                        RepeatableEntry::make('sppbDetailsNonAsset')
+                            ->hiddenLabel()
+                            ->getStateUsing(fn ($record) => $record?->sppbDetails()->where('barcode_confirmed', false)->get())
+                            ->schema([
+                                TextEntry::make('barcode_confirmed')
+                                    ->label('Jenis')
+                                    ->formatStateUsing(fn (bool $state): string => $state ? 'Asset' : 'Non Asset')
+                                    ->badge()
+                                    ->color(fn (bool $state): string => $state ? 'info' : 'gray')
+                                    ->extraEntryWrapperAttributes(['class' => 'lg:[&_.fi-in-entry-label-col]:hidden'])
+                                    ->columnSpan(1),
+
+                                TextEntry::make('item_asset_name')
+                                    ->label('Nama Aset/Barang')
+                                    ->placeholder('—')
+                                    ->extraEntryWrapperAttributes(['class' => 'lg:[&_.fi-in-entry-label-col]:hidden'])
+                                    ->columnSpan(fn ($record) => in_array($record?->sppbHeader?->status, ['APPROVED', 'RELEASE_IN_PROGRESS', 'COMPLETED']) ? 7 : 8),
+
+                                TextEntry::make('quantity')
+                                    ->label('Qty')
+                                    ->numeric()
+                                    ->placeholder('—')
+                                    ->extraEntryWrapperAttributes(['class' => 'lg:[&_.fi-in-entry-label-col]:hidden'])
+                                    ->columnSpan(1),
+
+                                TextEntry::make('unit.name')
+                                    ->label('Satuan')
+                                    ->placeholder('—')
+                                    ->extraEntryWrapperAttributes(['class' => 'lg:[&_.fi-in-entry-label-col]:hidden'])
+                                    ->columnSpan(2),
+
+                                TextEntry::make('remarks')
+                                    ->label('Keterangan / Spesifikasi')
+                                    ->placeholder('—')
+                                    ->extraEntryWrapperAttributes(['class' => 'lg:[&_.fi-in-entry-label-col]:hidden'])
+                                    ->columnSpan(fn ($record) => in_array($record?->sppbHeader?->status, ['APPROVED', 'RELEASE_IN_PROGRESS', 'COMPLETED']) ? 3 : 4),
+
+                                TextEntry::make('delivery_status_display')
+                                    ->label('Status Pengiriman')
+                                    ->getStateUsing(function ($record): string {
+                                        if (! $record) {
+                                            return 'Belum Dikirim';
+                                        }
+                                        $hasDraft = $record->goodsReleaseItems()
+                                            ->whereHas('goodsRelease', fn ($q) => $q->where('status', 'DRAFT'))
+                                            ->exists();
+                                        if ($hasDraft) {
+                                            return 'Draft Surat Jalan';
+                                        }
+
+                                        return match ($record->delivery_status) {
+                                            'IN_TRANSIT' => 'Dalam Pengiriman',
+                                            'DELIVERED' => 'Terkirim',
+                                            default => 'Belum Dikirim',
+                                        };
+                                    })
+                                    ->badge()
+                                    ->color(fn (string $state): string => match ($state) {
+                                        'Draft Surat Jalan' => 'warning',
+                                        'Dalam Pengiriman' => 'info',
+                                        'Terkirim' => 'success',
+                                        default => 'gray',
+                                    })
+                                    ->extraEntryWrapperAttributes(['class' => 'lg:[&_.fi-in-entry-label-col]:hidden'])
+                                    ->columnSpan(2)
+                                    ->visible(fn ($record) => in_array($record?->sppbHeader?->status, ['APPROVED', 'RELEASE_IN_PROGRESS', 'COMPLETED'])),
+                            ])
+                            ->columns([
+                                'default' => 1,
+                                'sm' => 4,
+                                'lg' => 16,
+                            ])
+                            ->columnSpanFull(),
+                    ])
+                    ->columnSpanFull()
+                    ->visible(fn ($record) => $record?->sppbDetails()->where('barcode_confirmed', false)->exists()),
 
                 // ─── SECTION 3: WORKFLOW PERSETUJUAN ──────────────────────────
                 Section::make('Workflow Persetujuan')

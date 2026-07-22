@@ -149,9 +149,16 @@ class AdminPanelProvider extends PanelProvider
                     ->label('Master Data')
                     ->icon('heroicon-o-circle-stack')
                     ->collapsed(true),
-                NavigationGroup::make('Sistem')
-                    ->label('Sistem & Konfigurasi')
+                NavigationGroup::make('Sistem & Konfigurasi')
                     ->icon('heroicon-o-cog-6-tooth')
+                    ->collapsed(true),
+                NavigationGroup::make('Reporting')
+                    ->label('Laporan')
+                    ->icon('heroicon-o-chart-bar')
+                    ->collapsed(true),
+                NavigationGroup::make('Pengaturan')
+                    ->label('Pengaturan')
+                    ->icon('heroicon-o-adjustments-horizontal')
                     ->collapsed(true),
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')

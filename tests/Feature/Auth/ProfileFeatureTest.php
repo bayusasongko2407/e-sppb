@@ -82,6 +82,7 @@ class ProfileFeatureTest extends TestCase
             ->fillForm([
                 'name' => $user->name,
                 'email' => $user->email,
+                'current_password' => 'OldPassword123!',
                 'password' => 'weak',
                 'password_confirmation' => 'weak',
             ])
@@ -93,17 +94,31 @@ class ProfileFeatureTest extends TestCase
             ->fillForm([
                 'name' => $user->name,
                 'email' => $user->email,
+                'current_password' => 'OldPassword123!',
                 'password' => 'OldPassword123!',
                 'password_confirmation' => 'OldPassword123!',
             ])
             ->call('save')
             ->assertHasFormErrors(['password']);
 
+        // Try wrong current password
+        Livewire::test(MyProfile::class)
+            ->fillForm([
+                'name' => $user->name,
+                'email' => $user->email,
+                'current_password' => 'WrongOldPassword!',
+                'password' => 'NewPassword999#',
+                'password_confirmation' => 'NewPassword999#',
+            ])
+            ->call('save')
+            ->assertHasFormErrors(['current_password']);
+
         // Try valid strong password
         Livewire::test(MyProfile::class)
             ->fillForm([
                 'name' => $user->name,
                 'email' => $user->email,
+                'current_password' => 'OldPassword123!',
                 'password' => 'NewPassword999#',
                 'password_confirmation' => 'NewPassword999#',
             ])

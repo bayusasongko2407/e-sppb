@@ -11,6 +11,8 @@ use App\Services\WhatsAppService;
 use Filament\Notifications\Notification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
 use Livewire\Livewire;
 use Ramsey\Uuid\Uuid;
 use Spatie\Permission\Models\Role;
@@ -135,5 +137,46 @@ class NotificationSettingsTest extends TestCase
         $this->assertDatabaseHas('notifications', [
             'data->title' => 'New Notification',
         ]);
+    }
+
+    public function test_send_test_email(): void
+    {
+        Mail::shouldReceive('raw')
+            ->once()
+            ->withArgs(function ($body, $callback) {
+                return str_contains($body, 'uji coba');
+            });
+
+        $this->actingAs($this->superAdmin);
+
+        Livewire::test(NotificationSettings::class)
+            ->set('test_email_recipient', 'test@example.com')
+            ->call('sendTestEmail')
+            ->assertHasNoFormErrors();
+    }
+
+    public function test_send_test_wa(): void
+    {
+        Http::fake([
+            '*/api/sessions' => Http::response([
+                [
+                    'id' => 'sess-uuid-123',
+                    'name' => 'sppb-bot',
+                    'status' => 'ready',
+                    'phone' => '6281234567890',
+                ],
+            ], 200),
+            '*/api/sessions/*/messages/send-text' => Http::response(['messageId' => 'msg-123'], 201),
+        ]);
+
+        // Enable WA notifications
+        AppSetting::set('notify_wa_enabled', true, 'notification', 'boolean');
+
+        $this->actingAs($this->superAdmin);
+
+        Livewire::test(NotificationSettings::class)
+            ->set('test_wa_recipient', '081234567890')
+            ->call('sendTestWa')
+            ->assertHasNoFormErrors();
     }
 }

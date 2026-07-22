@@ -36,6 +36,10 @@ class NotificationSettings extends Page implements HasForms
         'qr_code' => null,
     ];
 
+    public ?string $test_email_recipient = null;
+
+    public ?string $test_wa_recipient = null;
+
     public static function canAccess(): bool
     {
         return auth()->user()?->hasRole('super_admin') ?? false;
@@ -111,6 +115,10 @@ class NotificationSettings extends Page implements HasForms
 
         $this->form->fill($state);
         $this->checkWaStatus();
+
+        $user = auth()->user();
+        $this->test_email_recipient = $user?->email;
+        $this->test_wa_recipient = $user?->phone;
     }
 
     public function form(Schema $form): Schema
@@ -277,12 +285,13 @@ class NotificationSettings extends Page implements HasForms
 
     public function sendTestEmail(): void
     {
-        $user = auth()->user();
-        if (! $user || empty($user->email)) {
+        $recipient = $this->test_email_recipient;
+
+        if (empty($recipient)) {
             Notification::make()
                 ->title('Gagal Mengirim Email Uji Coba')
-                ->body('Pengguna saat ini tidak memiliki alamat email yang valid.')
-                ->danger()
+                ->body('Silakan masukkan alamat email penerima terlebih dahulu.')
+                ->warning()
                 ->send();
 
             return;
@@ -292,16 +301,17 @@ class NotificationSettings extends Page implements HasForms
             $data = $this->form->getState();
             $fromAddress = $data['mail_from_address'] ?? 'no-reply@esppb.perusahaan.com';
             $fromName = $data['mail_from_name'] ?? 'E-SPPB Enterprise';
+            $user = auth()->user();
 
-            Mail::raw("Halo {$user->name},\n\nIni adalah email uji coba dari modul Pengaturan Notifikasi E-SPPB Enterprise.\nPengaturan SMTP Anda berfungsi dengan baik!", function ($message) use ($user, $fromAddress, $fromName) {
-                $message->to($user->email)
+            Mail::raw("Halo,\n\nIni adalah email uji coba dari modul Pengaturan Notifikasi E-SPPB Enterprise.\nPengaturan SMTP Anda berfungsi dengan baik!", function ($message) use ($recipient, $fromAddress, $fromName) {
+                $message->to($recipient)
                     ->from($fromAddress, $fromName)
                     ->subject('[UJI COBA] Notifikasi Email E-SPPB Enterprise');
             });
 
             Notification::make()
                 ->title('Email Uji Coba Berhasil Dikirim')
-                ->body("Email uji coba telah dikirim ke: {$user->email}")
+                ->body("Email uji coba telah dikirim ke: {$recipient}")
                 ->success()
                 ->send();
         } catch (\Throwable $e) {
@@ -315,13 +325,12 @@ class NotificationSettings extends Page implements HasForms
 
     public function sendTestWa(): void
     {
-        $user = auth()->user();
-        $phone = $user?->phone;
+        $recipient = $this->test_wa_recipient;
 
-        if (empty($phone)) {
+        if (empty($recipient)) {
             Notification::make()
                 ->title('Gagal Mengirim WA Uji Coba')
-                ->body('Akun Anda belum memiliki nomor HP/WhatsApp. Silakan isi nomor HP di profil Anda.')
+                ->body('Silakan masukkan nomor HP/WhatsApp penerima terlebih dahulu.')
                 ->warning()
                 ->send();
 
@@ -330,12 +339,12 @@ class NotificationSettings extends Page implements HasForms
 
         /** @var WhatsAppService $waService */
         $waService = app(WhatsAppService::class);
-        $success = $waService->sendTestMessage($phone);
+        $success = $waService->sendTestMessage($recipient);
 
         if ($success) {
             Notification::make()
                 ->title('WhatsApp Uji Coba Berhasil Dikirim')
-                ->body("Pesan uji coba dikirim ke nomor: {$phone}")
+                ->body("Pesan uji coba dikirim ke nomor: {$recipient}")
                 ->success()
                 ->send();
         } else {

@@ -48,26 +48,54 @@
                         {{ $waStatusData['message'] ?? 'Tidak ada pesan status.' }}
                     </p>
 
-                    <div class="pt-2 flex flex-wrap gap-3">
-                        <x-filament::button
-                            type="button"
-                            color="info"
-                            size="sm"
-                            icon="heroicon-m-paper-airplane"
-                            wire:click="sendTestWa"
-                        >
-                            Kirim WA Uji Coba
-                        </x-filament::button>
+                    <div class="pt-4 space-y-4 border-t border-gray-100 dark:border-gray-800">
+                        <div class="space-y-1">
+                            <label for="test_wa_recipient" class="text-xs font-semibold text-gray-750 dark:text-gray-350">
+                                WhatsApp Penerima Uji Coba:
+                            </label>
+                            <div class="flex gap-x-2">
+                                <input 
+                                    type="text" 
+                                    id="test_wa_recipient" 
+                                    wire:model="test_wa_recipient" 
+                                    placeholder="Contoh: 628123456789" 
+                                    class="block w-full max-w-xs rounded-lg border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 text-xs shadow-sm focus:border-indigo-500 focus:ring-indigo-500" 
+                                />
+                                <x-filament::button
+                                    type="button"
+                                    color="info"
+                                    size="sm"
+                                    icon="heroicon-m-paper-airplane"
+                                    wire:click="sendTestWa"
+                                >
+                                    Kirim WA Uji Coba
+                                </x-filament::button>
+                            </div>
+                        </div>
 
-                        <x-filament::button
-                            type="button"
-                            color="gray"
-                            size="sm"
-                            icon="heroicon-m-envelope"
-                            wire:click="sendTestEmail"
-                        >
-                            Kirim Email Uji Coba
-                        </x-filament::button>
+                        <div class="space-y-1">
+                            <label for="test_email_recipient" class="text-xs font-semibold text-gray-750 dark:text-gray-350">
+                                Email Penerima Uji Coba:
+                            </label>
+                            <div class="flex gap-x-2">
+                                <input 
+                                    type="email" 
+                                    id="test_email_recipient" 
+                                    wire:model="test_email_recipient" 
+                                    placeholder="Contoh: admin@perusahaan.com" 
+                                    class="block w-full max-w-xs rounded-lg border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 text-xs shadow-sm focus:border-indigo-500 focus:ring-indigo-500" 
+                                />
+                                <x-filament::button
+                                    type="button"
+                                    color="gray"
+                                    size="sm"
+                                    icon="heroicon-m-envelope"
+                                    wire:click="sendTestEmail"
+                                >
+                                    Kirim Email Uji Coba
+                                </x-filament::button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

@@ -6,6 +6,7 @@ namespace App\Filament\Pages;
 
 use App\Models\AppSetting;
 use App\Services\WhatsAppService;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -434,6 +435,10 @@ class NotificationSettings extends Page implements HasForms
                                                 ->default('E-SPPB Enterprise'),
                                         ]),
                                     ]),
+
+                                Placeholder::make('email_test_section')
+                                    ->columnSpanFull()
+                                    ->view('filament.pages.email-test-section'),
                             ]),
 
                         Tab::make('Notifikasi WhatsApp')
@@ -471,6 +476,10 @@ class NotificationSettings extends Page implements HasForms
                                                 ->columnSpanFull(),
                                         ]),
                                     ]),
+
+                                Placeholder::make('wa_status_section')
+                                    ->columnSpanFull()
+                                    ->view('filament.pages.wa-status-section'),
                             ]),
                     ])
                     ->columnSpanFull(),

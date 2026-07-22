@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\CheckMaintenanceMode;
 use App\Http\Middleware\EnsureCorrelationId;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\ScopePlantMiddleware;
@@ -24,6 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             EnsureUserIsActive::class,
             ScopePlantMiddleware::class,
+            CheckMaintenanceMode::class,
         ]);
         $middleware->alias([
             'role' => RoleMiddleware::class,

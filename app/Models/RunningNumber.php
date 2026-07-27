@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Traits\SecureRouteBinding;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class RunningNumber extends Model
 {
-    use HasFactory;
+    use HasFactory, SecureRouteBinding;
 
     /**
      * The attributes that are mass assignable.

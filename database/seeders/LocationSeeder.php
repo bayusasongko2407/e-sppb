@@ -1,8 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Database\Seeders;
 
 use App\Models\Location;
+use App\Models\Plant;
 use Illuminate\Database\Seeder;
 
 class LocationSeeder extends Seeder
@@ -12,6 +15,37 @@ class LocationSeeder extends Seeder
      */
     public function run(): void
     {
-        Location::factory()->count(5)->create();
+        $plants = Plant::all();
+
+        foreach ($plants as $plant) {
+            $locations = [
+                [
+                    'code' => 'LOC-'.str_replace(' ', '', $plant->code).'-ENG',
+                    'name' => 'Workshop Engineering '.$plant->name,
+                    'address' => 'Area workshop pemeliharaan mesin pada '.$plant->name,
+                ],
+                [
+                    'code' => 'LOC-'.str_replace(' ', '', $plant->code).'-GRAW',
+                    'name' => 'Gudang Bahan Baku '.$plant->name,
+                    'address' => 'Area penyimpanan raw material pada '.$plant->name,
+                ],
+                [
+                    'code' => 'LOC-'.str_replace(' ', '', $plant->code).'-GFIN',
+                    'name' => 'Gudang Barang Jadi '.$plant->name,
+                    'address' => 'Area penyimpanan produk jadi / finished goods pada '.$plant->name,
+                ],
+            ];
+
+            foreach ($locations as $loc) {
+                Location::firstOrCreate([
+                    'plant_id' => $plant->id,
+                    'code' => $loc['code'],
+                ], [
+                    'name' => $loc['name'],
+                    'address' => $loc['address'],
+                    'is_active' => true,
+                ]);
+            }
+        }
     }
 }

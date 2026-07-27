@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\ActivityLog;
+use App\Models\Role;
 use App\Models\User;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
 class RoleManagementService

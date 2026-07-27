@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Traits\SecureRouteBinding;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class EnumControl extends Model
 {
-    use HasFactory;
+    use HasFactory, SecureRouteBinding;
 
     protected $fillable = [
         'table_name',

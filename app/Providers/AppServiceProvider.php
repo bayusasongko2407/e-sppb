@@ -7,6 +7,7 @@ namespace App\Providers;
 use App\Contracts\DocumentRendererInterface;
 use App\Contracts\SppbServiceContract;
 use App\Contracts\WorkflowServiceContract;
+use App\Models\Role;
 use App\Policies\RolePolicy;
 use App\Services\DummyDocumentRenderer;
 use App\Services\RunningNumberService;
@@ -17,7 +18,6 @@ use App\Services\WorkflowService;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
-use Spatie\Permission\Models\Role;
 
 class AppServiceProvider extends ServiceProvider
 {

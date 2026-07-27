@@ -6,7 +6,6 @@ use App\Traits\SecureRouteBinding;
 use Database\Factories\DocumentAccessFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Spatie\Permission\Models\Role;
 
 class DocumentAccess extends Model
 {

@@ -611,6 +611,7 @@ models:
   GoodsRelease:
     uuid: uuid unique
     release_number: string:50 unique
+    manual_release_number: string:50 nullable
     sppb_header_id: id foreign cascadeOnDelete
     release_sequence: unsignedInteger
     is_manual: boolean default:false

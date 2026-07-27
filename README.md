@@ -71,6 +71,11 @@ Mesin alur kerja persetujuan berjenjang yang fleksibel dan aman untuk otorisasi 
 ### 3. 🚚 Modul Surat Jalan & Pelepasan Barang (Goods Release / SAT)
 Modul logistik untuk mengontrol pengeluaran fisik barang dari area gudang:
 - **Penerbitan Surat Jalan Resmi**: Pengeluaran berkas Surat Jalan (*Goods Release*) berdasarkan dokumen SPPB yang telah disetujui penuh (*Final Approved*).
+- **Cetak PDF & Verifikasi QR**:
+  - Dukungan tombol **Cetak PDF** untuk menerbitkan dokumen fisik Surat Jalan resmi dengan Kop Surat Perusahaan, rincian pengiriman, daftar barang, tanda tangan persetujuan lengkap, dan QR Code verifikasi dokumen.
+  - **Dua Desain Penomoran Dinamis**:
+    - **Surat Jalan Otomatis**: Nomor dokumen utama menggunakan nomor Surat Jalan otomatis dari sistem.
+    - **Surat Jalan Manual**: Jika dikirim sebagai surat jalan manual, pengguna dapat menginput nomor Surat Jalan manual miliknya. Pada cetak PDF, nomor manual tersebut akan menjadi nomor utama dokumen, sedangkan nomor sistem otomatis akan dilabeli sebagai **No. Referensi (Reference No)**.
 - **Konsolidasi Multi-SPPB**: Mendukung penggabungan beberapa dokumen SPPB aktif dari lokasi asal/tujuan yang sama ke dalam satu dokumen Surat Jalan untuk efisiensi armada pengiriman.
 - **Over-Release Protection**: Validasi ketat kuantitas rilis fisik terhadap sisa kuantitas pengajuan SPPB untuk mencegah pengeluaran barang melebihi batas persetujuan.
 - **Pelacakan Status Rilis**: Transisi status otomatis detail barang SPPB dari `APPROVED` menjadi `RELEASE_IN_PROGRESS` (jika baru dirilis sebagian) hingga `COMPLETED` (jika seluruh kuantitas telah dikeluarkan).
@@ -174,6 +179,34 @@ php artisan serve
 ```
 
 Akses admin panel Filament melalui browser di `http://127.0.0.1:8000/admin`.
+
+## 🔄 Panduan Migrasi (Zero Error)
+
+Bagi tim yang melakukan migrasi database atau deployment kode versi terbaru dari repositori agar berjalan lancar tanpa *error*:
+
+1. **Jalankan Migrasi Database**:
+   Lakukan perintah migrasi untuk memperbarui tabel `goods_releases` dengan kolom baru (`manual_release_number`):
+   ```bash
+   php artisan migrate --no-interaction
+   ```
+2. **Bersihkan Cache Aplikasi & Konfigurasi**:
+   Agar rute cetak PDF Surat Jalan yang baru terdaftar dengan benar, jalankan:
+   ```bash
+   php artisan config:clear
+   php artisan route:clear
+   php artisan view:clear
+   php artisan cache:clear
+   ```
+3. **Build Ulang Aset Frontend**:
+   Pastikan aset web dikompilasi ulang demi kelancaran antarmuka Filament:
+   ```bash
+   npm run build
+   ```
+4. **Jalankan Pengujian (Testing)**:
+   Selalu jalankan pengujian fungsionalitas sebelum menaikkan perubahan ke production:
+   ```bash
+   php artisan test --compact
+   ```
 
 ---
 

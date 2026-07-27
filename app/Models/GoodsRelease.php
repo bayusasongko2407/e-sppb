@@ -22,6 +22,7 @@ class GoodsRelease extends Model
     protected $fillable = [
         'uuid',
         'release_number',
+        'manual_release_number',
         'sppb_header_id',
         'release_sequence',
         'is_manual',

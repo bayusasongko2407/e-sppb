@@ -15,7 +15,16 @@ class EditGoodsRelease extends EditRecord
 
     protected function getHeaderActions(): array
     {
+        $record = $this->getRecord();
+
         return [
+            Action::make('print_pdf')
+                ->label('Cetak PDF')
+                ->icon('heroicon-o-printer')
+                ->color('info')
+                ->url(fn () => route('goods-releases.preview', $record))
+                ->openUrlInNewTab()
+                ->visible(fn () => $record && $record->status !== 'DRAFT'),
             DeleteAction::make(),
         ];
     }

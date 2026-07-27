@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\DocumentVerificationController;
+use App\Http\Controllers\GoodsReleasePreviewController;
 use App\Http\Controllers\SppbPreviewController;
 use Illuminate\Support\Facades\Route;
 
@@ -14,7 +15,12 @@ Route::middleware('throttle:60,1')->group(function () {
 
 Route::middleware('auth')->group(function () {
     Route::get('/sppb/{record}/preview', [SppbPreviewController::class, 'preview'])->name('sppb.preview');
+    Route::get('/goods-releases/{record}/preview', [GoodsReleasePreviewController::class, 'preview'])->name('goods-releases.preview');
 });
+
+Route::get('/attachments/{attachment:uuid}/viewer', [AttachmentController::class, 'viewer'])
+    ->name('attachments.viewer')
+    ->middleware('signed');
 
 Route::get('/attachments/{attachment:uuid}/preview', [AttachmentController::class, 'preview'])
     ->name('attachments.preview')

@@ -24,6 +24,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Filament\Tables\Actions\Action;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -61,9 +62,17 @@ class GoodsReleaseResource extends Resource
                         'lg' => 6,
                     ])->schema([
                         TextInput::make('release_number')
-                            ->label('No Surat Jalan')
+                            ->label(fn (Get $get) => $get('is_manual') ? 'No. Referensi (Sistem)' : 'No. Surat Jalan')
                             ->default(fn () => 'SJ-'.date('Ymd').'-'.rand(100, 999))
                             ->readOnly()
+                            ->columnSpan(1),
+
+                        TextInput::make('manual_release_number')
+                            ->label('No. Surat Jalan Manual *')
+                            ->required()
+                            ->visible(fn (Get $get) => (bool) $get('is_manual'))
+                            ->dehydrated(fn (Get $get) => (bool) $get('is_manual'))
+                            ->maxLength(50)
                             ->columnSpan(1),
 
                         DatePicker::make('delivery_date')
@@ -623,7 +632,12 @@ class GoodsReleaseResource extends Resource
             ->columns([
                 TextColumn::make('release_number')
                     ->label('No. Surat Jalan')
-                    ->searchable(),
+                    ->state(fn (GoodsRelease $record) => $record->is_manual ? $record->manual_release_number : $record->release_number)
+                    ->description(fn (GoodsRelease $record) => $record->is_manual ? "Ref: {$record->release_number}" : null)
+                    ->searchable(query: function (Builder $query, string $search): Builder {
+                        return $query->where('release_number', 'like', "%{$search}%")
+                            ->orWhere('manual_release_number', 'like', "%{$search}%");
+                    }),
                 TextColumn::make('sppbHeader.document_number')
                     ->label('No. SPPB')
                     ->searchable(),
@@ -656,6 +670,13 @@ class GoodsReleaseResource extends Resource
             ])
             ->actions([
                 EditAction::make(),
+                Action::make('print_pdf')
+                    ->label('Cetak PDF')
+                    ->icon('heroicon-o-printer')
+                    ->color('info')
+                    ->url(fn (GoodsRelease $record) => route('goods-releases.preview', $record))
+                    ->openUrlInNewTab()
+                    ->visible(fn (GoodsRelease $record) => $record->status !== 'DRAFT'),
             ])
             ->bulkActions([
                 //

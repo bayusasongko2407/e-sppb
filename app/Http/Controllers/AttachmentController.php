@@ -8,10 +8,40 @@ use App\Models\Attachment;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AttachmentController extends Controller
 {
+    public function viewer(Attachment $attachment): Response
+    {
+        $disk = $attachment->disk ?? config('filesystems.default', 'private');
+        $path = $attachment->path;
+
+        if (! Storage::disk($disk)->exists($path)) {
+            abort(404, 'File tidak ditemukan.');
+        }
+
+        // Generate temporary signed URLs for stream and download
+        $streamUrl = URL::temporarySignedRoute(
+            'attachments.preview',
+            now()->addMinutes(15),
+            ['attachment' => $attachment->uuid]
+        );
+
+        $downloadUrl = URL::temporarySignedRoute(
+            'attachments.download',
+            now()->addMinutes(15),
+            ['attachment' => $attachment->uuid]
+        );
+
+        return response()->view('attachments.viewer', [
+            'attachment' => $attachment,
+            'streamUrl' => $streamUrl,
+            'downloadUrl' => $downloadUrl,
+        ]);
+    }
+
     public function preview(Attachment $attachment): StreamedResponse|Response
     {
         $disk = $attachment->disk ?? config('filesystems.default', 'private');

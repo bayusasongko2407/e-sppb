@@ -342,7 +342,7 @@ class SppbHeaderForm
 
                                 $html = '<ul class="divide-y divide-gray-200 dark:divide-white/5 border border-gray-200 dark:border-white/10 rounded-lg bg-white dark:bg-gray-900 shadow-sm overflow-hidden">';
                                 foreach ($record->attachments as $attachment) {
-                                    $previewUrl = URL::signedRoute('attachments.preview', ['attachment' => $attachment->uuid]);
+                                    $previewUrl = URL::signedRoute('attachments.viewer', ['attachment' => $attachment->uuid]);
                                     $downloadUrl = URL::signedRoute('attachments.download', ['attachment' => $attachment->uuid]);
                                     $deleteUrl = URL::signedRoute('attachments.delete', ['attachment' => $attachment->uuid]);
 

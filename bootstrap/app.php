@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\CheckMaintenanceMode;
+use App\Http\Middleware\CorsMiddleware;
 use App\Http\Middleware\EnsureCorrelationId;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\ScopePlantMiddleware;
@@ -22,6 +23,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->trustProxies(at: '*');
         $middleware->redirectGuestsTo('/login');
         $middleware->append(EnsureCorrelationId::class);
+        $middleware->api(append: [
+            CorsMiddleware::class,
+        ]);
         $middleware->web(append: [
             EnsureUserIsActive::class,
             ScopePlantMiddleware::class,

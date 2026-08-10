@@ -104,4 +104,66 @@ class SppbDetail extends Model
     {
         return $this->hasMany(GoodsReleaseItem::class);
     }
+
+    public function getDeliveryStatusAttribute($value): string
+    {
+        if (! empty($value)) {
+            return $value;
+        }
+
+        $releaseItems = $this->goodsReleaseItems()
+            ->whereHas('goodsRelease', fn ($q) => $q->where('status', '!=', 'CANCELLED'))
+            ->with('goodsRelease')
+            ->get();
+
+        if ($releaseItems->isNotEmpty()) {
+            $statuses = $releaseItems->map(fn ($item) => strtoupper((string) ($item->goodsRelease?->status ?? '')));
+
+            if ($statuses->contains(fn ($s) => in_array($s, ['DELIVERED', 'RECEIVED', 'COMPLETED']))) {
+                return 'DELIVERED';
+            }
+
+            if ($statuses->contains(fn ($s) => in_array($s, ['RELEASED', 'IN_TRANSIT', 'PENDING']))) {
+                return 'IN_TRANSIT';
+            }
+
+            if ($statuses->contains('DRAFT')) {
+                return 'DRAFT';
+            }
+        }
+
+        if ($this->sppbHeader) {
+            $headerReleases = $this->sppbHeader->goodsReleases()
+                ->where('status', '!=', 'CANCELLED')
+                ->get();
+
+            if ($headerReleases->isNotEmpty()) {
+                $statuses = $headerReleases->map(fn ($r) => strtoupper((string) ($r->status ?? '')));
+
+                if ($statuses->contains(fn ($s) => in_array($s, ['DELIVERED', 'RECEIVED', 'COMPLETED']))) {
+                    return 'DELIVERED';
+                }
+
+                if ($statuses->contains(fn ($s) => in_array($s, ['RELEASED', 'IN_TRANSIT', 'PENDING']))) {
+                    return 'IN_TRANSIT';
+                }
+
+                if ($statuses->contains('DRAFT')) {
+                    return 'DRAFT';
+                }
+            }
+        }
+
+        return 'NOT_SENT';
+    }
+
+    public function getDeliveryStatusLabelAttribute(): string
+    {
+        return match (strtoupper((string) $this->delivery_status)) {
+            'DELIVERED', 'RECEIVED', 'COMPLETED' => 'Terkirim',
+            'IN_TRANSIT', 'RELEASED', 'PENDING' => 'Dalam Pengiriman',
+            'DRAFT' => 'Draft Surat Jalan',
+            default => 'Belum Dikirim',
+        };
+    }
 }

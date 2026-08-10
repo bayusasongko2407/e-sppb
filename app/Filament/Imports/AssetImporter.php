@@ -20,7 +20,7 @@ class AssetImporter extends Importer
             ImportColumn::make('location')
                 ->relationship('code'),
             ImportColumn::make('asset_name')
-                ->rules(['max:255']),
+                ->rules(['max:1000']),
             ImportColumn::make('asset_location_data')
                 ->rules(['max:255']),
             ImportColumn::make('barcode')

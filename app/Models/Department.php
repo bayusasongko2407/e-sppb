@@ -38,6 +38,15 @@ class Department extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::deleting(function (Department $department): void {
+            if ($department->hasDependentRecords()) {
+                throw new \DomainException("Departemen '{$department->name}' tidak dapat dihapus karena masih digunakan oleh data lain.");
+            }
+        });
+    }
+
     public function plant(): BelongsTo
     {
         return $this->belongsTo(Plant::class);
@@ -56,5 +65,24 @@ class Department extends Model
     public function sppbHeaders(): HasMany
     {
         return $this->hasMany(SppbHeader::class);
+    }
+
+    public function runningNumbers(): HasMany
+    {
+        return $this->hasMany(RunningNumber::class);
+    }
+
+    public function documentAccesses(): HasMany
+    {
+        return $this->hasMany(DocumentAccess::class);
+    }
+
+    public function hasDependentRecords(): bool
+    {
+        return $this->users()->exists()
+            || $this->workflowTemplates()->exists()
+            || $this->sppbHeaders()->exists()
+            || $this->runningNumbers()->exists()
+            || $this->documentAccesses()->exists();
     }
 }

@@ -83,7 +83,7 @@ class ViewSppbHeader extends ViewRecord
                 ->modalHeading('Ajukan SPPB')
                 ->modalDescription('Apakah Anda yakin ingin mengajukan SPPB ini untuk proses persetujuan? Dokumen yang diajukan tidak dapat diubah lagi.')
                 ->modalSubmitActionLabel('Ya, Ajukan')
-                ->visible(fn (): bool => (auth()->user()?->hasRole('pemohon') || auth()->user()?->hasRole('super_admin')) && in_array($this->record->status, [SppbStatus::DRAFT->value, SppbStatus::REJECTED->value]))
+                ->visible(fn (): bool => (auth()->user()?->hasAnyRole(['pemohon', 'Pemohon', 'super_admin']) || $this->record->requester_id === auth()->id()) && in_array($this->record->status, [SppbStatus::DRAFT->value, SppbStatus::REJECTED->value]))
                 ->action(function (WorkflowServiceContract $workflowService) {
                     try {
                         $workflowService->queueSubmission(new SubmitSppbData(

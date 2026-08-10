@@ -13,9 +13,9 @@ class CreateDocumentAccess extends CreateRecord
 
     protected function handleRecordCreation(array $data): Model
     {
-        $receiverType = $data['receiver_type'] ?? 'user';
-        $userId = $receiverType === 'user' ? $data['user_id'] : null;
-        $roleId = $receiverType === 'role' ? $data['role_id'] : null;
+        $receiverType = $data['receiver_type'] ?? (isset($data['role_id']) && $data['role_id'] ? 'role' : 'user');
+        $userId = $receiverType === 'user' ? ($data['user_id'] ?? null) : null;
+        $roleId = $receiverType === 'role' ? ($data['role_id'] ?? null) : null;
 
         // Clean duplicates for this recipient first
         $query = DocumentAccess::query();

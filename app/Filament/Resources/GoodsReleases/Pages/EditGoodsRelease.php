@@ -34,11 +34,7 @@ class EditGoodsRelease extends EditRecord
         $record = $this->getRecord();
 
         if ($record && $record->status !== 'DRAFT') {
-            return [
-                $this->getSaveFormAction()
-                    ->label('Simpan Perubahan'),
-                $this->getCancelFormAction(),
-            ];
+            return [];
         }
 
         return [
@@ -54,7 +50,7 @@ class EditGoodsRelease extends EditRecord
                 ->label('Simpan Final')
                 ->requiresConfirmation()
                 ->modalHeading('Simpan Final Surat Jalan')
-                ->modalDescription('Apakah Anda yakin? Setelah disimpan final, Anda tidak dapat mengubah data selain Nama Pengemudi, No. Kendaraan, Ekspedisi, dan Tanggal Pengiriman.')
+                ->modalDescription('Apakah Anda yakin? Setelah disimpan final, data Surat Jalan tidak dapat diubah kembali.')
                 ->action(function () {
                     $this->data['status'] = 'RELEASED';
                     $this->save();

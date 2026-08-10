@@ -49,24 +49,29 @@ class ReportsPage extends Page implements HasForms, HasTable
 
         return $form
             ->schema([
-                Section::make('Kriteria Laporan')->schema([
-                    Select::make('report_type')
-                        ->label('Jenis Laporan')
-                        ->options($registry->getOptions())
-                        ->reactive()
-                        ->afterStateUpdated(fn () => $this->resetTable()),
+                Section::make('Kriteria Laporan')
+                    ->schema([
+                        Select::make('report_type')
+                            ->label('Jenis Laporan')
+                            ->options($registry->getOptions())
+                            ->reactive()
+                            ->afterStateUpdated(fn () => $this->resetTable())
+                            ->columnSpan(1),
 
-                    // Dynamic filter area based on selected report
-                    Section::make('Filter')
-                        ->schema(function (callable $get) use ($registry) {
-                            $reportType = $get('report_type');
-                            if (! $reportType || ! $registry->has($reportType)) {
-                                return [];
-                            }
+                        // Dynamic filter area based on selected report
+                        Section::make('Filter')
+                            ->schema(function (callable $get) use ($registry) {
+                                $reportType = $get('report_type');
+                                if (! $reportType || ! $registry->has($reportType)) {
+                                    return [];
+                                }
 
-                            return $registry->get($reportType)->getFilterSchema();
-                        }),
-                ])->columns(1),
+                                return $registry->get($reportType)->getFilterSchema();
+                            })
+                            ->columns(2)
+                            ->columnSpanFull(),
+                    ])
+                    ->columns(2),
             ])
             ->statePath('data');
     }
@@ -97,34 +102,38 @@ class ReportsPage extends Page implements HasForms, HasTable
 
     public function filter(): void
     {
-        // Simply submitting the form will trigger a re-render of the table
+        $this->resetTable();
     }
 
-    public function exportExcel(): void
+    public function exportExcel(): mixed
     {
         try {
-            $this->executeExport('excel');
+            return $this->executeExport('excel');
         } catch (\Exception $e) {
             Notification::make()->title('Export Failed')->body($e->getMessage())->danger()->send();
+
+            return null;
         }
     }
 
-    public function exportPdf(): void
+    public function exportPdf(): mixed
     {
         try {
-            $this->executeExport('pdf');
+            return $this->executeExport('pdf');
         } catch (\Exception $e) {
             Notification::make()->title('Export Failed')->body($e->getMessage())->danger()->send();
+
+            return null;
         }
     }
 
-    protected function executeExport(string $type): void
+    protected function executeExport(string $type): mixed
     {
         $reportType = $this->data['report_type'] ?? null;
         $registry = app(ReportRegistry::class);
 
         if (! $reportType || ! $registry->has($reportType)) {
-            throw new \Exception('Please select a valid report.');
+            throw new \Exception('Silakan pilih jenis laporan yang valid terlebih dahulu.');
         }
 
         $report = $registry->get($reportType);
@@ -134,14 +143,16 @@ class ReportsPage extends Page implements HasForms, HasTable
         $exportService = app(ReportExportService::class);
 
         if ($type === 'excel') {
-            $exportService->exportExcel($report, $scope, $filters);
-        } else {
-            $exportService->exportPdf($report, $scope, $filters);
+            return $exportService->exportExcel($report, $scope, $filters);
         }
+
+        $res = $exportService->exportPdf($report, $scope, $filters);
 
         Notification::make()
             ->title(strtoupper($type).' Export Generated successfully')
             ->success()
             ->send();
+
+        return $res;
     }
 }

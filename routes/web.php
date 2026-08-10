@@ -11,6 +11,7 @@ Route::middleware('throttle:60,1')->group(function () {
     Route::get('/verify/document/{sha256Token}', [DocumentVerificationController::class, 'verifyPublicPage'])
         ->name('document.verify')
         ->where('sha256Token', '[a-f0-9]{64}');
+    Route::match(['get', 'post'], '/verify/document/{hash?}', [DocumentVerificationController::class, 'verifyDocument']);
 });
 
 Route::middleware('auth')->group(function () {

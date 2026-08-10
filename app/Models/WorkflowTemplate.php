@@ -70,9 +70,20 @@ class WorkflowTemplate extends Model
             'plant_id' => 'integer',
             'department_id' => 'integer',
             'is_active' => 'boolean',
-            'effective_from' => 'timestamp',
-            'effective_until' => 'timestamp',
+            'effective_from' => 'datetime',
+            'effective_until' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::deleting(function (WorkflowTemplate $template): void {
+            if ($template->hasDependentRecords()) {
+                throw new \DomainException("Template workflow '{$template->name}' tidak dapat dihapus karena masih digunakan oleh dokumen SPPB / alur persetujuan aktif.");
+            }
+
+            $template->workflowSteps()->delete();
+        });
     }
 
     public function plant(): BelongsTo
@@ -93,5 +104,10 @@ class WorkflowTemplate extends Model
     public function workflowInstances(): HasMany
     {
         return $this->hasMany(WorkflowInstance::class);
+    }
+
+    public function hasDependentRecords(): bool
+    {
+        return $this->workflowInstances()->exists();
     }
 }

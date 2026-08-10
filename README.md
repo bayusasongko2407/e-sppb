@@ -13,6 +13,7 @@
 6. [Daftar Akun Simulasi & Seeder Bawaan](#-daftar-akun-simulasi--seeder-bawaan)
 7. [Pengujian & Gate Kualitas](#-pengujian--gate-kualitas)
 8. [Informasi Repository & Branching](#-informasi-repository--branching)
+9. [Dokumentasi & Prompt Spesifikasi Backend API](#-dokumentasi--prompt-spesifikasi-backend-api)
 
 ---
 
@@ -230,3 +231,19 @@ php artisan test --compact
 *   **Branch Utama (Produksi)**: `main`
 *   **Branch Pengembangan**: `dev-beta`
 *   **Lisensi**: Hak Cipta Dilindungi — PT Santos Jaya Abadi / E-SPPB Enterprise.
+
+---
+
+## 📄 Dokumentasi API v1 & Spesifikasi Backend
+
+Dokumentasi resmi REST API v1 (`https://e-sppb.engiboard.web.id/api/v1`) tersimpan pada berkas [e-sppb-enterprise-api-v1-docs.md](file:///www/wwwroot/e-sppb-enterprise/e-sppb-enterprise-api-v1-docs.md) dan spesifikasi prompt backend di [e-sppb-enterprise-backend-prompt.md](file:///www/wwwroot/e-sppb-enterprise/e-sppb-enterprise-backend-prompt.md).
+
+Dokumentasi mencakup:
+1. **Otentikasi & Authorization**: Sanctum Bearer Token, Session Cookie Web SPA, Login NIK/Email, `GET /api/v1/auth/me`.
+2. **Endpoint SPPB**: Listing, detail (UUID/ID/No Dokumen), pembuatan SPPB, dan submisi persetujuan workflow.
+3. **Endpoint Goods Release & Penerimaan Barang**:
+   * `POST /api/v1/goods-releases/{uuid}/receive` & `PATCH /api/v1/goods-releases/{uuid}/status`.
+   * Mutasi status `DELIVERED`, pencatatan Nama Penerima (`recipient_name`), Tanggal Penerima (`received_at`), Tanda Tangan Penerima (`recipient_signature`), dan Catatan Penerimaan (`receiving_notes`).
+4. **Verifikasi QR Code Dokumen (`GET /api/v1/verify/document/{hash}`)**: Penyiapan objek relational `requester`, `destination_location`, `department`, dan detail penerima.
+5. **Workflow & System Health Diagnostic**: Approval/rejection task, dan real-time health check endpoint `GET /api/v1/health`.
+

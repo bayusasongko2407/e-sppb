@@ -8,8 +8,11 @@ use App\Enums\SppbStatus;
 use App\Models\DocumentGeneration;
 use App\Models\DocumentPage;
 use App\Models\DocumentValidation;
+use App\Models\GoodsRelease;
 use App\Models\SppbHeader;
+use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Str;
 
 class DocumentVerificationService
@@ -23,6 +26,256 @@ class DocumentVerificationService
     public static function deriveToken(string $generationUuid, int $pageNumber): string
     {
         return hash('sha256', $generationUuid.'-page-'.$pageNumber);
+    }
+
+    /**
+     * Decrypt and extract payload from encrypted QR Code string or JSON payload structure.
+     * Supports:
+     * 1. Laravel Crypt Base64 encrypted string (Crypt::encryptString($payload))
+     * 2. JSON structure { "iv": "...", "value": "...", "mac": "...", "tag": "" }
+     * 3. Base64 encoded JSON structure { "iv": "...", "value": "...", "mac": "..." }
+     * 4. Full Verification URL containing token or release number
+     * 5. Plain text SHA256 token, Release Number, or SPPB document number
+     */
+    public function decryptQrPayload(mixed $rawInput): array
+    {
+        if (empty($rawInput)) {
+            return [
+                'decrypted' => null,
+                'is_encrypted' => false,
+                'original' => $rawInput,
+                'decode_method' => 'EMPTY',
+            ];
+        }
+
+        // Handle array payload format e.g. { "iv": "...", "value": "...", "mac": "..." }
+        if (is_array($rawInput)) {
+            if (isset($rawInput['iv'], $rawInput['value'], $rawInput['mac'])) {
+                try {
+                    $jsonStr = json_encode($rawInput);
+                    $base64 = base64_encode($jsonStr);
+                    $decrypted = Crypt::decryptString($base64);
+
+                    return [
+                        'decrypted' => $decrypted,
+                        'is_encrypted' => true,
+                        'original' => $rawInput,
+                        'decode_method' => 'CRYPT_DECRYPT_ARRAY',
+                    ];
+                } catch (\Throwable $e) {
+                    // Fallthrough to check nested keys
+                }
+            }
+
+            $candidate = $rawInput['qr_data'] ?? $rawInput['encrypted_data'] ?? $rawInput['hash'] ?? $rawInput['token'] ?? null;
+            if ($candidate && (is_string($candidate) || is_array($candidate))) {
+                return $this->decryptQrPayload($candidate);
+            }
+
+            return [
+                'decrypted' => null,
+                'is_encrypted' => false,
+                'original' => $rawInput,
+                'decode_method' => 'UNKNOWN_ARRAY',
+            ];
+        }
+
+        if (is_string($rawInput)) {
+            $input = trim($rawInput);
+
+            // Extract token/hash if full URL passed
+            if (filter_var($input, FILTER_VALIDATE_URL) || str_contains($input, '/verify/document/')) {
+                $path = parse_url($input, PHP_URL_PATH) ?? '';
+                $segments = explode('/', trim($path, '/'));
+                $lastSegment = end($segments);
+                if ($lastSegment) {
+                    $input = urldecode($lastSegment);
+                }
+            }
+
+            // Direct Crypt::decryptString
+            try {
+                $decrypted = Crypt::decryptString($input);
+
+                return [
+                    'decrypted' => $decrypted,
+                    'is_encrypted' => true,
+                    'original' => $rawInput,
+                    'decode_method' => 'CRYPT_DECRYPT_STRING',
+                ];
+            } catch (\Throwable $e) {
+                // Not standard direct Crypt::decryptString
+            }
+
+            // Stringified JSON payload { "iv": "...", "value": "...", "mac": "..." }
+            if (str_starts_with($input, '{') && str_ends_with($input, '}')) {
+                $decodedJson = json_decode($input, true);
+                if (is_array($decodedJson) && isset($decodedJson['iv'], $decodedJson['value'], $decodedJson['mac'])) {
+                    try {
+                        $base64 = base64_encode($input);
+                        $decrypted = Crypt::decryptString($base64);
+
+                        return [
+                            'decrypted' => $decrypted,
+                            'is_encrypted' => true,
+                            'original' => $rawInput,
+                            'decode_method' => 'CRYPT_DECRYPT_JSON_STRING',
+                        ];
+                    } catch (\Throwable $e) {
+                        //
+                    }
+                }
+            }
+
+            // Base64 encoded JSON string
+            $decodedBase64 = base64_decode($input, true);
+            if ($decodedBase64 !== false && str_starts_with(trim($decodedBase64), '{')) {
+                $jsonArray = json_decode(trim($decodedBase64), true);
+                if (is_array($jsonArray) && isset($jsonArray['iv'], $jsonArray['value'], $jsonArray['mac'])) {
+                    try {
+                        $decrypted = Crypt::decryptString($input);
+
+                        return [
+                            'decrypted' => $decrypted,
+                            'is_encrypted' => true,
+                            'original' => $rawInput,
+                            'decode_method' => 'CRYPT_DECRYPT_BASE64_JSON',
+                        ];
+                    } catch (\Throwable $e) {
+                        //
+                    }
+                }
+            }
+
+            // Plain text string (Release Number, SHA256 Token, SPPB Number, UUID)
+            return [
+                'decrypted' => $input,
+                'is_encrypted' => false,
+                'original' => $rawInput,
+                'decode_method' => preg_match('/^[a-f0-9]{64}$/i', $input) ? 'SHA256_HEX' : 'RAW_STRING',
+            ];
+        }
+
+        return [
+            'decrypted' => null,
+            'is_encrypted' => false,
+            'original' => $rawInput,
+            'decode_method' => 'INVALID_INPUT',
+        ];
+    }
+
+    /**
+     * Unified document & Goods Release (Resi Surat Jalan) verification handler.
+     * Decrypts encrypted QR payloads and looks up GoodsRelease, DocumentPage, or SppbHeader.
+     */
+    public function verifyDocument(mixed $rawInput, ?string $ip = null, ?string $userAgent = null, ?User $actor = null): array
+    {
+        $validationId = Str::uuid()->toString();
+        $decoded = $this->decryptQrPayload($rawInput);
+        $target = $decoded['decrypted'];
+
+        if (empty($target)) {
+            $this->logValidation(null, null, 'NOT_FOUND', 'API_QR', $validationId, $ip, $userAgent, is_string($rawInput) ? $rawInput : json_encode($rawInput));
+
+            return [
+                'status' => 'NOT_FOUND',
+                'message' => 'Payload QR Code atau token verifikasi tidak valid.',
+                'validation_id' => $validationId,
+                'data' => null,
+            ];
+        }
+
+        // 1. If 64-character SHA256 hex string, test DocumentPage SHA256 token verification first
+        if (preg_match('/^[a-f0-9]{64}$/i', $target)) {
+            $pageResult = $this->verifyBySha256Token($target, $ip, $userAgent);
+            if ($pageResult['status'] !== 'NOT_FOUND') {
+                if (is_array($pageResult['data'])) {
+                    $pageResult['data']['decrypted_from_qr'] = $decoded['is_encrypted'];
+                }
+
+                return $pageResult;
+            }
+        }
+
+        // 2. Search GoodsRelease (Resi Surat Jalan)
+        $goodsRelease = GoodsRelease::with([
+            'sppbHeader.plant',
+            'sppbHeader.department',
+            'sppbHeader.requester',
+            'sppbHeader.originLocation',
+            'sppbHeader.destinationLocation',
+            'sppbHeaders.plant',
+            'sppbHeaders.department',
+            'sppbHeaders.requester',
+            'goodsReleaseItems.sppbDetail.item',
+            'goodsReleaseItems.sppbDetail.asset',
+            'goodsReleaseItems.sppbDetail.unit',
+            'createdBy',
+            'senderUser',
+            'receiverUser',
+        ])
+            ->where('release_number', $target)
+            ->orWhere('manual_release_number', $target)
+            ->orWhere('verification_hash', $target)
+            ->orWhere('uuid', $target)
+            ->first();
+
+        if ($goodsRelease) {
+            $status = match ($goodsRelease->status) {
+                'CANCELLED' => 'CANCELLED',
+                default => 'VALID',
+            };
+
+            $this->logValidation(null, null, $status, 'API_QR', $validationId, $ip, $userAgent, $target);
+
+            return [
+                'status' => $status,
+                'validation_id' => $validationId,
+                'data' => $this->buildGoodsReleaseDetails($goodsRelease, $decoded['is_encrypted']),
+            ];
+        }
+
+        // 3. Search SppbHeader directly
+        $sppb = SppbHeader::with([
+            'plant',
+            'department',
+            'requester',
+            'originLocation',
+            'destinationLocation',
+            'sppbDetails.item',
+            'sppbDetails.unit',
+            'currentWorkflowInstance.workflowInstanceSteps',
+            'workflowInstances.workflowInstanceSteps',
+        ])
+            ->where('document_number', $target)
+            ->orWhere('uuid', $target)
+            ->first();
+
+        if ($sppb) {
+            $status = match ($sppb->status?->value ?? (string) $sppb->status) {
+                'CANCELLED' => 'CANCELLED',
+                'REJECTED' => 'REJECTED',
+                default => 'VALID',
+            };
+
+            $this->logValidation(null, null, $status, 'API_QR', $validationId, $ip, $userAgent, $target);
+
+            return [
+                'status' => $status,
+                'validation_id' => $validationId,
+                'data' => $this->buildSppbDetails($sppb, $decoded['is_encrypted']),
+            ];
+        }
+
+        // 4. Not found
+        $this->logValidation(null, null, 'NOT_FOUND', 'API_QR', $validationId, $ip, $userAgent, $target);
+
+        return [
+            'status' => 'NOT_FOUND',
+            'message' => 'Dokumen atau Surat Jalan tidak ditemukan.',
+            'validation_id' => $validationId,
+            'data' => null,
+        ];
     }
 
     /**
@@ -128,6 +381,179 @@ class DocumentVerificationService
             'status' => $status,
             'validation_id' => $validationId,
             'data' => $this->buildDetails($generation, $page),
+        ];
+    }
+
+    private function buildGoodsReleaseDetails(GoodsRelease $goodsRelease, bool $isEncrypted): array
+    {
+        $goodsRelease->loadMissing([
+            'sppbHeader.plant',
+            'sppbHeader.department',
+            'sppbHeader.requester',
+            'sppbHeader.originLocation',
+            'sppbHeader.destinationLocation',
+            'sppbHeaders.plant',
+            'sppbHeaders.department',
+            'sppbHeaders.requester',
+            'goodsReleaseItems.sppbDetail.item',
+            'goodsReleaseItems.sppbDetail.asset',
+            'goodsReleaseItems.sppbDetail.unit',
+            'createdBy',
+            'senderUser',
+            'receiverUser',
+        ]);
+
+        $sppbHeader = $goodsRelease->sppbHeader ?? $goodsRelease->sppbHeaders->first();
+
+        $statusDisplay = match ($goodsRelease->status) {
+            'DRAFT' => 'DRAFT',
+            'RELEASED' => 'DALAM PENGIRIMAN',
+            'RECEIVED' => 'TERKIRIM',
+            'CANCELLED' => 'DIBATALKAN',
+            default => $goodsRelease->status,
+        };
+
+        return [
+            'document_type' => 'SURAT_JALAN',
+            'document_number' => $goodsRelease->is_manual && $goodsRelease->manual_release_number
+                ? $goodsRelease->manual_release_number
+                : $goodsRelease->release_number,
+            'release_number' => $goodsRelease->release_number,
+            'manual_release_number' => $goodsRelease->manual_release_number,
+            'status' => $goodsRelease->status,
+            'status_display' => $statusDisplay,
+            'is_manual' => (bool) $goodsRelease->is_manual,
+            'delivery_date' => $goodsRelease->delivery_date
+                ? (is_string($goodsRelease->delivery_date)
+                    ? $goodsRelease->delivery_date
+                    : $goodsRelease->delivery_date->format('Y-m-d'))
+                : null,
+            'plant_name' => $sppbHeader?->plant?->name ?? '—',
+            'department_name' => $sppbHeader?->department?->name ?? '—',
+            'department' => $sppbHeader?->department ? [
+                'id' => $sppbHeader->department->id,
+                'code' => $sppbHeader->department->code ?? '',
+                'name' => $sppbHeader->department->name,
+            ] : null,
+            'requester_name' => $sppbHeader?->requester?->name ?? $goodsRelease->createdBy?->name ?? '—',
+            'needed_name' => $sppbHeader?->needed_name ?? $sppbHeader?->requester?->name ?? $goodsRelease->createdBy?->name ?? '—',
+            'requester' => $sppbHeader?->requester ? [
+                'id' => $sppbHeader->requester->id,
+                'name' => $sppbHeader->requester->name,
+                'nik' => $sppbHeader->requester->nik ?? '',
+            ] : ($goodsRelease->createdBy ? [
+                'id' => $goodsRelease->createdBy->id,
+                'name' => $goodsRelease->createdBy->name,
+                'nik' => $goodsRelease->createdBy->nik ?? '',
+            ] : null),
+            'destination_location_name' => $goodsRelease->receiver_name ?? $sppbHeader?->destinationLocation?->name ?? '—',
+            'destination_name' => $goodsRelease->receiver_name ?? $sppbHeader?->destinationLocation?->name ?? '—',
+            'destination_location' => $sppbHeader?->destinationLocation ? [
+                'id' => $sppbHeader->destinationLocation->id,
+                'code' => $sppbHeader->destinationLocation->code ?? '',
+                'name' => $sppbHeader->destinationLocation->name,
+            ] : null,
+            'created_by' => $goodsRelease->createdBy?->name ?? '—',
+            'driver_name' => $goodsRelease->driver_name ?? '—',
+            'vehicle_number' => $goodsRelease->vehicle_number ?? '—',
+            'expedition_name' => $goodsRelease->expedition_name ?? '—',
+            'locations' => [
+                'origin' => $goodsRelease->sender_name ?? $sppbHeader?->originLocation?->name ?? '—',
+                'origin_address' => $goodsRelease->sender_address ?? '—',
+                'destination' => $goodsRelease->receiver_name ?? $sppbHeader?->destinationLocation?->name ?? '—',
+                'destination_address' => $goodsRelease->receiver_address ?? '—',
+            ],
+            'items_summary' => [
+                'total_item_types' => $goodsRelease->goodsReleaseItems->count(),
+                'total_quantity_released' => (float) $goodsRelease->goodsReleaseItems->sum('quantity_released'),
+            ],
+            'items' => $goodsRelease->goodsReleaseItems->map(function ($item) {
+                return [
+                    'item_name' => $item->sppbDetail?->item_asset_name ?? '—',
+                    'barcode' => $item->sppbDetail?->asset?->barcode ?? $item->sppbDetail?->item?->code ?? $item->sppbDetail?->reference_code ?? '—',
+                    'quantity_requested' => (float) $item->quantity_requested,
+                    'quantity_released' => (float) $item->quantity_released,
+                    'unit' => $item->sppbDetail?->unit?->name ?? '—',
+                    'condition' => $item->condition_on_release ?? '—',
+                ];
+            })->values()->all(),
+            'sppb_references' => $goodsRelease->sppbHeaders->map(function ($sppb) {
+                return [
+                    'document_number' => $sppb->document_number,
+                    'request_date' => $sppb->request_date
+                        ? (is_string($sppb->request_date) ? $sppb->request_date : $sppb->request_date->format('Y-m-d'))
+                        : null,
+                    'requester_name' => $sppb->requester?->name,
+                    'status' => $sppb->status,
+                ];
+            })->values()->all(),
+            'notes' => $goodsRelease->notes,
+            'recipient_name' => $goodsRelease->recipient_name ?? $goodsRelease->receiver_name,
+            'recipient_signature' => $goodsRelease->recipient_signature,
+            'receiving_notes' => $goodsRelease->receiving_notes,
+            'verification_hash' => $goodsRelease->verification_hash,
+            'decrypted_from_qr' => $isEncrypted,
+            'verified_at' => now()->toIso8601String(),
+        ];
+    }
+
+    private function buildSppbDetails(SppbHeader $sppb, bool $isEncrypted): array
+    {
+        $totalTypes = $sppb->sppbDetails->count();
+        $totalQtyApproved = (int) $sppb->sppbDetails->sum('quantity');
+
+        $requestDate = $sppb->request_date
+            ? (is_string($sppb->request_date) ? $sppb->request_date : $sppb->request_date->format('Y-m-d'))
+            : null;
+
+        $dateNeeded = $sppb->date_needed
+            ? (is_string($sppb->date_needed) ? $sppb->date_needed : $sppb->date_needed->format('Y-m-d'))
+            : null;
+
+        $requesterName = $sppb->requester?->name ?? $sppb->needed_name ?? '—';
+        $destinationName = $sppb->destinationLocation?->name ?? '—';
+        $departmentName = $sppb->department?->name ?? '—';
+
+        return [
+            'document_type' => 'SPPB',
+            'document_number' => $sppb->document_number,
+            'status_sppb' => $this->translateSppbStatus($sppb->status),
+            'plant_name' => $sppb->plant?->name ?? '—',
+            'department_name' => $departmentName,
+            'department' => $sppb->department ? [
+                'id' => $sppb->department->id,
+                'code' => $sppb->department->code ?? '',
+                'name' => $sppb->department->name,
+            ] : null,
+            'requester_name' => $requesterName,
+            'needed_name' => $sppb->needed_name ?? $requesterName,
+            'requester' => $sppb->requester ? [
+                'id' => $sppb->requester->id,
+                'name' => $sppb->requester->name,
+                'nik' => $sppb->requester->nik ?? '',
+            ] : null,
+            'destination_location_name' => $destinationName,
+            'destination_name' => $destinationName,
+            'destination_location' => $sppb->destinationLocation ? [
+                'id' => $sppb->destinationLocation->id,
+                'code' => $sppb->destinationLocation->code ?? '',
+                'name' => $sppb->destinationLocation->name,
+            ] : null,
+            'is_urgent' => (bool) $sppb->is_urgent,
+            'request_date' => $requestDate,
+            'date_needed' => $dateNeeded,
+            'purpose' => $sppb->purpose ?? $sppb->needed_name ?? '—',
+            'locations' => [
+                'origin' => $sppb->originLocation?->name ?? '—',
+                'destination' => $destinationName,
+            ],
+            'items_summary' => [
+                'total_item_types' => $totalTypes,
+                'total_quantity_approved' => $totalQtyApproved,
+            ],
+            'approval_summary' => $this->resolveApprovalSummary($sppb, []),
+            'decrypted_from_qr' => $isEncrypted,
+            'verified_at' => now()->toIso8601String(),
         ];
     }
 
@@ -340,21 +766,15 @@ class DocumentVerificationService
             'document_page_id' => $pageId,
             'validation_result' => $result,
             'verification_channel' => $channel,
-            // SHA256 hash of the token looked up — enables audit trail without exposing raw token
-            'lookup_fingerprint_sha256' => $sha256Token ? hash('sha256', $sha256Token) : null,
-            // SHA256 of IP + UserAgent combined — request fingerprint for fraud detection
+            'lookup_fingerprint_sha256' => $sha256Token ? hash('sha256', (string) $sha256Token) : null,
             'request_fingerprint_sha256' => ($ip && $userAgent) ? hash('sha256', $ip.'|'.$userAgent) : null,
             'ip_address_hash_sha256' => $ip ? hash('sha256', $ip) : null,
             'user_agent_hash_sha256' => $userAgent ? hash('sha256', $userAgent) : null,
-            'correlation_id' => $uuid, // Use validation UUID as correlation ID
+            'correlation_id' => $uuid,
             'verified_at' => now(),
         ]);
     }
 
-    /**
-     * Safely format generated_at which may be a Carbon object or a Unix timestamp int
-     * depending on the 'timestamp' Eloquent cast.
-     */
     private function formatTimestamp(mixed $value): ?string
     {
         if ($value === null) {

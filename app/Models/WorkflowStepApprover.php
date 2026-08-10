@@ -36,7 +36,7 @@ class WorkflowStepApprover extends Model
             'workflow_instance_step_id' => 'integer',
             'approver_id' => 'integer',
             'delegated_from_id' => 'integer',
-            'acted_at' => 'timestamp',
+            'acted_at' => 'datetime',
         ];
     }
 

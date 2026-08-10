@@ -79,10 +79,10 @@ class DocumentGeneration extends Model
             'render_payload' => 'array',
             'file_size' => 'integer',
             'page_count' => 'integer',
-            'processing_started_at' => 'timestamp',
-            'generated_at' => 'timestamp',
-            'expires_at' => 'timestamp',
-            'revoked_at' => 'timestamp',
+            'processing_started_at' => 'datetime',
+            'generated_at' => 'datetime',
+            'expires_at' => 'datetime',
+            'revoked_at' => 'datetime',
             'lock_version' => 'integer',
         ];
     }

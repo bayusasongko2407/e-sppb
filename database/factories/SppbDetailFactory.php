@@ -27,7 +27,7 @@ class SppbDetailFactory extends Factory
             'unit_id' => Unit::factory(),
             'quantity' => fake()->randomFloat(2, 0, 9999999999999999.99),
             'remarks' => fake()->text(),
-            'delivery_status' => fake()->regexify('[A-Za-z0-9]{20}'),
+            'delivery_status' => null,
         ];
     }
 }

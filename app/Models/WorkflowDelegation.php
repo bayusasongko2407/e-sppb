@@ -38,8 +38,8 @@ class WorkflowDelegation extends Model
             'delegator_id' => 'integer',
             'delegate_id' => 'integer',
             'plant_id' => 'integer',
-            'starts_at' => 'timestamp',
-            'ends_at' => 'timestamp',
+            'starts_at' => 'datetime',
+            'ends_at' => 'datetime',
             'is_active' => 'boolean',
         ];
     }

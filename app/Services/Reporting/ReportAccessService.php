@@ -23,29 +23,48 @@ class ReportAccessService
             return new ReportScope([], [], [], false, false, false);
         }
 
+        // Super Admin or users with global permission get unrestricted report access
+        if ($user->hasRole('super_admin') || $user->can('view_any_sppbheader')) {
+            return new ReportScope(
+                allowedModules: ['sppb', 'sppb_items', 'goods_release'],
+                allowedPlants: [],
+                allowedDepartments: [],
+                canPreview: true,
+                canExport: true,
+                canPrint: true
+            );
+        }
+
+        $roleIds = $user->roles()->pluck('id')->toArray();
+
         $accesses = DocumentAccess::where('user_id', $user->id)
-            ->orWhere('role_id', $user->roles()->first()?->id) // Assuming Spatie roles
+            ->when(! empty($roleIds), fn ($q) => $q->orWhereIn('role_id', $roleIds))
             ->get();
 
-        $allowedModules = $accesses->pluck('module')->unique()->filter()->values()->toArray();
-        $allowedPlants = $accesses->pluck('plant_id')->unique()->filter()->values()->toArray();
-        $allowedDepartments = $accesses->pluck('department_id')->unique()->filter()->values()->toArray();
+        $modules = $accesses->pluck('module')->unique()->filter()->values()->toArray();
+        if (in_array('sppb', $modules, true) && ! in_array('sppb_items', $modules, true)) {
+            $modules[] = 'sppb_items';
+        }
+
+        $hasWildcardPlant = $accesses->contains(fn ($acc) => is_null($acc->plant_id));
+        $allowedPlants = $hasWildcardPlant
+            ? []
+            : $accesses->pluck('plant_id')->unique()->filter()->values()->toArray();
+
+        $hasWildcardDept = $accesses->contains(fn ($acc) => is_null($acc->department_id));
+        $allowedDepartments = $hasWildcardDept
+            ? []
+            : $accesses->pluck('department_id')->unique()->filter()->values()->toArray();
 
         $canView = $accesses->where('can_view', true)->isNotEmpty();
 
-        // canExport could be mapped to can_view or a specific permission if exists, using can_view as base
-        // In the system, report export/print often follows can_view or can_create. Assuming can_view is sufficient for preview/export.
-        $canPreview = $canView;
-        $canExport = $canView;
-        $canPrint = $canView;
-
         return new ReportScope(
-            allowedModules: $allowedModules,
+            allowedModules: $modules,
             allowedPlants: $allowedPlants,
             allowedDepartments: $allowedDepartments,
-            canPreview: $canPreview,
-            canExport: $canExport,
-            canPrint: $canPrint
+            canPreview: $canView,
+            canExport: $canView,
+            canPrint: $canView
         );
     }
 }

@@ -105,7 +105,7 @@ models:
     # asset_location_name & asset_location_address: snapshot text saat aset disimpan
     # asset_location_data: snapshot text saat aset disimpan
     location_id: id nullable foreign restrictOnDelete
-    asset_name: string:255
+    asset_name: string:1000
     asset_location_data: string:255 nullable
     barcode: string:100 unique
     condition: string:20 default:GOOD index
@@ -234,7 +234,7 @@ models:
     is_from_master: boolean default:false
     # item_type, barcode, item_code, unit_name DIHAPUS
     # item_name diganti menjadi item_asset_name (netral untuk item maupun aset)
-    item_asset_name: string:200
+    item_asset_name: string:1000
     # unit_id tetap sebagai FK, unit_name dihapus (ambil dari relasi)
     unit_id: id foreign restrictOnDelete
     quantity: decimal:18,2

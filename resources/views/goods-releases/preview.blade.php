@@ -190,25 +190,16 @@ table{
     $companyAddress = \App\Models\AppSetting::get('company_address', 'Jl. Raya Gilang No. 159, Taman, Sidoarjo, Jawa Timur, Indonesia');
     $companyPhone = \App\Models\AppSetting::get('company_phone', '+62-31-8971000');
 
-    // Resolve QR Code
-    $page = \App\Models\DocumentPage::whereHas('documentGeneration', function ($q) use ($record) {
-        $q->where('goods_release_id', $record->id)->where('status', 'READY');
-    })->orderByDesc('id')->first();
-
-    if ($page && $page->verification_token_hash) {
-        $verifyUrl = route('document.verify', ['sha256Token' => $page->verification_token_hash]);
-        $verificationTokenHash = $page->verification_token_hash;
-    } else {
-        $verificationTokenHash = hash('sha256', $record->uuid . '-page-1');
-        $verifyUrl = url('/verify/document/' . $verificationTokenHash);
-    }
+    // Resolve QR Code (QR nomor surat jalan otomatis yang terenkripsi)
+    $releaseNumberToEncrypt = $record->release_number ?? 'SJ-'.date('Ymd').'-0000';
+    $encryptedReleaseNumber = \Illuminate\Support\Facades\Crypt::encryptString($releaseNumberToEncrypt);
 
     $qrOptions = new \chillerlan\QRCode\QROptions([
         'eccLevel' => \chillerlan\QRCode\QRCode::ECC_L,
         'outputType' => \chillerlan\QRCode\QRCode::OUTPUT_MARKUP_SVG,
         'addQuietzone' => false,
     ]);
-    $qrCodeSvg = (new \chillerlan\QRCode\QRCode($qrOptions))->render($verifyUrl);
+    $qrCodeSvg = (new \chillerlan\QRCode\QRCode($qrOptions))->render($encryptedReleaseNumber);
 
     // Resolve Mengetahui Signatory (Final Approver of first SPPB workflow)
     $approverName = '';
@@ -367,7 +358,10 @@ table{
             </tr>
         </thead>
         <tbody>
-            @foreach($record->sppbHeaders as $index => $sppbItem)
+            @php
+                $sppbList = ($record->sppbHeaders && $record->sppbHeaders->isNotEmpty()) ? $record->sppbHeaders : collect([$record->sppbHeader])->filter();
+            @endphp
+            @foreach($sppbList as $index => $sppbItem)
             <tr>
                 <td class="center">{{ $index + 1 }}</td>
                 <td>{{ $sppbItem->document_number }}</td>
@@ -507,12 +501,61 @@ table{
 </div>
 
 <!-- ====================================================== -->
+<!-- INFORMASI PENERIMAAN BARANG -->
+<!-- ====================================================== -->
+
+<div class="section">
+    <div class="section-title">
+        5. Informasi Penerimaan Barang
+    </div>
+    <div class="p8">
+        <table>
+            <tr>
+                <td width="55%" valign="top">
+                    <table class="info">
+                        <tr>
+                            <td class="label">Nama Penerima</td>
+                            <td>:</td>
+                            <td>{{ $record->recipient_name ?? $record->receiver_name ?? '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="label">Tgl. Diterima</td>
+                            <td>:</td>
+                            <td>{{ $record->received_at ? \Illuminate\Support\Carbon::parse($record->received_at)->translatedFormat('d F Y H:i:s T') : '-' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="label">Catatan Penerimaan</td>
+                            <td>:</td>
+                            <td>{!! nl2br(e($record->receiving_notes ?? $record->notes ?? '-')) !!}</td>
+                        </tr>
+                    </table>
+                </td>
+                <td width="45%" valign="top" align="center">
+                    <b>Tanda Tangan Penerima</b><br><br>
+                    @if(!empty($record->recipient_signature))
+                        @php
+                            $sigSrc = str_starts_with($record->recipient_signature, 'data:image') || str_starts_with($record->recipient_signature, 'http')
+                                ? $record->recipient_signature
+                                : asset('storage/'.$record->recipient_signature);
+                        @endphp
+                        <img src="{{ $sigSrc }}" alt="Tanda Tangan Penerima" style="max-height: 65px; max-width: 180px; object-fit: contain;" /><br>
+                    @else
+                        <br><br><br>
+                    @endif
+                    ({{ strtoupper($record->recipient_name ?? $record->receiver_name ?? '.............................') }})
+                </td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+<!-- ====================================================== -->
 <!-- TANDA TANGAN -->
 <!-- ====================================================== -->
 
 <div class="section">
     <div class="section-title">
-        5. Persetujuan
+        6. Persetujuan
     </div>
     <table class="signature">
         <tr>
@@ -543,11 +586,11 @@ table{
     <table>
         <tr>
             <td width="80%">
-                <b>Hash Verifikasi</b>
+                <b>Token Verifikasi (Terenkripsi)</b>
                 <div class="hash">
-                    {{ $verificationTokenHash }}
+                    {{ $encryptedReleaseNumber }}
                 </div>
-                Scan QR Code untuk melakukan verifikasi keaslian Surat Jalan.
+                Scan QR Code untuk membaca Nomor Surat Jalan otomatis yang terenkripsi.
             </td>
             <td align="right" valign="bottom">
                 Halaman 1 / 1

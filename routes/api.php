@@ -3,7 +3,10 @@
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\GoodsReleaseController;
 use App\Http\Controllers\Api\V1\SppbController;
+use App\Http\Controllers\Api\V1\SystemHealthController;
 use App\Http\Controllers\Api\V1\WorkflowTaskController;
+use App\Http\Controllers\DocumentVerificationController;
+use App\Http\Middleware\CorsMiddleware;
 use App\Models\ApiSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -120,7 +123,9 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
     // Goods Releases Endpoints
     Route::prefix('goods-releases')->group(function () {
         Route::get('/', [GoodsReleaseController::class, 'index'])->middleware('permission:view_any_goodsrelease');
-        Route::get('{uuid}', [GoodsReleaseController::class, 'show'])->middleware('permission:view_goodsrelease');
+        Route::get('{uuid}', [GoodsReleaseController::class, 'show']);
+        Route::post('{uuid}/receive', [GoodsReleaseController::class, 'receive']);
+        Route::patch('{uuid}/status', [GoodsReleaseController::class, 'receive']);
     });
 
     // Document Endpoints
@@ -148,4 +153,24 @@ Route::prefix('v1/public')->group(function () {
             'timestamp' => now()->toIso8601String(),
         ]);
     });
+});
+
+// Public Document & Goods Release Verification & Receive Endpoints (QR Decoder & Receipt Confirmation)
+Route::prefix('v1/verify')->middleware(['throttle:60,1', CorsMiddleware::class])->group(function () {
+    Route::options('document/{hash?}', fn () => response('', 200));
+    Route::post('document', [DocumentVerificationController::class, 'verifyDocument']);
+    Route::get('document/{hash?}', [DocumentVerificationController::class, 'verifyDocument']);
+});
+
+Route::prefix('v1/goods-releases')->middleware(['throttle:60,1', CorsMiddleware::class])->group(function () {
+    Route::options('{uuid}/receive', fn () => response('', 200));
+    Route::options('{uuid}/status', fn () => response('', 200));
+    Route::post('{uuid}/receive', [GoodsReleaseController::class, 'receive']);
+    Route::patch('{uuid}/status', [GoodsReleaseController::class, 'receive']);
+});
+
+// System Health & Real-time Diagnostic Endpoints
+Route::prefix('v1/health')->middleware([CorsMiddleware::class])->group(function () {
+    Route::options('/', fn () => response('', 200));
+    Route::get('/', [SystemHealthController::class, 'index']);
 });

@@ -102,37 +102,37 @@ class User extends Authenticatable
 
     public function subordinates(): HasMany
     {
-        return $this->hasMany(User::class);
+        return $this->hasMany(User::class, 'manager_id');
     }
 
     public function workflowStepApprovers(): HasMany
     {
-        return $this->hasMany(WorkflowStepApprover::class);
+        return $this->hasMany(WorkflowStepApprover::class, 'approver_id');
     }
 
     public function delegationsGivens(): HasMany
     {
-        return $this->hasMany(WorkflowDelegation::class);
+        return $this->hasMany(WorkflowDelegation::class, 'delegator_id');
     }
 
     public function delegationsReceiveds(): HasMany
     {
-        return $this->hasMany(WorkflowDelegation::class);
+        return $this->hasMany(WorkflowDelegation::class, 'delegate_id');
     }
 
     public function requests(): HasMany
     {
-        return $this->hasMany(SppbHeader::class);
+        return $this->hasMany(SppbHeader::class, 'requester_id');
     }
 
     public function uploads(): HasMany
     {
-        return $this->hasMany(Attachment::class);
+        return $this->hasMany(Attachment::class, 'created_by');
     }
 
     public function activityLogs(): HasMany
     {
-        return $this->hasMany(ActivityLog::class);
+        return $this->hasMany(ActivityLog::class, 'actor_id');
     }
 
     public function documentAccesses(): HasMany
@@ -239,5 +239,28 @@ class User extends Authenticatable
     public function routeNotificationForWhatsApp(): ?string
     {
         return $this->phone;
+    }
+
+    protected static function booted(): void
+    {
+        static::deleting(function (User $user): void {
+            if ($user->hasDependentRecords()) {
+                throw new \DomainException("Pengguna '{$user->name}' tidak dapat dihapus karena memiliki riwayat transaksi, alur persetujuan, atau hirarki yang terkait.");
+            }
+
+            $user->userPositions()->delete();
+            $user->documentAccesses()->delete();
+            $user->emailChangeRequests()->delete();
+        });
+    }
+
+    public function hasDependentRecords(): bool
+    {
+        return $this->subordinates()->exists()
+            || $this->requests()->exists()
+            || $this->workflowStepApprovers()->exists()
+            || $this->delegationsGivens()->exists()
+            || $this->delegationsReceiveds()->exists()
+            || $this->activityLogs()->exists();
     }
 }

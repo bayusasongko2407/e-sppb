@@ -31,7 +31,6 @@ class DocumentAccessForm
                             ])
                             ->default('user')
                             ->live()
-                            ->dehydrated(false)
                             ->afterStateHydrated(fn ($state, $set, $record) => $set('receiver_type', $record?->role_id ? 'role' : 'user'))
                             ->columnSpanFull(),
 

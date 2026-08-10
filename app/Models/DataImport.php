@@ -78,11 +78,11 @@ class DataImport extends Model
             'processed_rows' => 'integer',
             'successful_rows' => 'integer',
             'failed_rows' => 'integer',
-            'validation_started_at' => 'timestamp',
-            'validated_at' => 'timestamp',
-            'processing_started_at' => 'timestamp',
-            'completed_at' => 'timestamp',
-            'expires_at' => 'timestamp',
+            'validation_started_at' => 'datetime',
+            'validated_at' => 'datetime',
+            'processing_started_at' => 'datetime',
+            'completed_at' => 'datetime',
+            'expires_at' => 'datetime',
             'lock_version' => 'integer',
         ];
     }

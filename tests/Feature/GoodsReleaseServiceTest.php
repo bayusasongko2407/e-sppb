@@ -179,4 +179,34 @@ class GoodsReleaseServiceTest extends TestCase
         // Should be RELEASE_IN_PROGRESS because detail2 is not yet released
         $this->assertEquals(SppbStatus::RELEASE_IN_PROGRESS->value, $this->sppb->status);
     }
+
+    public function test_can_receive_goods_release(): void
+    {
+        $this->goodsReleaseService = app(GoodsReleaseService::class);
+        $data = new CreateGoodsReleaseData(
+            sppbHeaderId: $this->sppb->id,
+            actorId: $this->actor->id,
+            driverName: 'Budi',
+            vehicleNumber: 'B 1234 CD',
+            items: [
+                new GoodsReleaseItemData(sppbDetailId: $this->detail1->id, quantityReleased: 10),
+                new GoodsReleaseItemData(sppbDetailId: $this->detail2->id, quantityReleased: 5),
+            ]
+        );
+
+        $release = $this->goodsReleaseService->createGoodsRelease($data);
+
+        $updatedRelease = $this->goodsReleaseService->receiveGoodsRelease($release, [
+            'status' => 'DELIVERED',
+            'notes' => 'Telah diterima dengan baik',
+            'received_at' => now()->toIso8601String(),
+        ], $this->actor->id);
+
+        $this->assertEquals('DELIVERED', $updatedRelease->status);
+        $this->assertEquals('Telah diterima dengan baik', $updatedRelease->notes);
+        $this->assertNotNull($updatedRelease->received_at);
+
+        $this->sppb->refresh();
+        $this->assertEquals(SppbStatus::COMPLETED->value, $this->sppb->status);
+    }
 }

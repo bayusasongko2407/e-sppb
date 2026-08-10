@@ -108,20 +108,7 @@ class SppbController extends Controller
 
     public function show(Request $request, string $uuid)
     {
-        $sppb = SppbHeader::where('uuid', $uuid)
-            ->with([
-                'plant',
-                'department',
-                'requester',
-                'originLocation',
-                'destinationLocation',
-                'details.item',
-                'details.unit',
-                'sppbStatusLogs.actor.positions.position',
-                'sppbStatusLogs.actor.roles',
-                'sppbStatusLogs.workflowInstanceStep',
-            ])
-            ->firstOrFail();
+        $sppb = $this->findSppb($uuid);
 
         return response()->json([
             'success' => true,
@@ -137,7 +124,7 @@ class SppbController extends Controller
 
     public function update(UpdateSppbRequest $request, string $uuid)
     {
-        $sppb = SppbHeader::where('uuid', $uuid)->firstOrFail();
+        $sppb = $this->findSppb($uuid);
 
         $requestDate = $sppb->request_date instanceof Carbon
             ? $sppb->request_date->toDateString()
@@ -309,7 +296,7 @@ class SppbController extends Controller
 
     public function listDetails(Request $request, string $uuid)
     {
-        $sppb = SppbHeader::where('uuid', $uuid)->firstOrFail();
+        $sppb = $this->findSppb($uuid);
         $details = SppbDetail::where('sppb_header_id', $sppb->id)->with('item.unit')->get();
 
         return response()->json([
@@ -321,7 +308,7 @@ class SppbController extends Controller
 
     public function addDetail(Request $request, string $uuid)
     {
-        $sppb = SppbHeader::where('uuid', $uuid)->firstOrFail();
+        $sppb = $this->findSppb($uuid);
 
         $request->validate([
             'item_id' => 'required|integer|exists:items,id',
@@ -350,7 +337,7 @@ class SppbController extends Controller
 
     public function updateDetail(Request $request, string $uuid, int $detailId)
     {
-        $sppb = SppbHeader::where('uuid', $uuid)->firstOrFail();
+        $sppb = $this->findSppb($uuid);
 
         $request->validate([
             'item_id' => 'required|integer|exists:items,id',
@@ -378,7 +365,7 @@ class SppbController extends Controller
 
     public function removeDetail(Request $request, string $uuid, int $detailId)
     {
-        $sppb = SppbHeader::where('uuid', $uuid)->firstOrFail();
+        $sppb = $this->findSppb($uuid);
         $this->sppbService->removeDetail($sppb->id, (int) $detailId);
 
         return response()->json([
@@ -389,7 +376,7 @@ class SppbController extends Controller
 
     public function statusLogs(Request $request, string $uuid)
     {
-        $sppb = SppbHeader::where('uuid', $uuid)->firstOrFail();
+        $sppb = $this->findSppb($uuid);
         $logs = SppbStatusLog::where('sppb_header_id', $sppb->id)
             ->with(['actor.positions.position', 'actor.roles', 'workflowInstanceStep'])
             ->orderBy('created_at', 'asc')
@@ -400,5 +387,30 @@ class SppbController extends Controller
             'message' => 'Histori status SPPB berhasil ditampilkan.',
             'data' => $logs,
         ]);
+    }
+
+    private function findSppb(string $idOrUuid): SppbHeader
+    {
+        return SppbHeader::query()
+            ->where(function ($query) use ($idOrUuid) {
+                $query->where('uuid', $idOrUuid)
+                    ->orWhere('document_number', $idOrUuid);
+                if (is_numeric($idOrUuid)) {
+                    $query->orWhere('id', (int) $idOrUuid);
+                }
+            })
+            ->with([
+                'plant',
+                'department',
+                'requester',
+                'originLocation',
+                'destinationLocation',
+                'details.item',
+                'details.unit',
+                'sppbStatusLogs.actor.positions.position',
+                'sppbStatusLogs.actor.roles',
+                'sppbStatusLogs.workflowInstanceStep',
+            ])
+            ->firstOrFail();
     }
 }

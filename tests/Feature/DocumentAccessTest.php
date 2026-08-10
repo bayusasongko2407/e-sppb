@@ -6,6 +6,7 @@ namespace Tests\Feature;
 
 use App\Enums\SppbStatus;
 use App\Filament\Resources\DocumentAccesses\DocumentAccessResource;
+use App\Filament\Resources\DocumentAccesses\Pages\CreateDocumentAccess;
 use App\Filament\Resources\GoodsReleases\GoodsReleaseResource;
 use App\Filament\Resources\SppbHeaders\SppbHeaderResource;
 use App\Models\Department;
@@ -17,6 +18,7 @@ use App\Models\User;
 use App\Policies\GoodsReleasePolicy;
 use App\Policies\SppbHeaderPolicy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -327,5 +329,85 @@ class DocumentAccessTest extends TestCase
         $resolvedRelease = (new GoodsRelease)->resolveRouteBinding($releaseRouteKey);
         $this->assertNotNull($resolvedRelease);
         $this->assertEquals($release->id, $resolvedRelease->id);
+    }
+
+    public function test_create_document_access_for_role_does_not_throw_undefined_user_id(): void
+    {
+        $admin = User::factory()->create(['is_active' => true]);
+        $pViewAny = Permission::firstOrCreate(['name' => 'view_any_documentaccess', 'guard_name' => 'web']);
+        $pView = Permission::firstOrCreate(['name' => 'view_documentaccess', 'guard_name' => 'web']);
+        $pCreate = Permission::firstOrCreate(['name' => 'create_documentaccess', 'guard_name' => 'web']);
+        $admin->givePermissionTo($pViewAny, $pView, $pCreate);
+
+        $role = Role::create(['name' => 'editor', 'guard_name' => 'web']);
+        $plant = Plant::factory()->create();
+
+        $this->actingAs($admin);
+
+        Livewire::test(CreateDocumentAccess::class)
+            ->fillForm([
+                'receiver_type' => 'role',
+                'role_id' => $role->id,
+                'access_items' => [
+                    [
+                        'plant_id' => $plant->id,
+                        'department_id' => null,
+                        'module' => 'sppb',
+                        'can_view' => true,
+                        'can_create' => false,
+                        'can_edit' => false,
+                        'can_delete' => false,
+                    ],
+                ],
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $this->assertDatabaseHas('document_accesses', [
+            'role_id' => $role->id,
+            'user_id' => null,
+            'module' => 'sppb',
+            'plant_id' => $plant->id,
+        ]);
+    }
+
+    public function test_create_document_access_for_user_succeeds(): void
+    {
+        $admin = User::factory()->create(['is_active' => true]);
+        $pViewAny = Permission::firstOrCreate(['name' => 'view_any_documentaccess', 'guard_name' => 'web']);
+        $pView = Permission::firstOrCreate(['name' => 'view_documentaccess', 'guard_name' => 'web']);
+        $pCreate = Permission::firstOrCreate(['name' => 'create_documentaccess', 'guard_name' => 'web']);
+        $admin->givePermissionTo($pViewAny, $pView, $pCreate);
+
+        $targetUser = User::factory()->create(['is_active' => true]);
+        $plant = Plant::factory()->create();
+
+        $this->actingAs($admin);
+
+        Livewire::test(CreateDocumentAccess::class)
+            ->fillForm([
+                'receiver_type' => 'user',
+                'user_id' => $targetUser->id,
+                'access_items' => [
+                    [
+                        'plant_id' => $plant->id,
+                        'department_id' => null,
+                        'module' => 'goods_release',
+                        'can_view' => true,
+                        'can_create' => true,
+                        'can_edit' => false,
+                        'can_delete' => false,
+                    ],
+                ],
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $this->assertDatabaseHas('document_accesses', [
+            'user_id' => $targetUser->id,
+            'role_id' => null,
+            'module' => 'goods_release',
+            'plant_id' => $plant->id,
+        ]);
     }
 }

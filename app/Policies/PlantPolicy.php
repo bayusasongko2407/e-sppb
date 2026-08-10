@@ -44,6 +44,10 @@ class PlantPolicy
      */
     public function delete(User $user, Plant $plant): bool
     {
+        if ($plant->hasDependentRecords()) {
+            return false;
+        }
+
         return $user->hasPermissionTo('delete_plant');
     }
 
@@ -60,6 +64,10 @@ class PlantPolicy
      */
     public function forceDelete(User $user, Plant $plant): bool
     {
+        if ($plant->hasDependentRecords()) {
+            return false;
+        }
+
         return $user->hasPermissionTo('force_delete_plant');
     }
 }

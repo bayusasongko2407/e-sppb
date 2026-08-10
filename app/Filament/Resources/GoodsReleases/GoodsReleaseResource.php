@@ -7,11 +7,13 @@ namespace App\Filament\Resources\GoodsReleases;
 use App\Filament\Resources\GoodsReleases\Pages\CreateGoodsRelease;
 use App\Filament\Resources\GoodsReleases\Pages\EditGoodsRelease;
 use App\Filament\Resources\GoodsReleases\Pages\ListGoodsReleases;
+use App\Filament\Resources\GoodsReleases\Pages\ViewGoodsRelease;
 use App\Models\GoodsRelease;
 use App\Models\SppbDetail;
 use App\Models\SppbHeader;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
@@ -28,6 +30,7 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
@@ -63,7 +66,7 @@ class GoodsReleaseResource extends Resource
                     ])->schema([
                         TextInput::make('release_number')
                             ->label(fn (Get $get) => $get('is_manual') ? 'No. Referensi (Sistem)' : 'No. Surat Jalan')
-                            ->default(fn () => 'SJ-'.date('Ymd').'-'.rand(100, 999))
+                            ->placeholder('(Otomatis saat disimpan)')
                             ->readOnly()
                             ->columnSpan(1),
 
@@ -75,30 +78,54 @@ class GoodsReleaseResource extends Resource
                             ->maxLength(50)
                             ->columnSpan(1),
 
-                        DatePicker::make('delivery_date')
+                        DatePicker::make('surat_jalan_date')
                             ->label('Tanggal *')
                             ->default(fn () => now()->toDateString())
+                            ->formatStateUsing(fn ($record, $state) => $record?->created_at?->format('Y-m-d') ?? ($state ?? now()->toDateString()))
                             ->native(false)
                             ->displayFormat('d/m/Y')
-                            ->required()
+                            ->readOnly()
+                            ->dehydrated(false)
                             ->columnSpan(1),
 
                         TextInput::make('plant_name')
                             ->label('Plant')
                             ->readOnly()
-                            ->default(fn () => auth()->user()?->plant?->name)
+                            ->formatStateUsing(function ($record, Get $get) {
+                                if ($record) {
+                                    return $record->sppbHeader?->plant?->name ?? $record->createdBy?->plant?->name ?? auth()->user()?->plant?->name;
+                                }
+                                $sppbIds = $get('sppbHeaders') ?? [];
+                                $sppbId = request()->query('sppb_header_id') ?? ($sppbIds[0] ?? null);
+                                if ($sppbId) {
+                                    return SppbHeader::with('plant')->find($sppbId)?->plant?->name ?? auth()->user()?->plant?->name;
+                                }
+
+                                return auth()->user()?->plant?->name;
+                            })
                             ->columnSpan(1),
 
                         TextInput::make('department_name')
                             ->label('Departemen')
                             ->readOnly()
-                            ->default(fn () => auth()->user()?->department?->name)
+                            ->formatStateUsing(function ($record, Get $get) {
+                                if ($record) {
+                                    return $record->sppbHeader?->department?->name ?? $record->createdBy?->department?->name ?? auth()->user()?->department?->name;
+                                }
+                                $sppbIds = $get('sppbHeaders') ?? [];
+                                $sppbId = request()->query('sppb_header_id') ?? ($sppbIds[0] ?? null);
+                                if ($sppbId) {
+                                    return SppbHeader::with('department')->find($sppbId)?->department?->name ?? auth()->user()?->department?->name;
+                                }
+
+                                return auth()->user()?->department?->name;
+                            })
                             ->columnSpan(1),
 
                         TextInput::make('created_by_name')
                             ->label('Pembuat Surat Jalan')
                             ->readOnly()
-                            ->default(fn () => auth()->user()?->name)
+                            ->formatStateUsing(fn ($record) => $record?->createdBy?->name ?? auth()->user()?->name)
                             ->columnSpan(1),
 
                         Select::make('status')
@@ -106,10 +133,24 @@ class GoodsReleaseResource extends Resource
                             ->options([
                                 'DRAFT' => 'Draft',
                                 'RELEASED' => 'Dalam Pengiriman',
+                                'DELIVERED' => 'Terkirim',
                                 'RECEIVED' => 'Terkirim',
+                                'COMPLETED' => 'Selesai',
                                 'CANCELLED' => 'Dibatalkan',
                             ])
                             ->default('DRAFT')
+                            ->formatStateUsing(function ($record, $state) {
+                                $st = strtoupper((string) ($record?->getRawOriginal('status') ?? $record?->status ?? $state ?? 'DRAFT'));
+
+                                return match ($st) {
+                                    'DRAFT' => 'DRAFT',
+                                    'RELEASED' => 'RELEASED',
+                                    'DELIVERED', 'RECEIVED' => 'DELIVERED',
+                                    'COMPLETED' => 'COMPLETED',
+                                    'CANCELLED' => 'CANCELLED',
+                                    default => $st,
+                                };
+                            })
                             ->required()
                             ->disabled()
                             ->dehydrated()
@@ -123,6 +164,7 @@ class GoodsReleaseResource extends Resource
                 ->schema([
                     Placeholder::make('sppb_select_css')
                         ->hiddenLabel()
+                        ->hidden(fn (string $operation) => $operation === 'view')
                         ->content(new HtmlString('
                             <style>
                                 .fi-badge-label .sppb-extra-info,
@@ -136,6 +178,7 @@ class GoodsReleaseResource extends Resource
 
                     Select::make('sppbHeaders')
                         ->label('No SPPB')
+                        ->hidden(fn (string $operation) => $operation === 'view')
                         ->allowHtml()
                         ->relationship('sppbHeaders', 'document_number', function ($query, Get $get) {
                             $user = auth()->user();
@@ -216,8 +259,20 @@ class GoodsReleaseResource extends Resource
                         ->afterStateUpdated(function (Set $set, $state) {
                             if (empty($state)) {
                                 $set('goodsReleaseItems', []);
+                                $set('sender_name', null);
+                                $set('receiver_name', null);
+                                $set('sender_address', null);
+                                $set('receiver_address', null);
 
                                 return;
+                            }
+
+                            $firstSppb = SppbHeader::with(['originLocation', 'destinationLocation'])->find($state[0]);
+                            if ($firstSppb) {
+                                $set('sender_name', $firstSppb->originLocation?->name);
+                                $set('receiver_name', $firstSppb->destinationLocation?->name);
+                                $set('sender_address', $firstSppb->originLocation?->address);
+                                $set('receiver_address', $firstSppb->destinationLocation?->address);
                             }
 
                             $details = SppbDetail::with(['unit', 'item', 'asset', 'sppbHeader.requester'])
@@ -246,8 +301,15 @@ class GoodsReleaseResource extends Resource
 
                     Placeholder::make('selected_sppb_table')
                         ->label('Daftar SPPB Terpilih')
-                        ->content(function (Get $get): HtmlString {
+                        ->content(function (Get $get, $record): HtmlString {
                             $sppbIds = $get('sppbHeaders') ?? [];
+                            if (empty($sppbIds) && $record) {
+                                $sppbIds = $record->sppbHeaders->pluck('id')->toArray();
+                                if (empty($sppbIds) && $record->sppb_header_id) {
+                                    $sppbIds = [$record->sppb_header_id];
+                                }
+                            }
+
                             if (empty($sppbIds)) {
                                 return new HtmlString('<p class="text-xs text-gray-500 italic">Belum ada SPPB yang dipilih</p>');
                             }
@@ -304,68 +366,108 @@ class GoodsReleaseResource extends Resource
                             ->label('Ekspedisi *')
                             ->required(),
 
-                        DatePicker::make('delivery_date_display')
+                        DatePicker::make('delivery_date')
                             ->label('Tanggal Pengiriman *')
-                            ->readOnly()
-                            ->placeholder(fn (Get $get) => $get('delivery_date') ? Carbon::parse($get('delivery_date'))->format('d/m/Y') : 'Otomatis'),
+                            ->required()
+                            ->native(false)
+                            ->displayFormat('d/m/Y')
+                            ->default(fn () => now()->toDateString()),
                     ]),
+
+                    Hidden::make('sender_name')
+                        ->default(function (Get $get) {
+                            $sppbIds = $get('sppbHeaders') ?? [];
+                            $sppbId = request()->query('sppb_header_id') ?? ($sppbIds[0] ?? null);
+
+                            return $sppbId ? SppbHeader::with('originLocation')->find($sppbId)?->originLocation?->name : null;
+                        }),
+
+                    Hidden::make('sender_address')
+                        ->default(function (Get $get) {
+                            $sppbIds = $get('sppbHeaders') ?? [];
+                            $sppbId = request()->query('sppb_header_id') ?? ($sppbIds[0] ?? null);
+
+                            return $sppbId ? SppbHeader::with('originLocation')->find($sppbId)?->originLocation?->address : null;
+                        }),
+
+                    Hidden::make('receiver_name')
+                        ->default(function (Get $get) {
+                            $sppbIds = $get('sppbHeaders') ?? [];
+                            $sppbId = request()->query('sppb_header_id') ?? ($sppbIds[0] ?? null);
+
+                            return $sppbId ? SppbHeader::with('destinationLocation')->find($sppbId)?->destinationLocation?->name : null;
+                        }),
+
+                    Hidden::make('receiver_address')
+                        ->default(function (Get $get) {
+                            $sppbIds = $get('sppbHeaders') ?? [];
+                            $sppbId = request()->query('sppb_header_id') ?? ($sppbIds[0] ?? null);
+
+                            return $sppbId ? SppbHeader::with('destinationLocation')->find($sppbId)?->destinationLocation?->address : null;
+                        }),
 
                     Grid::make([
                         'default' => 1,
                         'lg' => 2,
                     ])->schema([
-                        TextInput::make('sender_name')
-                            ->label('Lokasi Asal')
-                            ->required()
-                            ->readOnly()
-                            ->default(function (Get $get) {
-                                $sppbIds = $get('sppbHeaders') ?? [];
-                                if (! empty($sppbIds)) {
-                                    return SppbHeader::find($sppbIds[0])?->originLocation?->name;
+                        Placeholder::make('origin_location_and_address')
+                            ->label('Lokasi & Alamat Asal')
+                            ->content(function (Get $get): HtmlString {
+                                $name = $get('sender_name');
+                                $address = $get('sender_address');
+
+                                if (empty($name) && empty($address)) {
+                                    $sppbIds = $get('sppbHeaders') ?? [];
+                                    $sppbId = request()->query('sppb_header_id') ?? ($sppbIds[0] ?? null);
+                                    if ($sppbId) {
+                                        $sppb = SppbHeader::with('originLocation')->find($sppbId);
+                                        $name = $sppb?->originLocation?->name;
+                                        $address = $sppb?->originLocation?->address;
+                                    }
                                 }
 
-                                return null;
+                                if (empty($name) && empty($address)) {
+                                    return new HtmlString('<div class="rounded-lg border border-gray-300 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3 text-xs text-gray-500 italic">- Belum ada SPPB terpilih -</div>');
+                                }
+
+                                $html = '<div class="rounded-lg border border-gray-300 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3 text-xs">';
+                                $html .= '<div class="font-bold text-gray-900 dark:text-white text-sm">'.e($name ?? '-').'</div>';
+                                if (! empty($address)) {
+                                    $html .= '<div class="text-gray-600 dark:text-gray-400 mt-1">'.nl2br(e($address)).'</div>';
+                                }
+                                $html .= '</div>';
+
+                                return new HtmlString($html);
                             }),
 
-                        TextInput::make('receiver_name')
-                            ->label('Lokasi Tujuan')
-                            ->required()
-                            ->readOnly()
-                            ->default(function (Get $get) {
-                                $sppbIds = $get('sppbHeaders') ?? [];
-                                if (! empty($sppbIds)) {
-                                    return SppbHeader::find($sppbIds[0])?->destinationLocation?->name;
+                        Placeholder::make('destination_location_and_address')
+                            ->label('Lokasi & Alamat Tujuan')
+                            ->content(function (Get $get): HtmlString {
+                                $name = $get('receiver_name');
+                                $address = $get('receiver_address');
+
+                                if (empty($name) && empty($address)) {
+                                    $sppbIds = $get('sppbHeaders') ?? [];
+                                    $sppbId = request()->query('sppb_header_id') ?? ($sppbIds[0] ?? null);
+                                    if ($sppbId) {
+                                        $sppb = SppbHeader::with('destinationLocation')->find($sppbId);
+                                        $name = $sppb?->destinationLocation?->name;
+                                        $address = $sppb?->destinationLocation?->address;
+                                    }
                                 }
 
-                                return null;
-                            }),
-
-                        Textarea::make('sender_address')
-                            ->label('Alamat Asal')
-                            ->rows(3)
-                            ->required()
-                            ->readOnly()
-                            ->default(function (Get $get) {
-                                $sppbIds = $get('sppbHeaders') ?? [];
-                                if (! empty($sppbIds)) {
-                                    return SppbHeader::find($sppbIds[0])?->originLocation?->address;
+                                if (empty($name) && empty($address)) {
+                                    return new HtmlString('<div class="rounded-lg border border-gray-300 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3 text-xs text-gray-500 italic">- Belum ada SPPB terpilih -</div>');
                                 }
 
-                                return null;
-                            }),
-
-                        Textarea::make('receiver_address')
-                            ->label('Alamat Tujuan')
-                            ->rows(3)
-                            ->required()
-                            ->readOnly()
-                            ->default(function (Get $get) {
-                                $sppbIds = $get('sppbHeaders') ?? [];
-                                if (! empty($sppbIds)) {
-                                    return SppbHeader::find($sppbIds[0])?->destinationLocation?->address;
+                                $html = '<div class="rounded-lg border border-gray-300 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3 text-xs">';
+                                $html .= '<div class="font-bold text-gray-900 dark:text-white text-sm">'.e($name ?? '-').'</div>';
+                                if (! empty($address)) {
+                                    $html .= '<div class="text-gray-600 dark:text-gray-400 mt-1">'.nl2br(e($address)).'</div>';
                                 }
+                                $html .= '</div>';
 
-                                return null;
+                                return new HtmlString($html);
                             }),
                     ]),
 
@@ -610,6 +712,49 @@ class GoodsReleaseResource extends Resource
                 ])
                 ->columnSpanFull(),
 
+            // ─── PANEL 5: INFORMASI PENERIMAAN BARANG ─────────────────────────────
+            Section::make('Informasi Penerimaan Barang')
+                ->visible(fn ($record) => $record && (in_array($record->status, ['DELIVERED', 'RECEIVED', 'COMPLETED']) || ! empty($record->received_at)))
+                ->schema([
+                    Grid::make([
+                        'default' => 1,
+                        'sm' => 2,
+                        'lg' => 3,
+                    ])->schema([
+                        TextInput::make('recipient_name')
+                            ->label('Nama Penerima')
+                            ->readOnly()
+                            ->formatStateUsing(fn ($record) => $record?->recipient_name ?? $record?->receiver_name ?? '—'),
+
+                        TextInput::make('received_at_formatted')
+                            ->label('Tanggal & Waktu Diterima')
+                            ->readOnly()
+                            ->formatStateUsing(fn ($record) => $record?->received_at ? Carbon::parse($record->received_at)->translatedFormat('d F Y H:i:s T') : '—'),
+
+                        TextInput::make('receiving_notes')
+                            ->label('Catatan Penerimaan')
+                            ->readOnly()
+                            ->formatStateUsing(fn ($record) => $record?->receiving_notes ?? $record?->notes ?? '—'),
+                    ]),
+
+                    Placeholder::make('recipient_signature_preview')
+                        ->label('Tanda Tangan Penerima')
+                        ->content(function ($record): HtmlString {
+                            if (! $record || empty($record->recipient_signature)) {
+                                return new HtmlString('<p class="text-xs text-gray-500 italic">Tidak ada tanda tangan penerima.</p>');
+                            }
+
+                            $signature = $record->recipient_signature;
+                            $src = str_starts_with($signature, 'data:image') || str_starts_with($signature, 'http')
+                                ? $signature
+                                : asset('storage/'.$signature);
+
+                            return new HtmlString('<div class="p-2 border rounded-lg bg-gray-50 dark:bg-white/5 inline-block"><img src="'.e($src).'" alt="Tanda Tangan Penerima" class="max-h-32 object-contain" /></div>');
+                        })
+                        ->columnSpanFull(),
+                ])
+                ->columnSpanFull(),
+
             Hidden::make('is_manual')
                 ->default(fn () => request()->query('is_manual') === '1'),
 
@@ -668,8 +813,11 @@ class GoodsReleaseResource extends Resource
             ->filters([
                 //
             ])
+            ->recordUrl(fn (GoodsRelease $record): string => static::getUrl('view', ['record' => $record]))
             ->actions([
-                EditAction::make(),
+                ViewAction::make(),
+                EditAction::make()
+                    ->visible(fn (GoodsRelease $record): bool => $record->status === 'DRAFT'),
                 Action::make('print_pdf')
                     ->label('Cetak PDF')
                     ->icon('heroicon-o-printer')
@@ -681,6 +829,16 @@ class GoodsReleaseResource extends Resource
             ->bulkActions([
                 //
             ]);
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        /** @var GoodsRelease $record */
+        if ($record->status !== 'DRAFT') {
+            return false;
+        }
+
+        return parent::canEdit($record);
     }
 
     public static function getEloquentQuery(): Builder
@@ -718,6 +876,7 @@ class GoodsReleaseResource extends Resource
         return [
             'index' => ListGoodsReleases::route('/'),
             'create' => CreateGoodsRelease::route('/create'),
+            'view' => ViewGoodsRelease::route('/{record}'),
             'edit' => EditGoodsRelease::route('/{record}/edit'),
         ];
     }

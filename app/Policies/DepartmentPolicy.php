@@ -44,6 +44,10 @@ class DepartmentPolicy
      */
     public function delete(User $user, Department $department): bool
     {
+        if ($department->hasDependentRecords()) {
+            return false;
+        }
+
         return $user->hasPermissionTo('delete_department');
     }
 
@@ -60,6 +64,10 @@ class DepartmentPolicy
      */
     public function forceDelete(User $user, Department $department): bool
     {
+        if ($department->hasDependentRecords()) {
+            return false;
+        }
+
         return $user->hasPermissionTo('force_delete_department');
     }
 }

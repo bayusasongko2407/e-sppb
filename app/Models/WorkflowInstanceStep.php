@@ -51,9 +51,9 @@ class WorkflowInstanceStep extends Model
             'sequence' => 'integer',
             'minimum_approvals' => 'integer',
             'sla_hours' => 'integer',
-            'activated_at' => 'timestamp',
-            'due_at' => 'timestamp',
-            'acted_at' => 'timestamp',
+            'activated_at' => 'datetime',
+            'due_at' => 'datetime',
+            'acted_at' => 'datetime',
             'acted_by_id' => 'integer',
             'lock_version' => 'integer',
         ];

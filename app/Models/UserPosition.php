@@ -37,8 +37,8 @@ class UserPosition extends Model
             'position_id' => 'integer',
             'is_primary' => 'boolean',
             'is_active' => 'boolean',
-            'valid_from' => 'timestamp',
-            'valid_until' => 'timestamp',
+            'valid_from' => 'datetime',
+            'valid_until' => 'datetime',
         ];
     }
 

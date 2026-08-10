@@ -47,8 +47,8 @@ class DocumentTemplate extends Model
             'plant_id' => 'integer',
             'configuration' => 'array',
             'is_active' => 'boolean',
-            'effective_from' => 'timestamp',
-            'effective_until' => 'timestamp',
+            'effective_from' => 'datetime',
+            'effective_until' => 'datetime',
             'created_by_id' => 'integer',
         ];
     }

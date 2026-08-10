@@ -17,10 +17,21 @@ class GoodsReleaseController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $releases = GoodsRelease::with(['sppbHeader', 'items.sppbDetail.item'])
-            ->paginate(15);
+        $query = GoodsRelease::query()
+            ->with(['sppbHeader.plant', 'sppbHeader.department', 'goodsReleaseItems.sppbDetail.item', 'goodsReleaseItems.sppbDetail.unit'])
+            ->orderBy($request->query('sort', 'created_at'), $request->query('direction', 'desc'));
+
+        if ($request->has('status')) {
+            $query->where('status', $request->query('status'));
+        }
+
+        if ($request->has('sppb_header_id')) {
+            $query->where('sppb_header_id', $request->query('sppb_header_id'));
+        }
+
+        $releases = $query->paginate($request->query('per_page', 15));
 
         return response()->json([
             'success' => true,
@@ -43,10 +54,19 @@ class GoodsReleaseController extends Controller
         $sppb = SppbHeader::where('uuid', $uuid)->with('sppbDetails')->firstOrFail();
 
         $request->validate([
-            'recipient_name' => 'required|string|max:255',
+            'driver_name' => 'nullable|string|max:100',
+            'recipient_name' => 'nullable|string|max:100',
+            'vehicle_number' => 'nullable|string|max:50',
             'recipient_vehicle_number' => 'nullable|string|max:50',
+            'expedition_name' => 'nullable|string|max:100',
+            'delivery_date' => 'nullable|date',
             'notes' => 'nullable|string|max:1000',
         ]);
+
+        $driverName = $request->input('driver_name') ?? $request->input('recipient_name') ?? 'Pengemudi';
+        $vehicleNumber = $request->input('vehicle_number') ?? $request->input('recipient_vehicle_number') ?? '-';
+        $expeditionName = $request->input('expedition_name') ?? 'Internal';
+        $deliveryDate = $request->input('delivery_date') ?? now()->toDateString();
 
         // Auto-release all remaining quantities for the SPPB details
         $items = [];
@@ -59,7 +79,7 @@ class GoodsReleaseController extends Controller
                 $items[] = new GoodsReleaseItemData(
                     sppbDetailId: (int) $detail->id,
                     quantityReleased: $remaining,
-                    conditionOnRelease: 'GOOD'
+                    conditionOnRelease: 'Baik'
                 );
             }
         }
@@ -75,9 +95,10 @@ class GoodsReleaseController extends Controller
             sppbHeaderId: (int) $sppb->id,
             actorId: (int) $request->user()->id,
             items: $items,
-            driverName: $request->input('recipient_name'),
-            vehicleNumber: $request->input('recipient_vehicle_number'),
-            deliveryDate: now()->toDateString(),
+            driverName: $driverName,
+            vehicleNumber: $vehicleNumber,
+            expeditionName: $expeditionName,
+            deliveryDate: $deliveryDate,
             notes: $request->input('notes')
         );
 
@@ -86,8 +107,8 @@ class GoodsReleaseController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Barang berhasil dilepaskan.',
-                'data' => $release,
+                'message' => 'Surat jalan pelepasan barang berhasil dibuat.',
+                'data' => $release->load(['sppbHeader', 'goodsReleaseItems.sppbDetail']),
             ], 201);
         } catch (\Exception $e) {
             return response()->json([
@@ -102,14 +123,84 @@ class GoodsReleaseController extends Controller
      */
     public function show(string $uuid): JsonResponse
     {
-        $release = GoodsRelease::where('uuid', $uuid)
-            ->with(['sppbHeader.plant', 'items.sppbDetail.item'])
-            ->firstOrFail();
+        $release = $this->findGoodsRelease($uuid);
 
         return response()->json([
             'success' => true,
+            'status' => 'success',
             'message' => 'Detail pelepasan barang berhasil ditampilkan.',
             'data' => $release,
         ]);
+    }
+
+    /**
+     * Confirm receipt of goods release (Surat Jalan DELIVERED).
+     */
+    public function receive(Request $request, string $uuid, GoodsReleaseService $goodsReleaseService): JsonResponse
+    {
+        $release = $this->findGoodsRelease($uuid);
+
+        $request->validate([
+            'status' => 'nullable|string|max:50',
+            'notes' => 'nullable|string|max:1000',
+            'receiving_notes' => 'nullable|string|max:1000',
+            'recipient_name' => 'nullable|string|max:255',
+            'received_by_name' => 'nullable|string|max:255',
+            'recipient_signature' => 'nullable|string',
+            'signature' => 'nullable|string',
+            'received_by_id' => 'nullable|integer',
+            'received_at' => 'nullable|date',
+        ]);
+
+        $updatedRelease = $goodsReleaseService->receiveGoodsRelease(
+            $release,
+            $request->all(),
+            $request->user()?->id
+        );
+
+        return response()->json([
+            'status' => 'success',
+            'success' => true,
+            'message' => 'Surat Jalan berhasil dikonfirmasi diterima',
+            'data' => [
+                'id' => $updatedRelease->id,
+                'uuid' => $updatedRelease->uuid,
+                'release_number' => $updatedRelease->release_number,
+                'status' => $updatedRelease->status,
+                'notes' => $updatedRelease->notes,
+                'recipient_name' => $updatedRelease->recipient_name,
+                'recipient_signature' => $updatedRelease->recipient_signature,
+                'receiving_notes' => $updatedRelease->receiving_notes,
+                'received_at' => $updatedRelease->received_at?->toIso8601String(),
+                'updated_at' => $updatedRelease->updated_at?->toIso8601String(),
+            ],
+        ]);
+    }
+
+    private function findGoodsRelease(string $idOrUuid): GoodsRelease
+    {
+        return GoodsRelease::query()
+            ->where(function ($query) use ($idOrUuid) {
+                $query->where('uuid', $idOrUuid)
+                    ->orWhere('release_number', $idOrUuid)
+                    ->orWhere('manual_release_number', $idOrUuid)
+                    ->orWhere('verification_hash', $idOrUuid);
+                if (is_numeric($idOrUuid)) {
+                    $query->orWhere('id', (int) $idOrUuid);
+                }
+            })
+            ->with([
+                'sppbHeader.plant',
+                'sppbHeader.department',
+                'sppbHeader.requester',
+                'sppbHeader.originLocation',
+                'sppbHeader.destinationLocation',
+                'goodsReleaseItems.sppbDetail.item',
+                'goodsReleaseItems.sppbDetail.unit',
+                'createdBy',
+                'senderUser',
+                'receiverUser',
+            ])
+            ->firstOrFail();
     }
 }

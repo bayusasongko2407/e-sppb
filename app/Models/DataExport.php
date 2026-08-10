@@ -68,10 +68,10 @@ class DataExport extends Model
             'total_rows' => 'integer',
             'processed_rows' => 'integer',
             'download_count' => 'integer',
-            'processing_started_at' => 'timestamp',
-            'completed_at' => 'timestamp',
-            'expires_at' => 'timestamp',
-            'last_downloaded_at' => 'timestamp',
+            'processing_started_at' => 'datetime',
+            'completed_at' => 'datetime',
+            'expires_at' => 'datetime',
+            'last_downloaded_at' => 'datetime',
             'lock_version' => 'integer',
         ];
     }

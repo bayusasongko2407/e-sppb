@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Services\DocumentVerificationService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class DocumentVerificationController extends Controller
@@ -14,10 +15,37 @@ class DocumentVerificationController extends Controller
     ) {}
 
     /**
+     * Unified document & Goods Release (Surat Jalan) verification API handler.
+     * Accepts encrypted QR payloads (Base64, JSON {iv, value, mac}), hash tokens, or document numbers.
+     */
+    public function verifyDocument(Request $request, ?string $hash = null): JsonResponse
+    {
+        $payload = $hash
+            ?? $request->input('qr_data')
+            ?? $request->input('encrypted_data')
+            ?? $request->input('hash')
+            ?? $request->input('token')
+            ?? $request->all();
+
+        $result = $this->service->verifyDocument(
+            $payload,
+            $request->ip(),
+            $request->userAgent(),
+            $request->user()
+        );
+
+        $statusCode = match ($result['status']) {
+            'VALID' => 200,
+            'NOT_FOUND' => 404,
+            'CANCELLED', 'SUPERSEDED', 'REVOKED', 'EXPIRED' => 422,
+            default => 400,
+        };
+
+        return response()->json($result, $statusCode);
+    }
+
+    /**
      * Verify a public document QR code page using its SHA256 verification token.
-     *
-     * The token is a 64-character SHA256 hex string embedded in the QR code,
-     * derived deterministically from the generation UUID and page number.
      */
     public function verifyPublicPage(Request $request, string $sha256Token)
     {

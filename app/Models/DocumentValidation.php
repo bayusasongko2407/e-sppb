@@ -43,7 +43,7 @@ class DocumentValidation extends Model
             'document_generation_id' => 'integer',
             'document_page_id' => 'integer',
             'actor_id' => 'integer',
-            'verified_at' => 'timestamp',
+            'verified_at' => 'datetime',
             'metadata' => 'array',
         ];
     }

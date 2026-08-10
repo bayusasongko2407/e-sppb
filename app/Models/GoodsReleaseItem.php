@@ -2,13 +2,25 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class GoodsReleaseItem extends Model
 {
-    use HasFactory;
+    protected static function booted(): void
+    {
+        static::saved(function (GoodsReleaseItem $item) {
+            if ($item->goodsRelease) {
+                $item->goodsRelease->syncSppbDetailsDeliveryStatus();
+            }
+        });
+
+        static::deleted(function (GoodsReleaseItem $item) {
+            if ($item->goodsRelease) {
+                $item->goodsRelease->syncSppbDetailsDeliveryStatus();
+            }
+        });
+    }
 
     /**
      * The attributes that are mass assignable.

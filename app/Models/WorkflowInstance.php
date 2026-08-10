@@ -47,8 +47,8 @@ class WorkflowInstance extends Model
             'template_version' => 'integer',
             'revision_no' => 'integer',
             'current_sequence' => 'integer',
-            'started_at' => 'timestamp',
-            'finished_at' => 'timestamp',
+            'started_at' => 'datetime',
+            'finished_at' => 'datetime',
         ];
     }
 

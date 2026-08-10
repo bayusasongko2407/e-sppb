@@ -74,6 +74,10 @@ class GoodsReleasePolicy
      */
     public function update(User $user, GoodsRelease $goodsRelease): bool
     {
+        if ($goodsRelease->status !== 'DRAFT') {
+            return false;
+        }
+
         if ($user->hasRole('super_admin')) {
             return true;
         }

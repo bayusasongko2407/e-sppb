@@ -42,7 +42,7 @@ class WorkflowCommand extends Model
             'actor_id' => 'integer',
             'payload' => 'array',
             'attempts' => 'integer',
-            'processed_at' => 'timestamp',
+            'processed_at' => 'datetime',
         ];
     }
 

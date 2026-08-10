@@ -46,7 +46,7 @@ class SppbStatusLog extends Model
             'workflow_instance_step_id' => 'integer',
             'actor_id' => 'integer',
             'metadata' => 'array',
-            'logged_at' => 'timestamp',
+            'logged_at' => 'datetime',
         ];
     }
 

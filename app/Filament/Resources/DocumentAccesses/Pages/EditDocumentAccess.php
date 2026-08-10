@@ -61,7 +61,7 @@ class EditDocumentAccess extends EditRecord
 
     protected function handleRecordUpdate(Model $record, array $data): Model
     {
-        $receiverType = $data['receiver_type'] ?? 'user';
+        $receiverType = $data['receiver_type'] ?? (isset($data['role_id']) && $data['role_id'] ? 'role' : 'user');
 
         $originalUserId = $record->getOriginal('user_id');
         $originalRoleId = $record->getOriginal('role_id');
@@ -75,8 +75,8 @@ class EditDocumentAccess extends EditRecord
         }
         $deleteQuery->delete();
 
-        $newUserId = $receiverType === 'user' ? $data['user_id'] : null;
-        $newRoleId = $receiverType === 'role' ? $data['role_id'] : null;
+        $newUserId = $receiverType === 'user' ? ($data['user_id'] ?? null) : null;
+        $newRoleId = $receiverType === 'role' ? ($data['role_id'] ?? null) : null;
 
         // Delete potential duplicates for new recipient
         $newDeleteQuery = DocumentAccess::query();

@@ -76,13 +76,9 @@ class ManagerKpiWidget extends BaseWidget
                     ->color('warning')
                     ->icon('heroicon-o-arrow-path'),
                 Stat::make('Selesai Bulan Ini', $completedMonth)
-                    ->description('Barang sudah diambil')
+                    ->description('Barang telah selesai diambil')
                     ->color('success')
                     ->icon('heroicon-o-check-badge'),
-                Stat::make('Ditolak Bulan Ini', $rejectedMonth)
-                    ->description('Tidak disetujui')
-                    ->color('danger')
-                    ->icon('heroicon-o-x-circle'),
                 Stat::make('Approval Rate', $approvalRate.'%')
                     ->description('Tingkat persetujuan')
                     ->color('info')

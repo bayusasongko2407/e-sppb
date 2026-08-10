@@ -9,11 +9,13 @@ use App\Jobs\ProcessDocumentGenerationJob;
 use App\Models\DocumentGeneration;
 use App\Models\DocumentPage;
 use App\Models\DocumentTemplate;
+use App\Models\GoodsRelease;
 use App\Models\Plant;
 use App\Models\User;
 use App\Services\DocumentGenerationService;
 use App\Services\DocumentVerificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -316,5 +318,75 @@ class DocumentVerificationTest extends TestCase
 
         // The throttle middleware is in place (429 on 62nd request)
         $response->assertStatus(429);
+    }
+
+    // =========================================================================
+    // QR Code Decryptor & API v1 Verification Tests
+    // =========================================================================
+
+    public function test_decrypt_qr_payload_handles_laravel_crypt_string(): void
+    {
+        $releaseNumber = 'SJ-20260730-9999';
+        $encrypted = Crypt::encryptString($releaseNumber);
+
+        $result = $this->verificationService->decryptQrPayload($encrypted);
+
+        $this->assertTrue($result['is_encrypted']);
+        $this->assertEquals($releaseNumber, $result['decrypted']);
+    }
+
+    public function test_decrypt_qr_payload_handles_json_array_structure(): void
+    {
+        $releaseNumber = 'SJ-20260730-8888';
+        $encrypted = Crypt::encryptString($releaseNumber);
+        $jsonPayload = json_decode(base64_decode($encrypted), true);
+
+        $result = $this->verificationService->decryptQrPayload($jsonPayload);
+
+        $this->assertTrue($result['is_encrypted']);
+        $this->assertEquals($releaseNumber, $result['decrypted']);
+    }
+
+    public function test_api_v1_verify_document_returns_goods_release_for_encrypted_qr(): void
+    {
+        $goodsRelease = GoodsRelease::factory()->create([
+            'release_number' => 'SJ-20260730-0001',
+            'delivery_date' => now()->addDays(2)->format('Y-m-d'),
+            'status' => 'RELEASED',
+        ]);
+
+        $encryptedPayload = Crypt::encryptString($goodsRelease->release_number);
+
+        $response = $this->postJson('/api/v1/verify/document', [
+            'qr_data' => $encryptedPayload,
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertHeader('Access-Control-Allow-Origin', '*');
+        $response->assertJson([
+            'status' => 'VALID',
+            'data' => [
+                'document_type' => 'SURAT_JALAN',
+                'release_number' => 'SJ-20260730-0001',
+                'status_display' => 'DALAM PENGIRIMAN',
+                'decrypted_from_qr' => true,
+            ],
+        ]);
+    }
+
+    public function test_api_v1_health_returns_system_status_and_cors(): void
+    {
+        $response = $this->getJson('/api/v1/health');
+
+        $response->assertStatus(200);
+        $response->assertHeader('Access-Control-Allow-Origin', '*');
+        $response->assertJson([
+            'success' => true,
+            'base_url' => 'https://e-sppb.engiboard.web.id/api/v1',
+            'system_status' => [
+                'database' => 'OK',
+                'qr_decoder' => 'OPERATIONAL',
+            ],
+        ]);
     }
 }

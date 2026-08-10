@@ -27,7 +27,9 @@ class AssetForm
                     ->default(null),
                 TextInput::make('asset_name')
                     ->label('Nama Aset')
-                    ->required(),
+                    ->required()
+                    ->maxLength(1000)
+                    ->columnSpanFull(),
                 TextInput::make('asset_location_data')
                     ->label('Data Lokasi Aset')
                     ->default(null),

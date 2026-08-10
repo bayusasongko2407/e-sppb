@@ -11,6 +11,8 @@ use App\Exceptions\Workflow\InvalidSppbTransitionException;
 use App\Models\GoodsRelease;
 use App\Models\GoodsReleaseItem;
 use App\Models\SppbHeader;
+use App\Models\SppbStatusLog;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Ramsey\Uuid\Uuid;
 
@@ -120,6 +122,67 @@ class GoodsReleaseService
                 $sppb->completed_at = now();
             }
             $sppb->save();
+
+            return $release;
+        });
+    }
+
+    public function receiveGoodsRelease(GoodsRelease $release, array $data, ?int $actorId = null): GoodsRelease
+    {
+        return DB::transaction(function () use ($release, $data, $actorId) {
+            $release->loadMissing(['goodsReleaseItems', 'sppbHeader']);
+
+            $status = strtoupper((string) ($data['status'] ?? 'DELIVERED'));
+            $notes = $data['receiving_notes'] ?? $data['notes'] ?? $release->notes;
+            $receivedAt = ! empty($data['received_at']) ? Carbon::parse($data['received_at']) : now();
+            $receivedById = $data['received_by_id'] ?? $actorId ?? $release->received_by_id;
+
+            $recipientName = $data['recipient_name'] ?? $data['received_by_name'] ?? $data['receiver_name'] ?? $release->recipient_name;
+            $recipientSignature = $data['recipient_signature'] ?? $data['signature'] ?? $release->recipient_signature;
+            $receivingNotes = $data['receiving_notes'] ?? $data['notes'] ?? $release->receiving_notes;
+
+            $oldStatus = $release->status;
+            $release->status = $status;
+            $release->received_at = $receivedAt;
+            $release->received_by_id = $receivedById;
+            $release->recipient_name = $recipientName;
+            $release->recipient_signature = $recipientSignature;
+            $release->receiving_notes = $receivingNotes;
+            if (! empty($notes)) {
+                $release->notes = $notes;
+            }
+            $release->save();
+
+            foreach ($release->goodsReleaseItems as $item) {
+                if ((float) $item->quantity_received <= 0) {
+                    $item->quantity_received = $item->quantity_released;
+                    $item->save();
+                }
+            }
+
+            if ($release->sppb_header_id) {
+                SppbStatusLog::create([
+                    'sppb_header_id' => $release->sppb_header_id,
+                    'actor_id' => $receivedById,
+                    'action' => 'GOODS_RELEASE_DELIVERED',
+                    'from_status' => $oldStatus,
+                    'to_status' => $status,
+                    'remarks' => $notes ?? 'Surat Jalan dikonfirmasi diterima.',
+                    'logged_at' => now(),
+                ]);
+
+                $sppb = SppbHeader::find($release->sppb_header_id);
+                if ($sppb) {
+                    $allReleases = GoodsRelease::where('sppb_header_id', $sppb->id)->get();
+                    $allDelivered = $allReleases->every(fn ($r) => in_array(strtoupper((string) $r->status), ['DELIVERED', 'RECEIVED', 'COMPLETED']));
+                    $sppbStatusVal = strtoupper((string) ($sppb->status?->value ?? (string) $sppb->status));
+                    if ($allDelivered && in_array($sppbStatusVal, ['RELEASE_IN_PROGRESS', 'APPROVED'])) {
+                        $sppb->status = SppbStatus::COMPLETED->value;
+                        $sppb->completed_at = now();
+                        $sppb->save();
+                    }
+                }
+            }
 
             return $release;
         });

@@ -250,23 +250,7 @@ class SppbHeaderInfolist
 
                                 TextEntry::make('delivery_status_display')
                                     ->label('Status Pengiriman')
-                                    ->getStateUsing(function ($record): string {
-                                        if (! $record) {
-                                            return 'Belum Dikirim';
-                                        }
-                                        $hasDraft = $record->goodsReleaseItems()
-                                            ->whereHas('goodsRelease', fn ($q) => $q->where('status', 'DRAFT'))
-                                            ->exists();
-                                        if ($hasDraft) {
-                                            return 'Draft Surat Jalan';
-                                        }
-
-                                        return match ($record->delivery_status) {
-                                            'IN_TRANSIT' => 'Dalam Pengiriman',
-                                            'DELIVERED' => 'Terkirim',
-                                            default => 'Belum Dikirim',
-                                        };
-                                    })
+                                    ->getStateUsing(fn ($record): string => $record?->delivery_status_label ?? 'Belum Dikirim')
                                     ->badge()
                                     ->color(fn (string $state): string => match ($state) {
                                         'Draft Surat Jalan' => 'warning',
@@ -370,23 +354,7 @@ class SppbHeaderInfolist
 
                                 TextEntry::make('delivery_status_display')
                                     ->label('Status Pengiriman')
-                                    ->getStateUsing(function ($record): string {
-                                        if (! $record) {
-                                            return 'Belum Dikirim';
-                                        }
-                                        $hasDraft = $record->goodsReleaseItems()
-                                            ->whereHas('goodsRelease', fn ($q) => $q->where('status', 'DRAFT'))
-                                            ->exists();
-                                        if ($hasDraft) {
-                                            return 'Draft Surat Jalan';
-                                        }
-
-                                        return match ($record->delivery_status) {
-                                            'IN_TRANSIT' => 'Dalam Pengiriman',
-                                            'DELIVERED' => 'Terkirim',
-                                            default => 'Belum Dikirim',
-                                        };
-                                    })
+                                    ->getStateUsing(fn ($record): string => $record?->delivery_status_label ?? 'Belum Dikirim')
                                     ->badge()
                                     ->color(fn (string $state): string => match ($state) {
                                         'Draft Surat Jalan' => 'warning',
@@ -408,7 +376,28 @@ class SppbHeaderInfolist
                     ->columnSpanFull()
                     ->visible(fn ($record) => $record?->sppbDetails()->where('barcode_confirmed', false)->exists()),
 
-                // ─── SECTION 3: WORKFLOW PERSETUJUAN ──────────────────────────
+                // ─── SECTION 3: DAFTAR SURAT JALAN TERKAIT ───────────────────
+                Section::make('Daftar Surat Jalan Terkait')
+                    ->schema([
+                        Placeholder::make('goods_release_list_view')
+                            ->hiddenLabel()
+                            ->content(function ($record): HtmlString {
+                                if (! $record) {
+                                    return new HtmlString('');
+                                }
+
+                                return SppbHeaderForm::renderGoodsReleaseList($record);
+                            })
+                            ->columnSpanFull(),
+                    ])
+                    ->columnSpanFull()
+                    ->visible(fn ($record) => $record && (
+                        in_array($record?->status, ['APPROVED', 'RELEASE_IN_PROGRESS', 'COMPLETED']) ||
+                        $record->goodsReleases()->exists() ||
+                        $record->goodsReleasesPivot()->exists()
+                    )),
+
+                // ─── SECTION 4: WORKFLOW PERSETUJUAN ──────────────────────────
                 Section::make('Workflow Persetujuan')
                     ->schema([
                         Placeholder::make('workflow_timeline_view')

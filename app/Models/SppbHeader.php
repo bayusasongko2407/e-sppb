@@ -133,11 +133,11 @@ class SppbHeader extends Model
             'current_step_sequence' => 'integer',
             'current_approver_id' => 'integer',
             'lock_version' => 'integer',
-            'submitted_at' => 'timestamp',
-            'approved_at' => 'timestamp',
-            'rejected_at' => 'timestamp',
-            'cancelled_at' => 'timestamp',
-            'completed_at' => 'timestamp',
+            'submitted_at' => 'datetime',
+            'approved_at' => 'datetime',
+            'rejected_at' => 'datetime',
+            'cancelled_at' => 'datetime',
+            'completed_at' => 'datetime',
         ];
     }
 

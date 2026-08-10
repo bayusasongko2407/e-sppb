@@ -44,6 +44,10 @@ class WorkflowTemplatePolicy
      */
     public function delete(User $user, WorkflowTemplate $workflowTemplate): bool
     {
+        if ($workflowTemplate->hasDependentRecords()) {
+            return false;
+        }
+
         return $user->hasPermissionTo('delete_workflowtemplate');
     }
 
@@ -60,6 +64,10 @@ class WorkflowTemplatePolicy
      */
     public function forceDelete(User $user, WorkflowTemplate $workflowTemplate): bool
     {
+        if ($workflowTemplate->hasDependentRecords()) {
+            return false;
+        }
+
         return $user->hasPermissionTo('force_delete_workflowtemplate');
     }
 }

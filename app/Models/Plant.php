@@ -36,6 +36,15 @@ class Plant extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::deleting(function (Plant $plant): void {
+            if ($plant->hasDependentRecords()) {
+                throw new \DomainException("Plant '{$plant->name}' tidak dapat dihapus karena masih digunakan oleh data departemen, lokasi, pengguna, atau transaksi.");
+            }
+        });
+    }
+
     public function departments(): HasMany
     {
         return $this->hasMany(Department::class);
@@ -74,5 +83,17 @@ class Plant extends Model
     public function runningNumbers(): HasMany
     {
         return $this->hasMany(RunningNumber::class);
+    }
+
+    public function hasDependentRecords(): bool
+    {
+        return $this->departments()->exists()
+            || $this->locations()->exists()
+            || $this->users()->exists()
+            || $this->assets()->exists()
+            || $this->workflowTemplates()->exists()
+            || $this->workflowDelegations()->exists()
+            || $this->sppbHeaders()->exists()
+            || $this->runningNumbers()->exists();
     }
 }

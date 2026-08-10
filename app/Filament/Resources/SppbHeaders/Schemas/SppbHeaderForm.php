@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Filament\Resources\SppbHeaders\Schemas;
 
 use App\Enums\SppbStatus;
+use App\Filament\Resources\GoodsReleases\GoodsReleaseResource;
 use App\Models\Asset;
+use App\Models\GoodsRelease;
 use App\Models\Item;
 use App\Models\Location;
 use App\Models\SppbHeader;
@@ -479,7 +481,7 @@ class SppbHeaderForm
                                     ->placeholder(fn (Get $get) => $get('barcode_confirmed') ? 'Nama aset terisi otomatis' : 'Ketik nama barang di sini...')
                                     ->required()
                                     ->readOnly(fn (Get $get): bool => (bool) $get('barcode_confirmed'))
-                                    ->maxLength(200)
+                                    ->maxLength(1000)
                                     ->datalist(fn (Get $get) => $get('barcode_confirmed') ? [] : Item::where('is_active', true)->pluck('name')->toArray())
                                     ->live(onBlur: true)
                                     ->afterStateUpdated(function (Set $set, $state, Get $get) {
@@ -545,7 +547,29 @@ class SppbHeaderForm
                     ])
                     ->columnSpanFull(),
 
-                // ─── SECTION 3: WORKFLOW APPROVAL ─────────────────────────────
+                // ─── SECTION 3: DAFTAR SURAT JALAN TERKAIT ───────────────────
+                Section::make('Daftar Surat Jalan Terkait')
+                    ->schema([
+                        Placeholder::make('goods_release_list_form')
+                            ->hiddenLabel()
+                            ->content(function ($record): HtmlString {
+                                if (! $record) {
+                                    return new HtmlString('');
+                                }
+
+                                return static::renderGoodsReleaseList($record);
+                            })
+                            ->columnSpanFull(),
+                    ])
+                    ->columnSpanFull()
+                    ->hiddenOn('create')
+                    ->visible(fn ($record) => $record && (
+                        in_array($record?->status, ['APPROVED', 'RELEASE_IN_PROGRESS', 'COMPLETED']) ||
+                        $record->goodsReleases()->exists() ||
+                        $record->goodsReleasesPivot()->exists()
+                    )),
+
+                // ─── SECTION 4: WORKFLOW APPROVAL ─────────────────────────────
                 Section::make('Workflow Persetujuan')
                     ->schema([
                         Placeholder::make('workflow_timeline')
@@ -659,7 +683,10 @@ class SppbHeaderForm
                 'SPPB_REJECTED' => 'Ditolak oleh'.$posSuffix,
                 'SPPB_CANCELLED' => 'Dibatalkan oleh'.$posSuffix,
                 'BAT_OPENED' => 'Proses Verifikasi BAT'.$posSuffix,
-                default => e($log->action)
+                'GOODS_RELEASE_DELIVERED', 'GOODS_RELEASE_RECEIVED' => 'Surat Jalan Diterima'.$posSuffix,
+                'GOODS_RELEASE_CREATED' => 'Surat Jalan Dibuat'.$posSuffix,
+                'GOODS_RELEASE_CANCELLED' => 'Surat Jalan Dibatalkan'.$posSuffix,
+                default => str_replace('_', ' ', ucwords(strtolower((string) $log->action), '_')).$posSuffix,
             };
 
             // Formatting colors for action labels matching Filament native badges
@@ -668,6 +695,8 @@ class SppbHeaderForm
                 'STEP_APPROVED' => $isBat ? 'text-green-700 bg-green-500/10 ring-green-600/10 dark:text-green-400 dark:bg-green-500/20 dark:ring-green-500/30' : 'text-green-700 bg-green-500/10 ring-green-600/10 dark:text-green-400 dark:bg-green-500/20 dark:ring-green-500/30',
                 'SPPB_APPROVED' => 'text-emerald-700 bg-emerald-500/10 ring-emerald-600/10 dark:text-emerald-400 dark:bg-emerald-500/20 dark:ring-emerald-500/30',
                 'BAT_OPENED' => 'text-cyan-700 bg-cyan-500/10 ring-cyan-600/10 dark:text-cyan-400 dark:bg-cyan-500/20 dark:ring-cyan-500/30',
+                'GOODS_RELEASE_DELIVERED', 'GOODS_RELEASE_RECEIVED' => 'text-teal-700 bg-teal-500/10 ring-teal-600/10 dark:text-teal-400 dark:bg-teal-500/20 dark:ring-teal-500/30',
+                'GOODS_RELEASE_CREATED' => 'text-indigo-700 bg-indigo-500/10 ring-indigo-600/10 dark:text-indigo-400 dark:bg-indigo-500/20 dark:ring-indigo-500/30',
                 'REVISION_REQUESTED' => 'text-amber-700 bg-amber-500/10 ring-amber-600/10 dark:text-amber-400 dark:bg-amber-500/20 dark:ring-amber-500/30',
                 'SPPB_REJECTED' => 'text-red-700 bg-red-500/10 ring-red-600/10 dark:text-red-400 dark:bg-red-500/20 dark:ring-red-500/30',
                 'SPPB_CANCELLED' => 'text-gray-700 bg-gray-500/10 ring-gray-600/10 dark:text-gray-400 dark:bg-gray-500/20 dark:ring-gray-500/30',
@@ -684,6 +713,113 @@ class SppbHeaderForm
             $html .= '<td class="px-8 py-4">'.$actionBadge.'</td>';
             $html .= '<td class="px-8 py-4 text-sm text-gray-600 dark:text-gray-300 break-words" title="'.($log->remarks ? e($log->remarks) : '').'">'.$remarks.'</td>';
             $html .= '<td class="px-8 py-4 text-sm text-gray-500 dark:text-gray-400">'.$timeFormatted.'</td>';
+            $html .= '</tr>';
+        }
+
+        $html .= '</tbody>';
+        $html .= '</table>';
+        $html .= '</div>';
+        $html .= '</div>';
+
+        return new HtmlString($html);
+    }
+
+    /**
+     * Render list of related Surat Jalan (Goods Release) as HTML table.
+     */
+    public static function renderGoodsReleaseList(SppbHeader $record): HtmlString
+    {
+        $directReleases = GoodsRelease::where('sppb_header_id', $record->id)->get();
+        $pivotReleases = $record->goodsReleasesPivot;
+
+        $releases = $directReleases->merge($pivotReleases)
+            ->unique('id')
+            ->sortByDesc('created_at');
+
+        if ($releases->isEmpty()) {
+            return new HtmlString(
+                '<div class="rounded-xl border border-dashed border-gray-300 dark:border-white/10 p-6 text-center text-sm text-gray-500 italic dark:text-gray-400">'
+                .'Belum ada Surat Jalan yang dibuat untuk dokumen SPPB ini.'
+                .'</div>'
+            );
+        }
+
+        $html = '<div class="fi-ta-ctn border border-gray-200 dark:border-white/10 rounded-xl bg-white dark:bg-gray-900 shadow-sm overflow-hidden">';
+        $html .= '<div class="fi-ta-content overflow-x-auto">';
+        $html .= '<table style="width: 100%; table-layout: fixed;" class="w-full divide-y divide-gray-200 dark:divide-white/5 text-left text-sm">';
+        $html .= '<thead class="bg-gray-50 dark:bg-white/5">';
+        $html .= '<tr>';
+        $html .= '<th scope="col" style="width: 18%;" class="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-400">No. Surat Jalan</th>';
+        $html .= '<th scope="col" style="width: 12%;" class="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-400">Tgl Pengiriman</th>';
+        $html .= '<th scope="col" style="width: 12%;" class="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-400">Status</th>';
+        $html .= '<th scope="col" style="width: 15%;" class="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-400">Pengirim</th>';
+        $html .= '<th scope="col" style="width: 15%;" class="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-400">Penerima</th>';
+        $html .= '<th scope="col" style="width: 16%;" class="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-400">Pengemudi / Ekspedisi</th>';
+        $html .= '<th scope="col" style="width: 12%;" class="px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right dark:text-gray-400">Aksi</th>';
+        $html .= '</tr>';
+        $html .= '</thead>';
+        $html .= '<tbody class="divide-y divide-gray-200 dark:divide-white/5">';
+
+        foreach ($releases as $release) {
+            $release->loadMissing(['createdBy', 'senderUser', 'receiverUser', 'receivedBy']);
+
+            $noSj = $release->is_manual && $release->manual_release_number
+                ? e($release->manual_release_number)
+                : e($release->release_number);
+
+            $deliveryDate = $release->delivery_date
+                ? Carbon::parse($release->delivery_date)->format('d/m/Y')
+                : '—';
+
+            $statusVal = strtoupper((string) ($release->status ?? 'DRAFT'));
+            $statusLabel = match ($statusVal) {
+                'DRAFT' => 'Draft',
+                'RELEASED', 'IN_TRANSIT', 'PENDING' => 'Dikirim',
+                'DELIVERED', 'RECEIVED', 'COMPLETED' => 'Diterima',
+                'CANCELLED' => 'Dibatalkan',
+                default => $statusVal,
+            };
+
+            $badgeColor = match ($statusVal) {
+                'DRAFT' => 'text-gray-700 bg-gray-500/10 ring-gray-600/10 dark:text-gray-400 dark:bg-gray-500/20 dark:ring-gray-500/30',
+                'RELEASED', 'IN_TRANSIT', 'PENDING' => 'text-blue-700 bg-blue-500/10 ring-blue-600/10 dark:text-blue-400 dark:bg-blue-500/20 dark:ring-blue-500/30',
+                'DELIVERED', 'RECEIVED', 'COMPLETED' => 'text-emerald-700 bg-emerald-500/10 ring-emerald-600/10 dark:text-emerald-400 dark:bg-emerald-500/20 dark:ring-emerald-500/30',
+                'CANCELLED' => 'text-red-700 bg-red-500/10 ring-red-600/10 dark:text-red-400 dark:bg-red-500/20 dark:ring-red-500/30',
+                default => 'text-gray-700 bg-gray-500/10 ring-gray-600/10 dark:text-gray-400 dark:bg-gray-500/20 dark:ring-gray-500/30',
+            };
+
+            $statusBadge = '<span class="fi-badge inline-flex items-center justify-center rounded-md px-2.5 py-1 text-xs font-semibold ring-1 ring-inset '.$badgeColor.'">'.$statusLabel.'</span>';
+
+            $sender = e($release->createdBy?->name ?? $release->senderUser?->name ?? $release->sender_name ?? '—');
+            $receiver = e($release->recipient_name ?? $release->receivedBy?->name ?? $release->receiverUser?->name ?? $release->receiver_name ?? '—');
+
+            $driverInfo = e($release->driver_name ?? '—');
+            if ($release->vehicle_number) {
+                $driverInfo .= ' ('.e($release->vehicle_number).')';
+            }
+            if ($release->expedition_name) {
+                $driverInfo .= '<br/><span class="text-xs text-gray-500 dark:text-gray-400">Exp: '.e($release->expedition_name).'</span>';
+            }
+
+            $viewUrl = GoodsReleaseResource::getUrl('view', ['record' => $release]);
+            $previewUrl = route('goods-releases.preview', $release);
+
+            $actionsHtml = '<div class="flex items-center justify-end gap-2">';
+            $actionsHtml .= '<a href="'.e($viewUrl).'" class="text-primary-600 hover:text-primary-700 dark:text-primary-400 font-medium hover:underline text-xs" title="Lihat Detail Surat Jalan">Detail</a>';
+            if ($statusVal !== 'DRAFT') {
+                $actionsHtml .= '<span class="text-gray-300 dark:text-gray-700">|</span>';
+                $actionsHtml .= '<a href="'.e($previewUrl).'" target="_blank" class="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 font-medium hover:underline text-xs" title="Cetak / Preview PDF">Cetak</a>';
+            }
+            $actionsHtml .= '</div>';
+
+            $html .= '<tr class="hover:bg-gray-50 dark:hover:bg-white/5">';
+            $html .= '<td class="px-6 py-4 font-mono font-semibold text-primary-600 dark:text-primary-400 text-xs">'.$noSj.'</td>';
+            $html .= '<td class="px-6 py-4 text-xs text-gray-700 dark:text-gray-300">'.$deliveryDate.'</td>';
+            $html .= '<td class="px-6 py-4">'.$statusBadge.'</td>';
+            $html .= '<td class="px-6 py-4 text-xs text-gray-900 dark:text-white">'.$sender.'</td>';
+            $html .= '<td class="px-6 py-4 text-xs text-gray-900 dark:text-white">'.$receiver.'</td>';
+            $html .= '<td class="px-6 py-4 text-xs text-gray-700 dark:text-gray-300">'.$driverInfo.'</td>';
+            $html .= '<td class="px-6 py-4 text-right">'.$actionsHtml.'</td>';
             $html .= '</tr>';
         }
 

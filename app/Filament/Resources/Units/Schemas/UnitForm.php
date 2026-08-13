@@ -24,12 +24,32 @@ class UnitForm
                     ->required(),
                 Select::make('category')
                     ->label('Kategori')
-                    ->options(fn () => EnumControl::where('table_name', 'units')
-                        ->where('column_name', 'category')
-                        ->where('is_active', true)
-                        ->orderBy('sequence')
-                        ->pluck('label', 'value'))
+                    ->options(function (): array {
+                        $dbOptions = EnumControl::where(function ($q) {
+                            $q->where('table_name', 'units')->orWhere('table_name', 'like', '%.units');
+                        })
+                            ->where('column_name', 'category')
+                            ->where('is_active', true)
+                            ->orderBy('sequence')
+                            ->pluck('label', 'value')
+                            ->toArray();
+
+                        if (! empty($dbOptions)) {
+                            return $dbOptions;
+                        }
+
+                        return [
+                            'BERAT' => 'Berat',
+                            'VOLUME' => 'Volume',
+                            'PANJANG' => 'Panjang',
+                            'LUAS' => 'Luas',
+                            'HITUNGAN' => 'Hitungan / Qty',
+                            'KEMASAN' => 'Kemasan',
+                            'LAINNYA' => 'Lainnya',
+                        ];
+                    })
                     ->searchable()
+                    ->preload()
                     ->default(null),
                 Toggle::make('is_active')
                     ->label('Aktif')

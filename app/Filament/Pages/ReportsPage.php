@@ -110,7 +110,7 @@ class ReportsPage extends Page implements HasForms, HasTable
         try {
             return $this->executeExport('excel');
         } catch (\Exception $e) {
-            Notification::make()->title('Export Failed')->body($e->getMessage())->danger()->send();
+            Notification::make()->title('Ekspor Laporan Gagal')->body($e->getMessage())->danger()->send();
 
             return null;
         }
@@ -121,7 +121,7 @@ class ReportsPage extends Page implements HasForms, HasTable
         try {
             return $this->executeExport('pdf');
         } catch (\Exception $e) {
-            Notification::make()->title('Export Failed')->body($e->getMessage())->danger()->send();
+            Notification::make()->title('Ekspor Laporan Gagal')->body($e->getMessage())->danger()->send();
 
             return null;
         }
@@ -149,7 +149,7 @@ class ReportsPage extends Page implements HasForms, HasTable
         $res = $exportService->exportPdf($report, $scope, $filters);
 
         Notification::make()
-            ->title(strtoupper($type).' Export Generated successfully')
+            ->title('Ekspor Laporan Berhasil Dibuat')
             ->success()
             ->send();
 

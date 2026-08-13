@@ -31,12 +31,12 @@ class SystemHealthView extends Page
 
     public static function getNavigationLabel(): string
     {
-        return 'Health & Diagnostik API';
+        return 'Diagnostik & Kesehatan Sistem';
     }
 
     public function getTitle(): string|Htmlable
     {
-        return 'Monitoring Health API & Log QR Code';
+        return 'Monitoring Kesehatan Sistem & QR Code';
     }
 
     public string $apiUrl = 'https://e-sppb.engiboard.web.id/api/v1';

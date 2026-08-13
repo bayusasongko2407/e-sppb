@@ -56,7 +56,7 @@ class DocumentAccessForm
                     ])
                     ->columns(1),
 
-                Section::make('Daftar Ruang Lingkup & Hak Aksi (Permissions)')
+                Section::make('Daftar Ruang Lingkup & Hak Akses')
                     ->description('Tentukan kombinasi Plant, Departemen, Modul, beserta aksi yang diperbolehkan.')
                     ->schema([
                         Repeater::make('access_items')

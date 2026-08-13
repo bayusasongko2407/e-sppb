@@ -10,6 +10,7 @@ use App\Http\Requests\Api\V1\Sppb\SubmitSppbRequest;
 use App\Http\Requests\Api\V1\Sppb\UpdateSppbRequest;
 use App\Http\Resources\Api\V1\SppbResource;
 use App\Models\Department;
+use App\Models\GoodsReleaseItem;
 use App\Models\Item;
 use App\Models\Location;
 use App\Models\Plant;
@@ -106,9 +107,18 @@ class SppbController extends Controller
         ], 201);
     }
 
+    /**
+     * Detail SPPB (Mendukung ID, UUID, atau No. Dokumen).
+     *
+     * Menampilkan informasi detail dokumen SPPB.
+     * Catatan Transisi Otomatis: Apabila dokumen berstatus WAITING_VERIFICATION_BAT dan diakses oleh Penyetuju BAT (BAT Approver),
+     * sistem akan otomatis memperbarui status menjadi PROCESS_VERIFICATION_BAT dan merekam status log audit BAT_OPENED.
+     */
     public function show(Request $request, string $uuid)
     {
         $sppb = $this->findSppb($uuid);
+
+        $sppb->markAsBatProcessingIfEligible($request->user());
 
         return response()->json([
             'success' => true,
@@ -186,6 +196,53 @@ class SppbController extends Controller
             'success' => true,
             'message' => 'SPPB berhasil disubmit dan sedang diproses.',
             'data' => ['command_uuid' => $command->command_uuid],
+            'meta' => null,
+            'links' => null,
+            'errors' => null,
+            'timestamp' => now()->toIso8601String(),
+            'request_id' => $request->header('X-Request-ID', (string) Str::uuid()),
+        ]);
+    }
+
+    /**
+     * Resubmit SPPB setelah direvisi atau ditolak.
+     */
+    public function resubmit(Request $request, string $uuid)
+    {
+        $sppb = $this->findSppb($uuid);
+
+        $command = $this->sppbService->queueSubmit($sppb->id, $request->user()->id);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'SPPB berhasil diajukan ulang dan sedang diproses.',
+            'data' => ['command_uuid' => $command->command_uuid],
+            'meta' => null,
+            'links' => null,
+            'errors' => null,
+            'timestamp' => now()->toIso8601String(),
+            'request_id' => $request->header('X-Request-ID', (string) Str::uuid()),
+        ]);
+    }
+
+    /**
+     * Membatalkan permohonan SPPB (Cancel SPPB).
+     * Dapat dilakukan saat DRAFT, REJECTED, atau status cancellable lainnya oleh pemohon/admin.
+     */
+    public function cancel(Request $request, string $uuid)
+    {
+        $request->validate([
+            'reason' => 'required|string|min:10|max:1000',
+        ]);
+
+        $sppb = $this->findSppb($uuid);
+
+        $this->sppbService->cancel($sppb->id, $request->user()->id, $request->input('reason'));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Permohonan SPPB berhasil dibatalkan.',
+            'data' => null,
             'meta' => null,
             'links' => null,
             'errors' => null,
@@ -386,6 +443,69 @@ class SppbController extends Controller
             'success' => true,
             'message' => 'Histori status SPPB berhasil ditampilkan.',
             'data' => $logs,
+        ]);
+    }
+
+    /**
+     * Dapatkan sisa kuota barang SPPB yang dapat dilepaskan / dikirim.
+     */
+    public function releasableItems(Request $request, string $uuid)
+    {
+        $sppb = $this->findSppb($uuid);
+
+        $details = SppbDetail::with(['unit', 'item', 'asset'])
+            ->where('sppb_header_id', $sppb->id)
+            ->get();
+
+        $items = [];
+        foreach ($details as $detail) {
+            $released = (float) GoodsReleaseItem::where('sppb_detail_id', $detail->id)
+                ->whereHas('goodsRelease', fn ($q) => $q->where('status', '!=', 'CANCELLED'))
+                ->sum('quantity_released');
+
+            $requested = (float) $detail->quantity;
+            $remaining = max(0.0, $requested - $released);
+
+            $status = $released <= 0
+                ? 'PENDING'
+                : ($remaining > 0 ? 'PARTIALLY_DELIVERED' : 'DELIVERED');
+
+            $statusLabel = match ($status) {
+                'PENDING' => 'Belum Dikirim',
+                'PARTIALLY_DELIVERED' => 'Pengiriman Sebagian',
+                'DELIVERED' => 'Pengiriman Penuh',
+            };
+
+            $items[] = [
+                'sppb_detail_id' => $detail->id,
+                'line_no' => $detail->line_no,
+                'item_id' => $detail->item_id,
+                'asset_id' => $detail->asset_id,
+                'item_asset_name' => $detail->item_asset_name,
+                'reference_code' => $detail->reference_code,
+                'unit_id' => $detail->unit_id,
+                'unit_name' => $detail->unit?->name,
+                'quantity_requested' => $requested,
+                'quantity_already_released' => $released,
+                'quantity_remaining' => $remaining,
+                'delivery_status' => $status,
+                'delivery_status_label' => $statusLabel,
+                'is_fully_released' => $remaining <= 0,
+            ];
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Daftar sisa kuota barang SPPB berhasil ditampilkan.',
+            'data' => [
+                'sppb_header_id' => $sppb->id,
+                'sppb_uuid' => $sppb->uuid,
+                'document_number' => $sppb->document_number,
+                'header_status' => $sppb->status,
+                'items' => $items,
+                'releasable_items' => array_values(array_filter($items, fn ($i) => ! $i['is_fully_released'])),
+            ],
+            'timestamp' => now()->toIso8601String(),
         ]);
     }
 

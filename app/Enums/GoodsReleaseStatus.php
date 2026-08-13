@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
+use App\Models\EnumControl;
+
 enum GoodsReleaseStatus: string
 {
     case DRAFT = 'DRAFT';
@@ -13,6 +15,16 @@ enum GoodsReleaseStatus: string
 
     public function label(): string
     {
+        $override = EnumControl::where('table_name', 'goods_releases')
+            ->where('column_name', 'status')
+            ->where('value', $this->value)
+            ->where('is_active', true)
+            ->value('label');
+
+        if ($override) {
+            return $override;
+        }
+
         return match ($this) {
             self::DRAFT => 'Draft',
             self::RELEASED => 'Dikirim',

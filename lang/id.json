@@ -1,0 +1,16 @@
+{
+    "Select an option": "Pilih...",
+    "Select an option or search...": "Pilih...",
+    "Select options": "Pilih...",
+    "Pilih salah satu opsi": "Pilih...",
+    "Pilih salah satu opsi atau cari...": "Pilih...",
+    "The given data was invalid.": "Data yang diberikan tidak valid.",
+    "Unauthenticated.": "Sesi Anda telah berakhir atau Anda belum terautentikasi.",
+    "Unauthorized.": "Anda tidak memiliki wewenang untuk melakukan tindakan ini.",
+    "Forbidden": "Akses ditolak.",
+    "Page Not Found": "Halaman tidak ditemukan.",
+    "Server Error": "Terjadi kesalahan pada server.",
+    "Too Many Requests": "Terlalu banyak permintaan. Silakan coba beberapa saat lagi.",
+    "Service Unavailable": "Layanan sedang tidak tersedia.",
+    "This action is unauthorized.": "Tindakan ini tidak diizinkan."
+}

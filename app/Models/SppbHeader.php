@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\ApproverStatus;
+use App\Enums\SppbStatus;
 use App\Traits\SecureRouteBinding;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -217,5 +219,41 @@ class SppbHeader extends Model
     public function getSppbNoAttribute(): ?string
     {
         return $this->document_number;
+    }
+
+    public function markAsBatProcessingIfEligible(?User $user): bool
+    {
+        if (! $user || $this->status !== SppbStatus::WAITING_VERIFICATION_BAT->value) {
+            return false;
+        }
+
+        $isBatApprover = WorkflowStepApprover::where('approver_id', $user->id)
+            ->where('status', ApproverStatus::PENDING->value)
+            ->whereHas('workflowInstanceStep', function ($query) {
+                $query->where('workflow_instance_id', $this->current_workflow_instance_id)
+                    ->where('sequence', $this->current_step_sequence)
+                    ->where(function ($sub) {
+                        $sub->where('code', 'like', '%BAT%')
+                            ->orWhere('name', 'like', '%BAT%');
+                    });
+            })->exists();
+
+        if ($isBatApprover) {
+            $this->update(['status' => SppbStatus::PROCESS_VERIFICATION_BAT->value]);
+
+            SppbStatusLog::create([
+                'sppb_header_id' => $this->id,
+                'workflow_instance_id' => $this->current_workflow_instance_id,
+                'actor_id' => $user->id,
+                'action' => 'BAT_OPENED',
+                'from_status' => SppbStatus::WAITING_VERIFICATION_BAT->value,
+                'to_status' => SppbStatus::PROCESS_VERIFICATION_BAT->value,
+                'logged_at' => now(),
+            ]);
+
+            return true;
+        }
+
+        return false;
     }
 }

@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Filament\Resources\MyApprovals;
 
 use App\Enums\ApproverStatus;
+use App\Enums\SppbStatus;
 use App\Filament\Resources\MyApprovals\Pages\ListMyApprovals;
 use App\Filament\Resources\MyApprovals\Pages\ViewMyApproval;
 use App\Filament\Resources\SppbHeaders\SppbHeaderResource;
 use App\Models\SppbHeader;
+use Carbon\CarbonInterface;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Placeholder;
 use Filament\Resources\Resource;
@@ -18,6 +20,7 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class MyApprovalResource extends Resource
@@ -82,7 +85,38 @@ class MyApprovalResource extends Resource
                     ->searchable(),
                 TextColumn::make('status')
                     ->label('SLA / Status')
-                    ->badge(),
+                    ->badge()
+                    ->formatStateUsing(function ($state, SppbHeader $record): string {
+                        $statusLabel = $state instanceof SppbStatus
+                            ? $state->label()
+                            : (SppbStatus::tryFrom($state)?->label() ?? (string) $state);
+
+                        $activeStep = $record->currentWorkflowInstance?->workflowInstanceSteps
+                            ?->where('sequence', $record->current_step_sequence)
+                            ->first();
+
+                        if ($activeStep?->due_at) {
+                            $dueAt = Carbon::parse($activeStep->due_at);
+                            if ($dueAt->isPast()) {
+                                $overdue = $dueAt->diffForHumans(['parts' => 1, 'syntax' => CarbonInterface::DIFF_ABSOLUTE]);
+
+                                return "{$statusLabel} • Terlewat {$overdue}";
+                            }
+
+                            $remaining = $dueAt->diffForHumans(['parts' => 1, 'syntax' => CarbonInterface::DIFF_ABSOLUTE]);
+
+                            return "{$statusLabel} • SLA: {$remaining}";
+                        }
+
+                        return $statusLabel;
+                    })
+                    ->color(fn ($state): string => $state instanceof SppbStatus
+                        ? $state->color()
+                        : (SppbStatus::tryFrom($state)?->color() ?? 'gray'))
+                    ->icon(fn ($state): string => $state instanceof SppbStatus
+                        ? $state->icon()
+                        : (SppbStatus::tryFrom($state)?->icon() ?? 'heroicon-o-clock'))
+                    ->sortable(),
             ])
             ->filters([
                 //
@@ -106,6 +140,7 @@ class MyApprovalResource extends Resource
         $userId = auth()->id();
 
         return parent::getEloquentQuery()
+            ->with(['requester', 'department', 'currentWorkflowInstance.workflowInstanceSteps'])
             ->whereExists(function ($query) use ($userId) {
                 $query->select(DB::raw(1))
                     ->from('workflow_step_approvers')

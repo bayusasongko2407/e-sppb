@@ -19,9 +19,11 @@ class EnumControlResource extends Resource
 
     protected static \UnitEnum|string|null $navigationGroup = 'Sistem & Konfigurasi';
 
-    protected static ?string $modelLabel = 'Enum Kontrol';
+    protected static ?string $navigationLabel = 'Master Status & Label';
 
-    protected static ?string $pluralModelLabel = 'Enum Kontrol';
+    protected static ?string $modelLabel = 'Master Status & Label';
+
+    protected static ?string $pluralModelLabel = 'Master Status & Label';
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-adjustments-horizontal';
 

@@ -9,6 +9,7 @@ use App\Filament\Resources\GoodsReleases\Pages\EditGoodsRelease;
 use App\Filament\Resources\GoodsReleases\Pages\ListGoodsReleases;
 use App\Filament\Resources\GoodsReleases\Pages\ViewGoodsRelease;
 use App\Models\GoodsRelease;
+use App\Models\GoodsReleaseItem;
 use App\Models\SppbDetail;
 use App\Models\SppbHeader;
 use Filament\Actions\Action;
@@ -160,7 +161,7 @@ class GoodsReleaseResource extends Resource
                 ->columnSpanFull(),
 
             // ─── PANEL 2: INFORMASI SPPB ────────────────────────────────────
-            Section::make('Informasi SPPB')
+            Section::make('Dokumen Referensi SPPB')
                 ->schema([
                     Placeholder::make('sppb_select_css')
                         ->hiddenLabel()
@@ -182,7 +183,7 @@ class GoodsReleaseResource extends Resource
                         ->allowHtml()
                         ->relationship('sppbHeaders', 'document_number', function ($query, Get $get) {
                             $user = auth()->user();
-                            $query->where('status', 'APPROVED');
+                            $query->whereIn('status', ['APPROVED', 'RELEASE_IN_PROGRESS']);
 
                             if ($user && ! $user->hasRole('super_admin')) {
                                 $query->where('plant_id', $user->plant_id)
@@ -207,7 +208,7 @@ class GoodsReleaseResource extends Resource
                         ->getSearchResultsUsing(function (string $search, Get $get) {
                             $user = auth()->user();
                             $query = SppbHeader::with('requester')
-                                ->where('status', 'APPROVED')
+                                ->whereIn('status', ['APPROVED', 'RELEASE_IN_PROGRESS'])
                                 ->where(function ($q) use ($search) {
                                     $q->where('document_number', 'like', "%{$search}%")
                                         ->orWhereHas('requester', fn ($rq) => $rq->where('name', 'like', "%{$search}%"))
@@ -282,6 +283,16 @@ class GoodsReleaseResource extends Resource
 
                             $items = [];
                             foreach ($details as $detail) {
+                                $alreadyReleased = (float) GoodsReleaseItem::where('sppb_detail_id', $detail->id)
+                                    ->whereHas('goodsRelease', fn ($q) => $q->where('status', '!=', 'CANCELLED'))
+                                    ->sum('quantity_released');
+
+                                $remainingQty = max(0.0, (float) $detail->quantity - $alreadyReleased);
+
+                                if ($remainingQty <= 0) {
+                                    continue;
+                                }
+
                                 $type = $detail->asset_id ? 'Asset' : 'Non Asset';
                                 $code = $detail->asset?->barcode ?? $detail->item?->code ?? $detail->reference_code ?? '-';
                                 $items[] = [
@@ -289,8 +300,8 @@ class GoodsReleaseResource extends Resource
                                     'item_type' => $type,
                                     'barcode_code' => $code,
                                     'item_name' => $detail->item_asset_name,
-                                    'quantity_requested' => $detail->quantity,
-                                    'quantity_released' => $detail->quantity,
+                                    'quantity_requested' => $remainingQty,
+                                    'quantity_released' => $remainingQty,
                                     'unit_name' => $detail->unit?->name,
                                     'condition_on_release' => $detail->remarks,
                                 ];
@@ -502,6 +513,16 @@ class GoodsReleaseResource extends Resource
 
                                 $items = [];
                                 foreach ($details as $detail) {
+                                    $alreadyReleased = (float) GoodsReleaseItem::where('sppb_detail_id', $detail->id)
+                                        ->whereHas('goodsRelease', fn ($q) => $q->where('status', '!=', 'CANCELLED'))
+                                        ->sum('quantity_released');
+
+                                    $remainingQty = max(0.0, (float) $detail->quantity - $alreadyReleased);
+
+                                    if ($remainingQty <= 0) {
+                                        continue;
+                                    }
+
                                     $type = $detail->asset_id ? 'Asset' : 'Non Asset';
                                     $code = $detail->asset?->barcode ?? $detail->item?->code ?? $detail->reference_code ?? '-';
                                     $items[] = [
@@ -509,8 +530,8 @@ class GoodsReleaseResource extends Resource
                                         'item_type' => $type,
                                         'barcode_code' => $code,
                                         'item_name' => $detail->item_asset_name,
-                                        'quantity_requested' => $detail->quantity,
-                                        'quantity_released' => $detail->quantity,
+                                        'quantity_requested' => $remainingQty,
+                                        'quantity_released' => $remainingQty,
                                         'unit_name' => $detail->unit?->name,
                                         'condition_on_release' => $detail->remarks,
                                     ];

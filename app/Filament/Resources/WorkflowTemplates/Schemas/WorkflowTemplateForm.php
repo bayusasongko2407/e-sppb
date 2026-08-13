@@ -19,29 +19,39 @@ class WorkflowTemplateForm
                     ->label('UUID')
                     ->required(),
                 TextInput::make('code')
+                    ->label('Kode Template')
                     ->required(),
                 TextInput::make('name')
+                    ->label('Nama Template Workflow')
                     ->required(),
                 TextInput::make('version')
+                    ->label('Versi Template')
                     ->required()
                     ->numeric()
                     ->default(1),
                 Select::make('plant_id')
+                    ->label('Pabrik / Plant')
                     ->relationship('plant', 'name')
                     ->default(null),
                 Select::make('department_id')
+                    ->label('Departemen')
                     ->relationship('department', 'name')
                     ->default(null),
                 TextInput::make('document_type')
+                    ->label('Jenis Dokumen')
                     ->required()
                     ->default('SPPB'),
                 Textarea::make('description')
+                    ->label('Deskripsi Alur Kerja')
                     ->default(null)
                     ->columnSpanFull(),
                 Toggle::make('is_active')
+                    ->label('Aktif')
                     ->required(),
-                DateTimePicker::make('effective_from'),
-                DateTimePicker::make('effective_until'),
+                DateTimePicker::make('effective_from')
+                    ->label('Berlaku Mulai'),
+                DateTimePicker::make('effective_until')
+                    ->label('Berlaku Sampai'),
             ]);
     }
 }

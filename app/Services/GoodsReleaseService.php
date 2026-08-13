@@ -104,16 +104,23 @@ class GoodsReleaseService
                 ]);
             }
 
-            // Validasi apakah SELURUH detail SPPB sudah rilis penuh
+            // Validasi dan update status pengiriman tiap detail SPPB
             $isAllCompleted = true;
             foreach ($sppb->sppbDetails as $detail) {
-                $totalReleased = GoodsReleaseItem::where('sppb_detail_id', $detail->id)
+                $totalReleased = (float) GoodsReleaseItem::where('sppb_detail_id', $detail->id)
+                    ->whereHas('goodsRelease', fn ($q) => $q->where('status', '!=', 'CANCELLED'))
                     ->sum('quantity_released');
 
-                if ($totalReleased < $detail->quantity) {
+                if ($totalReleased <= 0) {
+                    $detail->delivery_status = 'PENDING';
                     $isAllCompleted = false;
-                    break;
+                } elseif ($totalReleased < (float) $detail->quantity) {
+                    $detail->delivery_status = 'PARTIALLY_DELIVERED';
+                    $isAllCompleted = false;
+                } else {
+                    $detail->delivery_status = 'DELIVERED';
                 }
+                $detail->save();
             }
 
             // Jika semua barang sudah dikeluarkan/dirilis
@@ -171,17 +178,7 @@ class GoodsReleaseService
                     'logged_at' => now(),
                 ]);
 
-                $sppb = SppbHeader::find($release->sppb_header_id);
-                if ($sppb) {
-                    $allReleases = GoodsRelease::where('sppb_header_id', $sppb->id)->get();
-                    $allDelivered = $allReleases->every(fn ($r) => in_array(strtoupper((string) $r->status), ['DELIVERED', 'RECEIVED', 'COMPLETED']));
-                    $sppbStatusVal = strtoupper((string) ($sppb->status?->value ?? (string) $sppb->status));
-                    if ($allDelivered && in_array($sppbStatusVal, ['RELEASE_IN_PROGRESS', 'APPROVED'])) {
-                        $sppb->status = SppbStatus::COMPLETED->value;
-                        $sppb->completed_at = now();
-                        $sppb->save();
-                    }
-                }
+                $release->syncSppbDetailsDeliveryStatus();
             }
 
             return $release;

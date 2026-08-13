@@ -25,9 +25,11 @@ class DocumentAccessResource extends Resource
 
     protected static ?int $navigationSort = 4;
 
-    protected static ?string $navigationLabel = 'Document Accesses';
+    protected static ?string $navigationLabel = 'Hak Akses Dokumen';
 
-    protected static ?string $modelLabel = 'Document Access';
+    protected static ?string $modelLabel = 'Hak Akses Dokumen';
+
+    protected static ?string $pluralModelLabel = 'Hak Akses Dokumen';
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 

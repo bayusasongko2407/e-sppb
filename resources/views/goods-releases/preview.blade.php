@@ -122,10 +122,21 @@ table{
     text-align:right;
 }
 
+.barcode-bold {
+    font-weight: bold;
+    color: #000000;
+    font-size: 9.5pt;
+}
+
+.item-name-normal {
+    font-weight: normal;
+    color: #222222;
+}
+
 .signature td{
     border:1px solid #444;
     width:33.33%;
-    height:120px;
+    height:110px;
     text-align:center;
     vertical-align:top;
 }
@@ -136,11 +147,6 @@ table{
     padding:8px;
     font-size:10px;
     page-break-inside: avoid;
-}
-
-.hash{
-    font-family:monospace;
-    word-break:break-all;
 }
 
 .print-actions {
@@ -353,8 +359,7 @@ table{
                 <th width="30%">No. SPPB</th>
                 <th width="15%">Tanggal</th>
                 <th width="20%">Pemohon</th>
-                <th width="12%">Status</th>
-                <th width="18%">Keperluan</th>
+                <th width="30%">Keperluan</th>
             </tr>
         </thead>
         <tbody>
@@ -367,7 +372,6 @@ table{
                 <td>{{ $sppbItem->document_number }}</td>
                 <td>{{ $sppbItem->request_date ? \Illuminate\Support\Carbon::parse($sppbItem->request_date)->translatedFormat('d/m/Y') : '-' }}</td>
                 <td>{{ $sppbItem->requester?->name ?? '-' }}</td>
-                <td class="center">{{ $sppbItem->status }}</td>
                 <td>{{ $sppbItem->needed_name }}</td>
             </tr>
             @endforeach
@@ -452,13 +456,12 @@ table{
         <thead>
             <tr>
                 <th width="5%">No</th>
-                <th width="12%">Jenis</th>
-                <th width="18%">Barcode/Kode</th>
-                <th width="30%">Nama Barang</th>
-                <th width="10%">Qty SPPB</th>
-                <th width="10%">Qty Kirim</th>
-                <th width="7%">Satuan</th>
-                <th width="8%">Kondisi</th>
+                <th width="10%">Jenis</th>
+                <th width="45%">Nama Barang / Aset</th>
+                <th width="11%">Qty SPPB</th>
+                <th width="11%">Qty Kirim</th>
+                <th width="8%">Satuan</th>
+                <th width="10%">Kondisi</th>
             </tr>
         </thead>
         <tbody>
@@ -468,24 +471,32 @@ table{
             @endphp
             @foreach($record->goodsReleaseItems as $index => $item)
             @php
-                $itemType = $item->sppbDetail?->asset_id ? 'Asset' : 'Non Asset';
-                $barcode = $item->sppbDetail?->asset?->barcode ?? $item->sppbDetail?->item?->code ?? $item->sppbDetail?->reference_code ?? '-';
+                $sppbDetail = $item->sppbDetail;
+                $isAsset = !empty($sppbDetail?->asset_id) || !empty($sppbDetail?->asset);
+                $itemType = $isAsset ? 'Asset' : 'Non Asset';
+                $codeValue = $isAsset
+                    ? ($sppbDetail?->asset?->barcode ?? $sppbDetail?->reference_code)
+                    : ($sppbDetail?->item?->code ?? $sppbDetail?->reference_code);
                 $totalRequested += $item->quantity_requested;
                 $totalReleased += $item->quantity_released;
             @endphp
             <tr>
                 <td class="center">{{ $index + 1 }}</td>
-                <td>{{ $itemType }}</td>
-                <td>{{ $barcode }}</td>
-                <td>{{ $item->sppbDetail?->item_asset_name }}</td>
+                <td class="center">{{ $itemType }}</td>
+                <td>
+                    <span class="item-name-normal">{{ $sppbDetail?->item_asset_name }}</span>
+                    @if(!empty($codeValue) && $codeValue !== '-')
+                        <br><span class="barcode-bold">{{ $isAsset ? 'Barcode' : 'Kode' }}: {{ $codeValue }}</span>
+                    @endif
+                </td>
                 <td class="right">{{ number_format((float)$item->quantity_requested, 2) }}</td>
                 <td class="right">{{ number_format((float)$item->quantity_released, 2) }}</td>
-                <td class="center">{{ $item->sppbDetail?->unit?->name }}</td>
+                <td class="center">{{ $sppbDetail?->unit?->name }}</td>
                 <td class="center">{{ $item->condition_on_release ?? '-' }}</td>
             </tr>
             @endforeach
             <tr>
-                <td colspan="4" class="right">
+                <td colspan="3" class="right">
                     <b>TOTAL</b>
                 </td>
                 <td class="right">
@@ -583,17 +594,14 @@ table{
 <!-- ====================================================== -->
 
 <div class="footer">
-    <table>
+    <table style="width: 100%;">
         <tr>
-            <td width="80%">
-                <b>Token Verifikasi (Terenkripsi)</b>
-                <div class="hash">
-                    {{ $encryptedReleaseNumber }}
-                </div>
-                Scan QR Code untuk membaca Nomor Surat Jalan otomatis yang terenkripsi.
+            <td style="font-size: 9px; color: #333; line-height: 1.35;">
+                Scan QR Code untuk memverifikasi keaslian & status resmi Surat Jalan.<br>
+                <span class="multi-page-info">Dokumen ini merupakan satu kesatuan dokumen resmi yang sah.</span>
             </td>
-            <td align="right" valign="bottom">
-                Halaman 1 / 1
+            <td align="right" valign="bottom" style="font-size: 9.5px; font-weight: bold; white-space: nowrap;">
+                Halaman <span class="page-number-current">1</span> dari <span class="page-number-total">1</span>
             </td>
         </tr>
     </table>
@@ -603,6 +611,19 @@ table{
 
 <script>
     window.onload = function() {
+        var pageElem = document.querySelector('.page');
+        if (pageElem) {
+            var pageHeight = pageElem.offsetHeight;
+            var estimatedPages = Math.ceil(pageHeight / 1050);
+            if (estimatedPages > 1) {
+                var totalElems = document.querySelectorAll('.page-number-total');
+                totalElems.forEach(function(el) { el.textContent = estimatedPages; });
+                var multiNotice = document.querySelectorAll('.multi-page-info');
+                multiNotice.forEach(function(el) {
+                    el.innerHTML = '<b>PERHATIAN:</b> Dokumen ini terdiri dari <b>' + estimatedPages + ' halaman</b>. Seluruh lembar merupakan satu kesatuan sah.';
+                });
+            }
+        }
         window.print();
     };
 </script>

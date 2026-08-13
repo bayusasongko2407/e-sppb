@@ -93,30 +93,31 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
             // Status Logs
             Route::get('status-logs', [SppbController::class, 'statusLogs'])->middleware('permission:view_sppbstatuslog');
 
-            // Goods Releases related to SPPB
+            // Goods Releases & Releasable Items related to SPPB
+            Route::get('releasable-items', [SppbController::class, 'releasableItems'])->middleware('permission:view_sppbheader');
             Route::post('goods-releases', [GoodsReleaseController::class, 'store'])->middleware('permission:create_goodsrelease');
         });
     });
 
     // Workflow Endpoints
     Route::prefix('workflow')->group(function () {
-        Route::get('tasks', [WorkflowTaskController::class, 'index'])->middleware('permission:view_any_workflowstepapprover');
+        Route::get('tasks', [WorkflowTaskController::class, 'index']);
 
         Route::prefix('instances/{uuid}')->group(function () {
-            Route::get('/', [WorkflowTaskController::class, 'showInstance'])->middleware('permission:view_workflowinstance');
+            Route::get('/', [WorkflowTaskController::class, 'showInstance']);
         });
 
         Route::prefix('steps/{stepId}')->group(function () {
-            Route::post('approve', [WorkflowTaskController::class, 'approve'])->middleware('permission:view_any_workflowstepapprover');
-            Route::post('reject', [WorkflowTaskController::class, 'reject'])->middleware('permission:view_any_workflowstepapprover');
-            Route::post('revision', [WorkflowTaskController::class, 'requestRevision'])->middleware('permission:view_any_workflowstepapprover');
+            Route::post('approve', [WorkflowTaskController::class, 'approve']);
+            Route::post('reject', [WorkflowTaskController::class, 'reject']);
+            Route::post('revision', [WorkflowTaskController::class, 'requestRevision']);
         });
 
         Route::prefix('delegations')->group(function () {
-            Route::get('/', [WorkflowTaskController::class, 'listDelegations'])->middleware('permission:view_any_workflowdelegation');
-            Route::post('/', [WorkflowTaskController::class, 'createDelegation'])->middleware('permission:create_workflowdelegation');
-            Route::put('{id}', [WorkflowTaskController::class, 'updateDelegation'])->middleware('permission:update_workflowdelegation');
-            Route::delete('{id}', [WorkflowTaskController::class, 'cancelDelegation'])->middleware('permission:delete_workflowdelegation');
+            Route::get('/', [WorkflowTaskController::class, 'listDelegations']);
+            Route::post('/', [WorkflowTaskController::class, 'createDelegation']);
+            Route::put('{id}', [WorkflowTaskController::class, 'updateDelegation']);
+            Route::delete('{id}', [WorkflowTaskController::class, 'cancelDelegation']);
         });
     });
 

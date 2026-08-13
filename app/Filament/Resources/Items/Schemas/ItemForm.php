@@ -32,7 +32,8 @@ class ItemForm
                     ->options(fn () => Unit::getGroupedOptions())
                     ->searchable()
                     ->preload()
-                    ->required(),
+                    ->required()
+                    ->default(fn () => Unit::where('code', 'PCS')->value('id') ?? Unit::first()?->id),
                 Select::make('item_category')
                     ->label('Kategori')
                     ->options(fn () => EnumControl::where('table_name', 'items')

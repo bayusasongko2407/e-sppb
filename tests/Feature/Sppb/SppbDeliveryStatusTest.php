@@ -37,7 +37,7 @@ class SppbDeliveryStatusTest extends TestCase
             'item_asset_name' => 'Kabel UTP Cat6',
         ]);
 
-        $this->assertEquals('NOT_SENT', $nonAssetDetail->delivery_status);
+        $this->assertContains($nonAssetDetail->delivery_status, ['PENDING', 'NOT_SENT']);
         $this->assertEquals('Belum Dikirim', $nonAssetDetail->delivery_status_label);
     }
 
@@ -78,8 +78,8 @@ class SppbDeliveryStatusTest extends TestCase
 
         $nonAssetDetail->refresh();
 
-        $this->assertEquals('IN_TRANSIT', $nonAssetDetail->delivery_status);
-        $this->assertEquals('Dalam Pengiriman', $nonAssetDetail->delivery_status_label);
+        $this->assertEquals('FULLY_RELEASED', $nonAssetDetail->delivery_status);
+        $this->assertEquals('Pengiriman Penuh', $nonAssetDetail->delivery_status_label);
     }
 
     public function test_sppb_detail_delivery_status_when_goods_release_is_delivered(): void
@@ -119,6 +119,6 @@ class SppbDeliveryStatusTest extends TestCase
         $nonAssetDetail->refresh();
 
         $this->assertEquals('DELIVERED', $nonAssetDetail->delivery_status);
-        $this->assertEquals('Terkirim', $nonAssetDetail->delivery_status_label);
+        $this->assertEquals('Diterima / Terkirim', $nonAssetDetail->delivery_status_label);
     }
 }

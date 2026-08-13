@@ -112,6 +112,7 @@ Dokumentasi Resmi RESTful API v1 E-SPPB Enterprise (`https://e-sppb.engiboard.we
 
 ### 3.2 Detail SPPB (Mendukung ID, UUID, dan No. Dokumen)
 * **Endpoint:** `GET /api/v1/sppb/{id_or_uuid_or_docnum}`
+* **Catatan Transisi Otomatis:** Jika dokumen berstatus `WAITING_VERIFICATION_BAT` dan diakses oleh Penyetuju BAT (BAT Approver), sistem akan otomatis memperbarui status menjadi `PROCESS_VERIFICATION_BAT` dan merekam status log audit `BAT_OPENED`.
 * **Response Status 200 OK:**
 ```json
 {
@@ -166,6 +167,93 @@ Dokumentasi Resmi RESTful API v1 E-SPPB Enterprise (`https://e-sppb.engiboard.we
 
 ### 3.4 Ajukan SPPB ke Workflow Persetujuan (`submit`)
 * **Endpoint:** `POST /api/v1/sppb/{uuid}/submit`
+
+### 3.5 Ajukan Ulang SPPB setelah Revisi/Ditolak (`resubmit`)
+* **Endpoint:** `POST /api/v1/sppb/{uuid}/resubmit`
+* **Response Status 200 OK:**
+```json
+{
+  "success": true,
+  "message": "SPPB berhasil diajukan ulang dan sedang diproses.",
+  "data": { "command_uuid": "f9f54593-7ac6-470d-84c8-4e57c7b39c27" }
+}
+```
+
+### 3.6 Batalkan Permohonan SPPB (`cancel`)
+* **Endpoint:** `POST /api/v1/sppb/{uuid}/cancel`
+* **Catatan Hak Akses:** Dapat dipanggil saat status `DRAFT`, `REJECTED`, atau status non-terminal lainnya oleh pemohon atau admin.
+* **Request Body:**
+```json
+{
+  "reason": "Permohonan dibatalkan karena pengajuan tidak lagi dibutuhkan."
+}
+```
+* **Response Status 200 OK:**
+```json
+{
+  "success": true,
+  "message": "Permohonan SPPB berhasil dibatalkan."
+}
+```
+
+### 3.7 Item SPPB Berpengiriman Parsial & Sisa Kuota (`releasable-items`)
+* **Endpoint:** `GET /api/v1/sppb/{uuid}/releasable-items`
+* **Kegunaan Frontend:** Dipanggil saat frontend membuat Surat Jalan baru untuk SPPB agar **hanya menampilkan barang yang belum lunas dikirim (`quantity_remaining > 0`)** serta mengetahui status pengiriman parsial tiap item.
+* **Headers:** `Authorization: Bearer <token>`
+* **Response Status 200 OK:**
+```json
+{
+  "success": true,
+  "message": "Daftar sisa kuota barang SPPB berhasil ditampilkan.",
+  "data": {
+    "sppb_header_id": 10,
+    "sppb_uuid": "a1b2c3d4-...",
+    "document_number": "SPPB/2026/07/0001",
+    "header_status": "RELEASE_IN_PROGRESS",
+    "items": [
+      {
+        "sppb_detail_id": 101,
+        "line_no": 1,
+        "item_id": 5,
+        "asset_id": null,
+        "item_asset_name": "Semen Tiga Roda 50kg",
+        "reference_code": "SMN-50KG",
+        "unit_id": 48,
+        "unit_name": "Sak",
+        "quantity_requested": 100.0,
+        "quantity_already_released": 40.0,
+        "quantity_remaining": 60.0,
+        "delivery_status": "PARTIALLY_DELIVERED",
+        "delivery_status_label": "Pengiriman Sebagian",
+        "is_fully_released": false
+      }
+    ],
+    "releasable_items": [
+      {
+        "sppb_detail_id": 101,
+        "line_no": 1,
+        "item_id": 5,
+        "asset_id": null,
+        "item_asset_name": "Semen Tiga Roda 50kg",
+        "reference_code": "SMN-50KG",
+        "unit_id": 48,
+        "unit_name": "Sak",
+        "quantity_requested": 100.0,
+        "quantity_already_released": 40.0,
+        "quantity_remaining": 60.0,
+        "delivery_status": "PARTIALLY_DELIVERED",
+        "delivery_status_label": "Pengiriman Sebagian",
+        "is_fully_released": false
+      }
+    ]
+  },
+  "timestamp": "2026-08-11T12:00:00+07:00"
+}
+```
+* **Keterangan Status Pengiriman Item (`delivery_status`):**
+  - `PENDING` (`Belum Dikirim`): Total `quantity_already_released` = 0.
+  - `PARTIALLY_DELIVERED` (`Pengiriman Sebagian`): `quantity_already_released` > 0 dan `quantity_remaining` > 0.
+  - `DELIVERED` (`Pengiriman Penuh`): `quantity_remaining` = 0 (`is_fully_released` = true).
 
 ---
 
@@ -286,6 +374,36 @@ Dokumentasi Resmi RESTful API v1 E-SPPB Enterprise (`https://e-sppb.engiboard.we
 
 ### 6.1 Daftar Tugas Persetujuan (Approval Tasks)
 * **Endpoint:** `GET /api/v1/workflow/tasks`
+* **Response Status 200 OK:**
+```json
+{
+  "success": true,
+  "message": "Daftar tugas persetujuan berhasil ditampilkan.",
+  "data": [
+    {
+      "id": 15,
+      "workflow_instance_step_id": 42,
+      "approver_id": 5,
+      "status": "PENDING",
+      "workflow_instance_step": {
+        "id": 42,
+        "sequence": 1,
+        "name": "Persetujuan Manager",
+        "workflow_instance": {
+          "id": 10,
+          "uuid": "a1b2c3d4-...",
+          "sppb_header": {
+            "document_number": "SPPB/2026/07/0001",
+            "needed_name": "Budi Santoso"
+          }
+        }
+      }
+    }
+  ],
+  "meta": { "current_page": 1, "per_page": 15, "total": 1, "last_page": 1 },
+  "timestamp": "2026-08-11T09:28:00+07:00"
+}
+```
 
 ### 6.2 Setujui Step Persetujuan Dokumen
 * **Endpoint:** `POST /api/v1/workflow/steps/{stepId}/approve`
@@ -296,13 +414,58 @@ Dokumentasi Resmi RESTful API v1 E-SPPB Enterprise (`https://e-sppb.engiboard.we
   "require_plant_manager": false
 }
 ```
+* **Response Status 200 OK:**
+```json
+{
+  "success": true,
+  "message": "Persetujuan SPPB berhasil diproses.",
+  "timestamp": "2026-08-11T09:28:00+07:00"
+}
+```
 
-### 6.3 Tolak Dokumen
+### 6.3 Tolak Dokumen SPPB
 * **Endpoint:** `POST /api/v1/workflow/steps/{stepId}/reject`
 * **Request Body:**
 ```json
 {
   "remarks": "Jumlah barang melebihi kuota stok pabrik"
+}
+```
+* **Response Status 200 OK:**
+```json
+{
+  "success": true,
+  "message": "Penolakan SPPB berhasil diproses.",
+  "timestamp": "2026-08-11T09:28:00+07:00"
+}
+```
+
+### 6.4 Minta Revisi Dokumen SPPB
+* **Endpoint:** `POST /api/v1/workflow/steps/{stepId}/revision`
+* **Request Body:**
+```json
+{
+  "remarks": "Harap perbaiki deskripsi dan jumlah spesifikasi barang."
+}
+```
+* **Response Status 200 OK:**
+```json
+{
+  "success": true,
+  "message": "Permintaan revisi SPPB berhasil diproses.",
+  "timestamp": "2026-08-11T09:28:00+07:00"
+}
+```
+
+### 6.5 Response Error Otorisasi (403 Forbidden Format JSON)
+* Jika pengguna tidak memiliki hak akses / bukan penanggung jawab step:
+```json
+{
+  "success": false,
+  "message": "Anda tidak memiliki hak akses untuk melakukan tindakan ini.",
+  "data": null,
+  "errors": null,
+  "timestamp": "2026-08-11T09:28:00+07:00"
 }
 ```
 

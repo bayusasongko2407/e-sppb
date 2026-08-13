@@ -23,12 +23,15 @@ class UserForm
                     ->default(null)
                     ->live(),
                 Select::make('department_id')
+                    ->label('Departemen')
                     ->relationship('department', 'name', fn ($query, $get) => $query->when($get('plant_id'), fn ($q, $plantId) => $q->where('plant_id', $plantId)))
                     ->default(null),
                 Select::make('manager_id')
+                    ->label('Atasan Direct / Manager')
                     ->relationship('manager', 'name')
                     ->default(null),
                 TextInput::make('nik')
+                    ->label('NIK / Nomor Induk')
                     ->required(),
                 TextInput::make('name')
                     ->label('Nama')

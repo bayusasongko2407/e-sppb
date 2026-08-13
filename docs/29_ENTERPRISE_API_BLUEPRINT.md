@@ -232,6 +232,7 @@ Dokumen ini adalah acuan implementasi REST API Laravel 12 untuk modul SPPB Enter
 | PUT | /api/v1/workflow/delegations/{id} | Update Delegation | workflow_delegation.update | Sanctum Bearer | Mengubah delegasi yang belum berakhir. |
 | DELETE | /api/v1/workflow/delegations/{id} | Cancel Delegation | workflow_delegation.delete | Sanctum Bearer | Menonaktifkan delegasi. |
 | GET | /api/v1/goods-releases | List Goods Release | goods_release.view_any | Sanctum Bearer | Menampilkan daftar pelepasan barang. |
+| GET | /api/v1/sppb/{uuid}/releasable-items | Releasable SPPB Items | sppb_header.view | Sanctum Bearer | Menampilkan sisa kuota barang SPPB pengiriman parsial. |
 | POST | /api/v1/sppb/{uuid}/goods-releases | Create Goods Release | goods_release.create | Sanctum Bearer | Membuat pelepasan barang untuk SPPB approved. |
 | GET | /api/v1/goods-releases/{uuid} | Show Goods Release | goods_release.view | Sanctum Bearer | Menampilkan detail pelepasan barang. |
 | POST | /api/v1/documents/sppb/{uuid}/generate | Generate SPPB Document | document.generate | Sanctum Bearer | Membuat dokumen PDF SPPB. |

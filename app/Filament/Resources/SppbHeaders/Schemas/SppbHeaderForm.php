@@ -175,8 +175,8 @@ class SppbHeaderForm
 
         return $schema
             ->components([
-                // ─── SECTION 1: INFORMASI HEADER ──────────────────────────────
-                Section::make('Informasi Header')
+                // ─── SECTION 1: INFORMASI UTAMA SPPB ──────────────────────────────
+                Section::make('Informasi Utama SPPB')
                     ->schema([
                         // Create Mode Top Row: Tgl Permintaan | Plant | Department | Pemohon (4 columns)
                         Grid::make([
@@ -682,7 +682,7 @@ class SppbHeaderForm
                 'REVISION_REQUESTED' => 'Revisi Diminta oleh'.$posSuffix,
                 'SPPB_REJECTED' => 'Ditolak oleh'.$posSuffix,
                 'SPPB_CANCELLED' => 'Dibatalkan oleh'.$posSuffix,
-                'BAT_OPENED' => 'Proses Verifikasi BAT'.$posSuffix,
+                'BAT_OPENED' => 'Proses Verifikasi BAT',
                 'GOODS_RELEASE_DELIVERED', 'GOODS_RELEASE_RECEIVED' => 'Surat Jalan Diterima'.$posSuffix,
                 'GOODS_RELEASE_CREATED' => 'Surat Jalan Dibuat'.$posSuffix,
                 'GOODS_RELEASE_CANCELLED' => 'Surat Jalan Dibatalkan'.$posSuffix,
@@ -706,7 +706,7 @@ class SppbHeaderForm
             $actionBadge = '<span class="fi-badge inline-flex items-center justify-center rounded-md px-2.5 py-1 text-xs font-semibold ring-1 ring-inset '.$badgeColor.'">'.$actionLabel.'</span>';
 
             $remarks = $log->remarks ? e($log->remarks) : '—';
-            $timeFormatted = $log->logged_at ? Carbon::parse($log->logged_at)->translatedFormat('d M Y H:i') : '—';
+            $timeFormatted = $log->logged_at ? Carbon::parse($log->logged_at)->setTimezone(config('app.timezone', 'Asia/Jakarta'))->translatedFormat('d M Y H:i') : '—';
 
             $html .= '<tr class="hover:bg-gray-50 dark:hover:bg-white/5">';
             $html .= '<td class="px-8 py-4 text-sm text-gray-950 dark:text-white font-medium">'.$userLabel.'</td>';

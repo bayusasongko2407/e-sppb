@@ -107,61 +107,48 @@ class SppbDetail extends Model
 
     public function getDeliveryStatusAttribute($value): string
     {
-        if (! empty($value)) {
-            return $value;
-        }
-
-        $releaseItems = $this->goodsReleaseItems()
+        $activeReleases = $this->goodsReleaseItems()
             ->whereHas('goodsRelease', fn ($q) => $q->where('status', '!=', 'CANCELLED'))
             ->with('goodsRelease')
             ->get();
 
-        if ($releaseItems->isNotEmpty()) {
-            $statuses = $releaseItems->map(fn ($item) => strtoupper((string) ($item->goodsRelease?->status ?? '')));
+        if ($activeReleases->isEmpty()) {
+            return ! empty($value) ? $value : 'PENDING';
+        }
 
-            if ($statuses->contains(fn ($s) => in_array($s, ['DELIVERED', 'RECEIVED', 'COMPLETED']))) {
+        $requested = (float) $this->quantity;
+
+        $confirmedReleases = $activeReleases->filter(function ($item) {
+            $status = strtoupper((string) ($item->goodsRelease?->status ?? ''));
+
+            return in_array($status, ['DELIVERED', 'RECEIVED', 'COMPLETED']);
+        });
+
+        if ($confirmedReleases->isNotEmpty()) {
+            $totalConfirmed = (float) $confirmedReleases->sum('quantity_released');
+            if ($totalConfirmed >= $requested && $requested > 0) {
                 return 'DELIVERED';
             }
 
-            if ($statuses->contains(fn ($s) => in_array($s, ['RELEASED', 'IN_TRANSIT', 'PENDING']))) {
-                return 'IN_TRANSIT';
-            }
-
-            if ($statuses->contains('DRAFT')) {
-                return 'DRAFT';
-            }
+            return 'PARTIALLY_DELIVERED';
         }
 
-        if ($this->sppbHeader) {
-            $headerReleases = $this->sppbHeader->goodsReleases()
-                ->where('status', '!=', 'CANCELLED')
-                ->get();
-
-            if ($headerReleases->isNotEmpty()) {
-                $statuses = $headerReleases->map(fn ($r) => strtoupper((string) ($r->status ?? '')));
-
-                if ($statuses->contains(fn ($s) => in_array($s, ['DELIVERED', 'RECEIVED', 'COMPLETED']))) {
-                    return 'DELIVERED';
-                }
-
-                if ($statuses->contains(fn ($s) => in_array($s, ['RELEASED', 'IN_TRANSIT', 'PENDING']))) {
-                    return 'IN_TRANSIT';
-                }
-
-                if ($statuses->contains('DRAFT')) {
-                    return 'DRAFT';
-                }
-            }
+        $totalReleased = (float) $activeReleases->sum('quantity_released');
+        if ($totalReleased >= $requested && $requested > 0) {
+            return 'FULLY_RELEASED';
         }
 
-        return 'NOT_SENT';
+        return 'PARTIALLY_RELEASED';
     }
 
     public function getDeliveryStatusLabelAttribute(): string
     {
         return match (strtoupper((string) $this->delivery_status)) {
-            'DELIVERED', 'RECEIVED', 'COMPLETED' => 'Terkirim',
-            'IN_TRANSIT', 'RELEASED', 'PENDING' => 'Dalam Pengiriman',
+            'DELIVERED', 'RECEIVED', 'COMPLETED' => 'Diterima / Terkirim',
+            'PARTIALLY_DELIVERED' => 'Diterima Sebagian',
+            'FULLY_RELEASED' => 'Pengiriman Penuh',
+            'PARTIALLY_RELEASED' => 'Pengiriman Sebagian',
+            'IN_TRANSIT', 'RELEASED' => 'Pengiriman Penuh',
             'DRAFT' => 'Draft Surat Jalan',
             default => 'Belum Dikirim',
         };

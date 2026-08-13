@@ -20,8 +20,8 @@ class SppbHeaderInfolist
     {
         return $schema
             ->components([
-                // ─── SECTION 1: INFORMASI HEADER ──────────────────────────────
-                Section::make('Informasi Header')
+                // ─── SECTION 1: INFORMASI UTAMA SPPB ──────────────────────────────
+                Section::make('Informasi Utama SPPB')
                     ->schema([
                         // ROW 1: No. SPPB | Tgl Permintaan | Status
                         Grid::make([
@@ -253,9 +253,11 @@ class SppbHeaderInfolist
                                     ->getStateUsing(fn ($record): string => $record?->delivery_status_label ?? 'Belum Dikirim')
                                     ->badge()
                                     ->color(fn (string $state): string => match ($state) {
-                                        'Draft Surat Jalan' => 'warning',
-                                        'Dalam Pengiriman' => 'info',
-                                        'Terkirim' => 'success',
+                                        'Draft Surat Jalan' => 'gray',
+                                        'Pengiriman Penuh' => 'info',
+                                        'Pengiriman Sebagian' => 'warning',
+                                        'Diterima / Terkirim', 'Terkirim' => 'success',
+                                        'Diterima Sebagian' => 'warning',
                                         default => 'gray',
                                     })
                                     ->extraEntryWrapperAttributes(['class' => 'lg:[&_.fi-in-entry-label-col]:hidden'])
@@ -357,9 +359,11 @@ class SppbHeaderInfolist
                                     ->getStateUsing(fn ($record): string => $record?->delivery_status_label ?? 'Belum Dikirim')
                                     ->badge()
                                     ->color(fn (string $state): string => match ($state) {
-                                        'Draft Surat Jalan' => 'warning',
-                                        'Dalam Pengiriman' => 'info',
-                                        'Terkirim' => 'success',
+                                        'Draft Surat Jalan' => 'gray',
+                                        'Pengiriman Penuh' => 'info',
+                                        'Pengiriman Sebagian' => 'warning',
+                                        'Diterima / Terkirim', 'Terkirim' => 'success',
+                                        'Diterima Sebagian' => 'warning',
                                         default => 'gray',
                                     })
                                     ->extraEntryWrapperAttributes(['class' => 'lg:[&_.fi-in-entry-label-col]:hidden'])

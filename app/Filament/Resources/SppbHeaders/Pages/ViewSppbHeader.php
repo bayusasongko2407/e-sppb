@@ -13,7 +13,6 @@ use App\Filament\Resources\GoodsReleases\GoodsReleaseResource;
 use App\Filament\Resources\MyApprovals\MyApprovalResource;
 use App\Filament\Resources\SppbHeaders\Schemas\SppbHeaderForm;
 use App\Filament\Resources\SppbHeaders\SppbHeaderResource;
-use App\Models\SppbStatusLog;
 use App\Models\WorkflowInstanceStep;
 use App\Models\WorkflowStepApprover;
 use Filament\Actions\Action;
@@ -39,36 +38,8 @@ class ViewSppbHeader extends ViewRecord
     {
         parent::mount($record);
 
-        if ($this->record && $this->record->status === SppbStatus::WAITING_VERIFICATION_BAT->value) {
-            $user = auth()->user();
-            if ($user) {
-                $isBatApprover = WorkflowStepApprover::where('approver_id', $user->id)
-                    ->where('status', ApproverStatus::PENDING->value)
-                    ->whereHas('workflowInstanceStep', function ($query) {
-                        $query->where('workflow_instance_id', $this->record->current_workflow_instance_id)
-                            ->where('sequence', $this->record->current_step_sequence)
-                            ->where(function ($sub) {
-                                $sub->where('code', 'like', '%BAT%')
-                                    ->orWhere('name', 'like', '%BAT%');
-                            });
-                    })->exists();
-
-                if ($isBatApprover) {
-                    $this->record->update(['status' => SppbStatus::PROCESS_VERIFICATION_BAT->value]);
-
-                    SppbStatusLog::create([
-                        'sppb_header_id' => $this->record->id,
-                        'workflow_instance_id' => $this->record->current_workflow_instance_id,
-                        'actor_id' => $user->id,
-                        'action' => 'BAT_OPENED',
-                        'from_status' => SppbStatus::WAITING_VERIFICATION_BAT->value,
-                        'to_status' => SppbStatus::PROCESS_VERIFICATION_BAT->value,
-                        'logged_at' => now(),
-                    ]);
-
-                    $this->refreshFormData(['status']);
-                }
-            }
+        if ($this->record && $this->record->markAsBatProcessingIfEligible(auth()->user())) {
+            $this->refreshFormData(['status']);
         }
     }
 
@@ -95,6 +66,47 @@ class ViewSppbHeader extends ViewRecord
                         Notification::make()
                             ->title('Berhasil')
                             ->body('SPPB berhasil masuk antrean pengajuan.')
+                            ->success()
+                            ->send();
+
+                        return redirect()->to(SppbHeaderResource::getUrl('view', ['record' => $this->record]));
+                    } catch (\Exception $e) {
+                        Notification::make()
+                            ->title('Gagal')
+                            ->body('Terjadi kesalahan: '.$e->getMessage())
+                            ->danger()
+                            ->send();
+                    }
+                }),
+
+            Action::make('cancel_rejected_request')
+                ->label('Batalkan Permohonan')
+                ->icon('heroicon-o-x-circle')
+                ->color('danger')
+                ->modalHeading('Batalkan Permohonan SPPB')
+                ->modalDescription('Apakah Anda yakin ingin membatalkan permohonan SPPB ini secara permanen? Dokumen yang dibatalkan tidak dapat diajukan kembali.')
+                ->modalSubmitActionLabel('Ya, Batalkan Dokumen')
+                ->form([
+                    Textarea::make('reason')
+                        ->label('Alasan Pembatalan Dokumen')
+                        ->placeholder('Masukkan alasan pembatalan permohonan...')
+                        ->required()
+                        ->minLength(10)
+                        ->maxLength(1000)
+                        ->columnSpanFull(),
+                ])
+                ->visible(fn (): bool => (auth()->user()?->hasAnyRole(['pemohon', 'Pemohon', 'super_admin']) || $this->record->requester_id === auth()->id()) && $this->record->status === SppbStatus::REJECTED->value)
+                ->action(function (array $data, WorkflowServiceContract $workflowService) {
+                    try {
+                        $workflowService->cancelWorkflow(
+                            sppbHeaderId: $this->record->id,
+                            actorId: auth()->id(),
+                            reason: $data['reason']
+                        );
+
+                        Notification::make()
+                            ->title('Berhasil')
+                            ->body('Permohonan SPPB berhasil dibatalkan.')
                             ->success()
                             ->send();
 
@@ -280,7 +292,17 @@ class ViewSppbHeader extends ViewRecord
                 ->visible(fn (): bool => in_array($this->record->status, [
                     SppbStatus::APPROVED->value,
                     SppbStatus::RELEASE_IN_PROGRESS->value,
-                ]))
+                ])
+                    && $this->record->sppbDetails()
+                        ->whereRaw('quantity > COALESCE((
+                            SELECT SUM(gri.quantity_released)
+                            FROM goods_release_items gri
+                            JOIN goods_releases gr ON gr.id = gri.goods_release_id
+                            WHERE gri.sppb_detail_id = sppb_details.id
+                            AND gr.status != "CANCELLED"
+                        ), 0)')
+                        ->exists()
+                )
                 ->action(function (array $data) {
                     $isManual = $data['metode'] === 'manual' ? '1' : '0';
 

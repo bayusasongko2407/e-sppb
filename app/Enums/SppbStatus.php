@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
+use App\Models\EnumControl;
+
 enum SppbStatus: string
 {
     case DRAFT = 'DRAFT';
@@ -21,6 +23,16 @@ enum SppbStatus: string
 
     public function label(): string
     {
+        $override = EnumControl::where('table_name', 'sppb_headers')
+            ->where('column_name', 'status')
+            ->where('value', $this->value)
+            ->where('is_active', true)
+            ->value('label');
+
+        if ($override) {
+            return $override;
+        }
+
         return match ($this) {
             self::DRAFT => 'Draft',
             self::SUBMISSION_QUEUED => 'Sedang Diproses',

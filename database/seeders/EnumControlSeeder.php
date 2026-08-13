@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Database\Seeders;
 
 use App\Models\EnumControl;
@@ -27,6 +29,15 @@ class EnumControlSeeder extends Seeder
             ['table_name' => 'items', 'column_name' => 'item_category', 'value' => 'SPARE_PART', 'label' => 'Suku Cadang', 'sequence' => 20],
             ['table_name' => 'items', 'column_name' => 'item_category', 'value' => 'MATERIAL', 'label' => 'Bahan Baku', 'sequence' => 30],
             ['table_name' => 'items', 'column_name' => 'item_category', 'value' => 'EQUIPMENT', 'label' => 'Peralatan', 'sequence' => 40],
+
+            // Unit category
+            ['table_name' => 'units', 'column_name' => 'category', 'value' => 'BERAT', 'label' => 'Berat', 'sequence' => 10],
+            ['table_name' => 'units', 'column_name' => 'category', 'value' => 'VOLUME', 'label' => 'Volume', 'sequence' => 20],
+            ['table_name' => 'units', 'column_name' => 'category', 'value' => 'PANJANG', 'label' => 'Panjang', 'sequence' => 30],
+            ['table_name' => 'units', 'column_name' => 'category', 'value' => 'LUAS', 'label' => 'Luas', 'sequence' => 40],
+            ['table_name' => 'units', 'column_name' => 'category', 'value' => 'HITUNGAN', 'label' => 'Hitungan / Qty', 'sequence' => 50],
+            ['table_name' => 'units', 'column_name' => 'category', 'value' => 'KEMASAN', 'label' => 'Kemasan', 'sequence' => 60],
+            ['table_name' => 'units', 'column_name' => 'category', 'value' => 'LAINNYA', 'label' => 'Lainnya', 'sequence' => 70],
         ];
 
         foreach ($enums as $enum) {

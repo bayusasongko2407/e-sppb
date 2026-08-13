@@ -18,7 +18,9 @@ class WorkflowTaskController extends Controller
     ) {}
 
     /**
-     * Display a listing of pending approval tasks for current user.
+     * Daftar Tugas Persetujuan (Approval Tasks).
+     *
+     * Menampilkan daftar tugas persetujuan pending yang ditugaskan kepada pengguna yang sedang login (termasuk tugas hasil delegasi wewenang).
      */
     public function index(Request $request)
     {
@@ -52,7 +54,9 @@ class WorkflowTaskController extends Controller
     }
 
     /**
-     * Show detail of a workflow instance.
+     * Detail Alur Kerja (Workflow Instance).
+     *
+     * Menampilkan detail tahapan alur kerja persetujuan berdasarkan UUID instansi.
      */
     public function showInstance(Request $request, string $uuid)
     {
@@ -74,7 +78,10 @@ class WorkflowTaskController extends Controller
     }
 
     /**
-     * Approve a workflow step.
+     * Setujui Step Persetujuan (Approve Step).
+     *
+     * Memproses persetujuan dokumen SPPB pada tahapan tertentu.
+     * Mengembalikan response JSON 200 OK jika berhasil, atau 403 JSON jika pengguna tidak berwenang.
      */
     public function approve(Request $request, int $stepId)
     {
@@ -97,7 +104,9 @@ class WorkflowTaskController extends Controller
     }
 
     /**
-     * Reject a workflow step.
+     * Tolak Dokumen SPPB (Reject Step).
+     *
+     * Memproses penolakan dokumen SPPB pada tahapan persetujuan aktif.
      */
     public function reject(Request $request, int $stepId)
     {
@@ -124,7 +133,9 @@ class WorkflowTaskController extends Controller
     }
 
     /**
-     * Request revision for a workflow step.
+     * Minta Revisi Dokumen SPPB (Request Revision Step).
+     *
+     * Mengembalikan dokumen SPPB ke pemohon untuk direvisi pada tahapan persetujuan aktif.
      */
     public function requestRevision(Request $request, int $stepId)
     {

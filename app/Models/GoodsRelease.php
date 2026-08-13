@@ -129,19 +129,82 @@ class GoodsRelease extends Model
 
     public function syncSppbDetailsDeliveryStatus(): void
     {
-        $status = match (strtoupper((string) $this->status)) {
-            'DELIVERED', 'RECEIVED', 'COMPLETED' => 'DELIVERED',
-            'RELEASED', 'IN_TRANSIT', 'PENDING' => 'IN_TRANSIT',
-            'DRAFT' => 'DRAFT',
-            'CANCELLED' => 'NOT_SENT',
-            default => 'IN_TRANSIT',
-        };
+        if (! $this->sppb_header_id) {
+            return;
+        }
 
-        $detailIds = $this->goodsReleaseItems()->pluck('sppb_detail_id')->filter()->unique();
-        if ($detailIds->isNotEmpty()) {
-            SppbDetail::whereIn('id', $detailIds)->update(['delivery_status' => $status]);
-        } elseif ($this->sppb_header_id) {
-            SppbDetail::where('sppb_header_id', $this->sppb_header_id)->update(['delivery_status' => $status]);
+        $sppb = SppbHeader::with(['sppbDetails'])->find($this->sppb_header_id);
+        if (! $sppb) {
+            return;
+        }
+
+        $activeReleases = static::where('sppb_header_id', $sppb->id)
+            ->where('status', '!=', 'CANCELLED')
+            ->with('goodsReleaseItems')
+            ->get();
+
+        if ($activeReleases->isEmpty()) {
+            if (in_array($sppb->status, ['RELEASE_IN_PROGRESS', 'COMPLETED'])) {
+                $sppb->status = 'APPROVED';
+                $sppb->completed_at = null;
+                $sppb->save();
+            }
+
+            foreach ($sppb->sppbDetails as $detail) {
+                $detail->delivery_status = 'PENDING';
+                $detail->save();
+            }
+
+            return;
+        }
+
+        $isAllCompleted = true;
+
+        foreach ($sppb->sppbDetails as $detail) {
+            $confirmedItems = GoodsReleaseItem::where('sppb_detail_id', $detail->id)
+                ->whereHas('goodsRelease', fn ($q) => $q->whereIn('status', ['DELIVERED', 'RECEIVED', 'COMPLETED']))
+                ->get();
+
+            $activeItems = GoodsReleaseItem::where('sppb_detail_id', $detail->id)
+                ->whereHas('goodsRelease', fn ($q) => $q->where('status', '!=', 'CANCELLED'))
+                ->get();
+
+            $requested = (float) $detail->quantity;
+
+            if ($activeItems->isEmpty()) {
+                $detail->delivery_status = 'PENDING';
+                $isAllCompleted = false;
+            } elseif ($confirmedItems->isNotEmpty()) {
+                $totalConfirmed = (float) $confirmedItems->sum('quantity_released');
+                if ($totalConfirmed >= $requested && $requested > 0) {
+                    $detail->delivery_status = 'DELIVERED';
+                } else {
+                    $detail->delivery_status = 'PARTIALLY_DELIVERED';
+                    $isAllCompleted = false;
+                }
+            } else {
+                $totalReleased = (float) $activeItems->sum('quantity_released');
+                if ($totalReleased >= $requested && $requested > 0) {
+                    $detail->delivery_status = 'FULLY_RELEASED';
+                    $isAllCompleted = false;
+                } else {
+                    $detail->delivery_status = 'PARTIALLY_RELEASED';
+                    $isAllCompleted = false;
+                }
+            }
+
+            $detail->save();
+        }
+
+        $newHeaderStatus = $isAllCompleted ? 'COMPLETED' : 'RELEASE_IN_PROGRESS';
+        if ($sppb->status !== $newHeaderStatus) {
+            $sppb->status = $newHeaderStatus;
+            if ($isAllCompleted) {
+                $sppb->completed_at = now();
+            } else {
+                $sppb->completed_at = null;
+            }
+            $sppb->save();
         }
     }
 

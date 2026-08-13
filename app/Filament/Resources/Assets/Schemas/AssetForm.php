@@ -23,6 +23,7 @@ class AssetForm
                     ->relationship('plant', 'name')
                     ->default(null),
                 Select::make('location_id')
+                    ->label('Lokasi Aset')
                     ->relationship('location', 'name')
                     ->default(null),
                 TextInput::make('asset_name')
@@ -34,6 +35,7 @@ class AssetForm
                     ->label('Data Lokasi Aset')
                     ->default(null),
                 TextInput::make('barcode')
+                    ->label('Barcode / Kode Aset')
                     ->required(),
                 Select::make('condition')
                     ->label('Kondisi')
@@ -59,8 +61,9 @@ class AssetForm
                     ->searchable()
                     ->preload()
                     ->required()
-                    ->default(2),
+                    ->default(fn () => Unit::whereIn('code', ['UNIT', 'Unit'])->value('id') ?? Unit::where('name', 'like', '%Unit%')->value('id') ?? Unit::first()?->id),
                 Textarea::make('notes')
+                    ->label('Catatan / Keterangan')
                     ->default(null)
                     ->columnSpanFull(),
                 Toggle::make('is_active')

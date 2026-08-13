@@ -145,7 +145,7 @@ final class WorkflowService implements WorkflowServiceContract
                         ? WorkflowInstanceStepStatus::PENDING->value
                         : WorkflowInstanceStepStatus::QUEUED->value,
                     'activated_at' => $isFirst ? now() : null,
-                    'due_at' => $isFirst && $step->sla_hours ? now()->addHours($step->sla_hours) : null,
+                    'due_at' => $isFirst && $step->sla_hours ? now()->addHours(min((int) $step->sla_hours, 8760)) : null,
                     'lock_version' => 0,
                 ]);
             }
@@ -383,7 +383,8 @@ final class WorkflowService implements WorkflowServiceContract
                     $nextStep->status = WorkflowInstanceStepStatus::PENDING->value;
                     $nextStep->activated_at = now();
                     if ($nextStep->sla_hours) {
-                        $nextStep->due_at = now()->addHours($nextStep->sla_hours);
+                        $slaHours = min((int) $nextStep->sla_hours, 8760);
+                        $nextStep->due_at = now()->addHours($slaHours);
                     }
                     $nextStep->save();
 

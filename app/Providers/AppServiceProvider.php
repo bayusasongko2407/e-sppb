@@ -15,6 +15,7 @@ use App\Services\SppbService;
 use App\Services\Workflow\ApproverResolver;
 use App\Services\Workflow\WorkflowTemplateResolver;
 use App\Services\WorkflowService;
+use Filament\Forms\Components\Select;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
@@ -54,6 +55,10 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         URL::forceScheme('https');
+
+        Select::configureUsing(function (Select $select): void {
+            $select->placeholder('Pilih...');
+        });
 
         Gate::before(function ($user, $ability) {
             return $user->hasRole('super_admin') ? true : null;

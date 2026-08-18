@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\RunningNumbers\Schemas;
 
+use App\Models\RunningNumber;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -40,17 +41,36 @@ class RunningNumberForm
                                     'DAILY' => 'Harian (Reset ke 1 Setiap Hari Baru)',
                                     'NEVER' => 'Kontinu / Tanpa Reset (Nomor Terus Berjalan)',
                                 ])
-                                ->default('MONTHLY')
+                                ->dehydrated(false)
+                                ->formatStateUsing(function (?RunningNumber $record, Get $get): string {
+                                    $key = (string) ($get('period_key') ?: $record?->period_key);
+                                    if (empty($key)) {
+                                        return 'MONTHLY';
+                                    }
+                                    if ($key === 'GLOBAL') {
+                                        return 'NEVER';
+                                    }
+                                    if (strlen($key) === 4 && is_numeric($key)) {
+                                        return 'YEARLY';
+                                    }
+                                    if (strlen($key) === 10) {
+                                        return 'DAILY';
+                                    }
+
+                                    return 'MONTHLY';
+                                })
                                 ->live()
-                                ->afterStateUpdated(function (Set $set, $state) {
-                                    $key = match ($state) {
-                                        'MONTHLY' => date('Y-m'),
-                                        'YEARLY' => date('Y'),
-                                        'DAILY' => date('Y-m-d'),
-                                        'NEVER' => 'GLOBAL',
-                                        default => date('Y-m'),
-                                    };
-                                    $set('period_key', $key);
+                                ->afterStateUpdated(function (Set $set, $state, ?RunningNumber $record) {
+                                    if (! $record) {
+                                        $key = match ($state) {
+                                            'MONTHLY' => date('Y-m'),
+                                            'YEARLY' => date('Y'),
+                                            'DAILY' => date('Y-m-d'),
+                                            'NEVER' => 'GLOBAL',
+                                            default => date('Y-m'),
+                                        };
+                                        $set('period_key', $key);
+                                    }
                                 })
                                 ->helperText('Pilih frekuensi nomor urut akan di-reset otomatis kembali ke 1.'),
 
@@ -58,6 +78,19 @@ class RunningNumberForm
                                 ->label('Kunci Periode Terdaftar')
                                 ->required()
                                 ->placeholder('Contoh: 2026-08')
+                                ->unique(
+                                    table: 'running_numbers',
+                                    column: 'period_key',
+                                    ignoreRecord: true,
+                                    modifyRuleUsing: function ($rule, Get $get) {
+                                        return $rule
+                                            ->where('plant_id', $get('plant_id'))
+                                            ->where('document_type', $get('document_type'));
+                                    }
+                                )
+                                ->validationMessages([
+                                    'unique' => 'Format penomoran untuk Pabrik, Tipe Dokumen, dan Periode ini sudah terdaftar di database.',
+                                ])
                                 ->helperText('Kunci periode otomatis menyesuaikan tipe reset (misal Bulanan = 2026-08, Tahunan = 2026, Harian = 2026-08-18).'),
 
                             Select::make('plant_id')

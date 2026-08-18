@@ -32,11 +32,33 @@ class RunningNumberForm
                                 ->required()
                                 ->helperText('Pilih jenis dokumen yang menggunakan format ini.'),
 
+                            Select::make('period_type')
+                                ->label('Periode Reset Nomor')
+                                ->options([
+                                    'MONTHLY' => 'Bulanan (Reset ke 1 Setiap Bulan Baru)',
+                                    'YEARLY' => 'Tahunan (Reset ke 1 Setiap Tahun Baru)',
+                                    'DAILY' => 'Harian (Reset ke 1 Setiap Hari Baru)',
+                                    'NEVER' => 'Kontinu / Tanpa Reset (Nomor Terus Berjalan)',
+                                ])
+                                ->default('MONTHLY')
+                                ->live()
+                                ->afterStateUpdated(function (Set $set, $state) {
+                                    $key = match ($state) {
+                                        'MONTHLY' => date('Y-m'),
+                                        'YEARLY' => date('Y'),
+                                        'DAILY' => date('Y-m-d'),
+                                        'NEVER' => 'GLOBAL',
+                                        default => date('Y-m'),
+                                    };
+                                    $set('period_key', $key);
+                                })
+                                ->helperText('Pilih frekuensi nomor urut akan di-reset otomatis kembali ke 1.'),
+
                             TextInput::make('period_key')
-                                ->label('Periode')
+                                ->label('Kunci Periode Terdaftar')
                                 ->required()
-                                ->placeholder('Contoh: 2026-07')
-                                ->helperText('Kunci periode reset nomor (misal reset tiap bulan = 2026-07).'),
+                                ->placeholder('Contoh: 2026-08')
+                                ->helperText('Kunci periode otomatis menyesuaikan tipe reset (misal Bulanan = 2026-08, Tahunan = 2026, Harian = 2026-08-18).'),
 
                             Select::make('plant_id')
                                 ->label('Pabrik / Plant')

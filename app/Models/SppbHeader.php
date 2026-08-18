@@ -38,22 +38,51 @@ class SppbHeader extends Model
             if (empty($model->document_number)) {
                 $year = date('Y');
                 $month = date('m');
-                $period = "{$year}-{$month}";
+                $day = date('d');
 
+                $periodMonth = "{$year}-{$month}";
+                $periodYear = "{$year}";
+                $periodDay = "{$year}-{$month}-{$day}";
+
+                // Cari record running number aktif yang cocok dengan salah satu tipe periode reset
                 $running = RunningNumber::where('document_type', 'SPPB')
                     ->where('plant_id', $model->plant_id)
-                    ->where('period_key', $period)
+                    ->whereIn('period_key', [$periodMonth, $periodYear, $periodDay, 'GLOBAL'])
+                    ->where('is_active', true)
                     ->lockForUpdate()
                     ->first();
 
                 if (! $running) {
+                    // Cari templat acuan terdaftar untuk plant ini
+                    $template = RunningNumber::where('document_type', 'SPPB')
+                        ->where('plant_id', $model->plant_id)
+                        ->where('is_active', true)
+                        ->latest('id')
+                        ->first();
+
+                    $prefix = $template?->prefix ?? 'SPPB/{PLN}/{DEP}/{YYYY}/{MM}/';
+                    $digits = $template?->digits ?? 5;
+                    $deptId = $model->department_id;
+
+                    // Tentukan kunci periode baru berdasarkan konfigurasi templat
+                    $periodKey = $periodMonth;
+                    if ($template) {
+                        if (strlen($template->period_key) === 4 && is_numeric($template->period_key)) {
+                            $periodKey = $periodYear; // Reset Tahunan
+                        } elseif ($template->period_key === 'GLOBAL') {
+                            $periodKey = 'GLOBAL'; // Kontinu Tanpa Reset
+                        } elseif (strlen($template->period_key) === 10) {
+                            $periodKey = $periodDay; // Reset Harian
+                        }
+                    }
+
                     $running = RunningNumber::create([
                         'plant_id' => $model->plant_id,
-                        'department_id' => $model->department_id,
+                        'department_id' => $deptId,
                         'document_type' => 'SPPB',
-                        'period_key' => $period,
-                        'prefix' => 'SPPB/{PLN}/{DEP}/{YYYY}/{MM}/',
-                        'digits' => 5,
+                        'period_key' => $periodKey,
+                        'prefix' => $prefix,
+                        'digits' => $digits,
                         'last_number' => 0,
                         'is_active' => true,
                     ]);

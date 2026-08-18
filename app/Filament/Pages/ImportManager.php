@@ -21,9 +21,10 @@ use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Livewire\Attributes\Url;
+use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class ImportManager extends Page implements HasForms
@@ -402,6 +403,10 @@ class ImportManager extends Page implements HasForms
         $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
 
+        $plantCodes = Plant::where('is_active', true)->pluck('code')->toArray();
+        $unitCodes = Unit::where('is_active', true)->pluck('code')->toArray();
+        $locationCodes = Location::where('is_active', true)->pluck('code')->toArray();
+
         switch ($selectedType) {
             case 'plants':
                 $sheet->setCellValue('A1', 'code');
@@ -409,15 +414,17 @@ class ImportManager extends Page implements HasForms
                 $sheet->setCellValue('C1', 'address');
                 $sheet->setCellValue('D1', 'is_active');
 
-                $sheet->getComment('A1')->setAuthor('Sistem')->getText()->createTextRun("KODE PLANT (Unik, maks 20 karakter).\nContoh: PL-SJA1");
-                $sheet->getComment('B1')->setAuthor('Sistem')->getText()->createTextRun("NAMA PLANT (Wajib, maks 150 karakter).\nContoh: SJA I - Sidoarjo");
+                $sheet->getComment('A1')->setAuthor('Sistem')->getText()->createTextRun("KODE PLANT (Unik, maks 20 karakter).\nContoh: SJA-SPJ");
+                $sheet->getComment('B1')->setAuthor('Sistem')->getText()->createTextRun("NAMA PLANT (Wajib, maks 150 karakter).\nContoh: PT Santos Jaya Abadi - Sidoarjo Plant");
                 $sheet->getComment('C1')->setAuthor('Sistem')->getText()->createTextRun("ALAMAT PLANT (Opsional).\nContoh: Jl. Raya Sidoarjo No. 123");
                 $sheet->getComment('D1')->setAuthor('Sistem')->getText()->createTextRun('STATUS AKTIF (Wajib, terisi 1 untuk aktif, atau 0 untuk non-aktif).');
 
-                $sheet->setCellValue('A2', 'PL-SJA1');
-                $sheet->setCellValue('B2', 'SJA I - Sidoarjo');
-                $sheet->setCellValue('C2', 'Jl. Raya Sidoarjo No. 123');
+                $sheet->setCellValue('A2', 'SJA-SPJ');
+                $sheet->setCellValue('B2', 'PT Santos Jaya Abadi - Sidoarjo Plant');
+                $sheet->setCellValue('C2', 'Jl. Raya Taman Sepanjang Sidoarjo');
                 $sheet->setCellValue('D2', '1');
+
+                $this->applyDropdown($sheet, 'D', ['1', '0']);
                 $fileName = 'template-plants.xlsx';
                 break;
 
@@ -427,15 +434,19 @@ class ImportManager extends Page implements HasForms
                 $sheet->setCellValue('C1', 'name');
                 $sheet->setCellValue('D1', 'is_active');
 
-                $sheet->getComment('A1')->setAuthor('Sistem')->getText()->createTextRun("KODE PLANT (Wajib, harus ada di database master Plant).\nContoh: PL-SJA1");
-                $sheet->getComment('B1')->setAuthor('Sistem')->getText()->createTextRun("KODE DEPARTEMEN (Unik, maks 20 karakter).\nContoh: DEP-HRD");
-                $sheet->getComment('C1')->setAuthor('Sistem')->getText()->createTextRun("NAMA DEPARTEMEN (Wajib, maks 150 karakter).\nContoh: Human Resources Development");
+                $sheet->getComment('A1')->setAuthor('Sistem')->getText()->createTextRun("KODE PLANT (Wajib, harus ada di database master Plant).\nContoh: SJA-SPJ");
+                $sheet->getComment('B1')->setAuthor('Sistem')->getText()->createTextRun("KODE DEPARTEMEN (Unik, maks 20 karakter).\nContoh: ENG");
+                $sheet->getComment('C1')->setAuthor('Sistem')->getText()->createTextRun("NAMA DEPARTEMEN (Wajib, maks 150 karakter).\nContoh: Engineering");
                 $sheet->getComment('D1')->setAuthor('Sistem')->getText()->createTextRun('STATUS AKTIF (Wajib, terisi 1 untuk aktif, atau 0 untuk non-aktif).');
 
-                $sheet->setCellValue('A2', 'PL-SJA1');
-                $sheet->setCellValue('B2', 'DEP-HRD');
-                $sheet->setCellValue('C2', 'Human Resources Development');
+                $examplePlant = ! empty($plantCodes) ? $plantCodes[0] : 'SJA-SPJ';
+                $sheet->setCellValue('A2', $examplePlant);
+                $sheet->setCellValue('B2', 'ENG');
+                $sheet->setCellValue('C2', 'Engineering');
                 $sheet->setCellValue('D2', '1');
+
+                $this->applyDropdown($sheet, 'A', $plantCodes);
+                $this->applyDropdown($sheet, 'D', ['1', '0']);
                 $fileName = 'template-departments.xlsx';
                 break;
 
@@ -446,17 +457,21 @@ class ImportManager extends Page implements HasForms
                 $sheet->setCellValue('D1', 'address');
                 $sheet->setCellValue('E1', 'is_active');
 
-                $sheet->getComment('A1')->setAuthor('Sistem')->getText()->createTextRun("KODE PLANT (Wajib, harus ada di database master Plant).\nContoh: PL-SJA1");
-                $sheet->getComment('B1')->setAuthor('Sistem')->getText()->createTextRun("KODE LOKASI (Unik, maks 20 karakter).\nContoh: LOC-GUD1");
-                $sheet->getComment('C1')->setAuthor('Sistem')->getText()->createTextRun("NAMA LOKASI (Wajib, maks 150 karakter).\nContoh: Gudang Bahan Baku A");
-                $sheet->getComment('D1')->setAuthor('Sistem')->getText()->createTextRun("ALAMAT LOKASI (Opsional).\nContoh: Jl. Gudang Baru No. 8");
+                $sheet->getComment('A1')->setAuthor('Sistem')->getText()->createTextRun("KODE PLANT (Wajib, harus ada di database master Plant).\nContoh: SJA-SPJ");
+                $sheet->getComment('B1')->setAuthor('Sistem')->getText()->createTextRun("KODE LOKASI (Unik, maks 20 karakter).\nContoh: LOC-ENG");
+                $sheet->getComment('C1')->setAuthor('Sistem')->getText()->createTextRun("NAMA LOKASI (Wajib, maks 150 karakter).\nContoh: Workshop Engineering");
+                $sheet->getComment('D1')->setAuthor('Sistem')->getText()->createTextRun("ALAMAT LOKASI (Opsional).\nContoh: Area Bengkel Utama");
                 $sheet->getComment('E1')->setAuthor('Sistem')->getText()->createTextRun('STATUS AKTIF (Wajib, terisi 1 untuk aktif, atau 0 untuk non-aktif).');
 
-                $sheet->setCellValue('A2', 'PL-SJA1');
-                $sheet->setCellValue('B2', 'LOC-GUD1');
-                $sheet->setCellValue('C2', 'Gudang Bahan Baku A');
-                $sheet->setCellValue('D2', 'Jl. Gudang Baru No. 8');
+                $examplePlant = ! empty($plantCodes) ? $plantCodes[0] : 'SJA-SPJ';
+                $sheet->setCellValue('A2', $examplePlant);
+                $sheet->setCellValue('B2', 'LOC-ENG');
+                $sheet->setCellValue('C2', 'Workshop Engineering');
+                $sheet->setCellValue('D2', 'Area Bengkel Utama');
                 $sheet->setCellValue('E2', '1');
+
+                $this->applyDropdown($sheet, 'A', $plantCodes);
+                $this->applyDropdown($sheet, 'E', ['1', '0']);
                 $fileName = 'template-locations.xlsx';
                 break;
 
@@ -466,15 +481,18 @@ class ImportManager extends Page implements HasForms
                 $sheet->setCellValue('C1', 'category');
                 $sheet->setCellValue('D1', 'is_active');
 
-                $sheet->getComment('A1')->setAuthor('Sistem')->getText()->createTextRun("KODE SATUAN (Unik, maks 20 karakter).\nContoh: KG");
-                $sheet->getComment('B1')->setAuthor('Sistem')->getText()->createTextRun("NAMA SATUAN (Wajib, maks 150 karakter).\nContoh: Kilogram");
-                $sheet->getComment('C1')->setAuthor('Sistem')->getText()->createTextRun("KATEGORI SATUAN (Opsional).\nContoh: WEIGHT, VOLUME, PIECE");
+                $sheet->getComment('A1')->setAuthor('Sistem')->getText()->createTextRun("KODE SATUAN (Unik, maks 20 karakter).\nContoh: PCS");
+                $sheet->getComment('B1')->setAuthor('Sistem')->getText()->createTextRun("NAMA SATUAN (Wajib, maks 150 karakter).\nContoh: Pcs (Pieces)");
+                $sheet->getComment('C1')->setAuthor('Sistem')->getText()->createTextRun("KATEGORI SATUAN (Opsional).\nPilihan: BERAT, VOLUME, PANJANG, LUAS, HITUNGAN, KEMASAN, LAINNYA");
                 $sheet->getComment('D1')->setAuthor('Sistem')->getText()->createTextRun('STATUS AKTIF (Wajib, terisi 1 untuk aktif, atau 0 untuk non-aktif).');
 
-                $sheet->setCellValue('A2', 'KG');
-                $sheet->setCellValue('B2', 'Kilogram');
-                $sheet->setCellValue('C2', 'WEIGHT');
+                $sheet->setCellValue('A2', 'PCS');
+                $sheet->setCellValue('B2', 'Pcs (Pieces)');
+                $sheet->setCellValue('C2', 'KEMASAN');
                 $sheet->setCellValue('D2', '1');
+
+                $this->applyDropdown($sheet, 'C', ['BERAT', 'VOLUME', 'PANJANG', 'LUAS', 'HITUNGAN', 'KEMASAN', 'LAINNYA']);
+                $this->applyDropdown($sheet, 'D', ['1', '0']);
                 $fileName = 'template-units.xlsx';
                 break;
 
@@ -488,17 +506,22 @@ class ImportManager extends Page implements HasForms
 
                 $sheet->getComment('A1')->setAuthor('Sistem')->getText()->createTextRun("KODE BARANG (Unik, maks 50 karakter).\nContoh: BRG-001");
                 $sheet->getComment('B1')->setAuthor('Sistem')->getText()->createTextRun("NAMA BARANG (Wajib, maks 255 karakter).\nContoh: Kabel Tembaga 2.5mm");
-                $sheet->getComment('C1')->setAuthor('Sistem')->getText()->createTextRun("SPESIFIKASI BARANG (Opsional).\nContoh: Tipe NYM");
-                $sheet->getComment('D1')->setAuthor('Sistem')->getText()->createTextRun("KODE SATUAN (Wajib, harus ada di master Satuan).\nContoh: PCS");
-                $sheet->getComment('E1')->setAuthor('Sistem')->getText()->createTextRun("KATEGORI BARANG (Opsional).\nContoh: SPARE_PART, RAW_MATERIAL, ASSET_SUPPORT");
+                $sheet->getComment('C1')->setAuthor('Sistem')->getText()->createTextRun("SPESIFIKASI BARANG (Opsional).\nContoh: Tipe NYM Roll 100m");
+                $sheet->getComment('D1')->setAuthor('Sistem')->getText()->createTextRun("KODE SATUAN (Wajib, harus ada di master Satuan).\nContoh: PCS, ROLL, KG, M");
+                $sheet->getComment('E1')->setAuthor('Sistem')->getText()->createTextRun("KATEGORI BARANG (Opsional).\nPilihan: CONSUMABLE, SPARE_PART, MATERIAL, EQUIPMENT");
                 $sheet->getComment('F1')->setAuthor('Sistem')->getText()->createTextRun('STATUS AKTIF (Wajib, terisi 1 untuk aktif, atau 0 untuk non-aktif).');
 
+                $exampleUnit = ! empty($unitCodes) ? $unitCodes[0] : 'PCS';
                 $sheet->setCellValue('A2', 'BRG-001');
                 $sheet->setCellValue('B2', 'Kabel Tembaga 2.5mm');
-                $sheet->setCellValue('C2', 'Tipe NYM');
-                $sheet->setCellValue('D2', 'PCS');
+                $sheet->setCellValue('C2', 'Tipe NYM Roll 100m');
+                $sheet->setCellValue('D2', $exampleUnit);
                 $sheet->setCellValue('E2', 'SPARE_PART');
                 $sheet->setCellValue('F2', '1');
+
+                $this->applyDropdown($sheet, 'D', $unitCodes);
+                $this->applyDropdown($sheet, 'E', ['CONSUMABLE', 'SPARE_PART', 'MATERIAL', 'EQUIPMENT']);
+                $this->applyDropdown($sheet, 'F', ['1', '0']);
                 $fileName = 'template-items.xlsx';
                 break;
 
@@ -515,27 +538,38 @@ class ImportManager extends Page implements HasForms
                 $sheet->setCellValue('I1', 'notes');
                 $sheet->setCellValue('J1', 'is_active');
 
-                $sheet->getComment('A1')->setAuthor('Sistem')->getText()->createTextRun("KODE PLANT (Opsional, harus ada di master Plant).\nContoh: PL-SJA1");
-                $sheet->getComment('B1')->setAuthor('Sistem')->getText()->createTextRun("KODE LOKASI (Opsional, harus ada di master Lokasi).\nContoh: LOC-GUD1");
+                $sheet->getComment('A1')->setAuthor('Sistem')->getText()->createTextRun("KODE PLANT (Opsional, harus ada di master Plant).\nContoh: SJA-SPJ");
+                $sheet->getComment('B1')->setAuthor('Sistem')->getText()->createTextRun("KODE LOKASI (Opsional, harus ada di master Lokasi).\nContoh: LOC-ENG");
                 $sheet->getComment('C1')->setAuthor('Sistem')->getText()->createTextRun("NAMA ASET (Wajib, maks 255 karakter).\nContoh: Laptop Dell Latitude");
                 $sheet->getComment('D1')->setAuthor('Sistem')->getText()->createTextRun("DATA DETAIL LOKASI ASET (Opsional).\nContoh: Ruang IT Lantai 2");
                 $sheet->getComment('E1')->setAuthor('Sistem')->getText()->createTextRun("BARCODE (Wajib, Unik, maks 100 karakter).\nContoh: AST-00001");
-                $sheet->getComment('F1')->setAuthor('Sistem')->getText()->createTextRun("KONDISI (Wajib, terdaftar di EnumControl).\nContoh: GOOD, BROKEN");
-                $sheet->getComment('G1')->setAuthor('Sistem')->getText()->createTextRun("STATUS (Wajib, terdaftar di EnumControl).\nContoh: AVAILABLE, IN_USE, REPAIR");
-                $sheet->getComment('H1')->setAuthor('Sistem')->getText()->createTextRun("KODE SATUAN (Wajib, harus ada di master Satuan).\nContoh: PCS");
+                $sheet->getComment('F1')->setAuthor('Sistem')->getText()->createTextRun("KONDISI (Wajib).\nPilihan: GOOD, NEEDS_REPAIR, BROKEN, SCRAP");
+                $sheet->getComment('G1')->setAuthor('Sistem')->getText()->createTextRun("STATUS (Wajib).\nPilihan: AVAILABLE, IN_USE, CLASS_A, CLASS_B");
+                $sheet->getComment('H1')->setAuthor('Sistem')->getText()->createTextRun("KODE SATUAN (Wajib, harus ada di master Satuan).\nContoh: PCS, UNT");
                 $sheet->getComment('I1')->setAuthor('Sistem')->getText()->createTextRun('CATATAN ASET (Opsional).');
                 $sheet->getComment('J1')->setAuthor('Sistem')->getText()->createTextRun('STATUS AKTIF (Wajib, terisi 1 untuk aktif, atau 0 untuk non-aktif).');
 
-                $sheet->setCellValue('A2', 'PL-SJA1');
-                $sheet->setCellValue('B2', 'LOC-GUD1');
+                $examplePlant = ! empty($plantCodes) ? $plantCodes[0] : 'SJA-SPJ';
+                $exampleLoc = ! empty($locationCodes) ? $locationCodes[0] : 'LOC-ENG';
+                $exampleUnit = ! empty($unitCodes) ? $unitCodes[0] : 'PCS';
+
+                $sheet->setCellValue('A2', $examplePlant);
+                $sheet->setCellValue('B2', $exampleLoc);
                 $sheet->setCellValue('C2', 'Laptop Dell Latitude');
                 $sheet->setCellValue('D2', 'Ruang IT Lantai 2');
                 $sheet->setCellValue('E2', 'AST-00001');
                 $sheet->setCellValue('F2', 'GOOD');
                 $sheet->setCellValue('G2', 'AVAILABLE');
-                $sheet->setCellValue('H2', 'PCS');
+                $sheet->setCellValue('H2', $exampleUnit);
                 $sheet->setCellValue('I2', 'Kondisi baik');
                 $sheet->setCellValue('J2', '1');
+
+                $this->applyDropdown($sheet, 'A', $plantCodes);
+                $this->applyDropdown($sheet, 'B', $locationCodes);
+                $this->applyDropdown($sheet, 'F', ['GOOD', 'NEEDS_REPAIR', 'BROKEN', 'SCRAP']);
+                $this->applyDropdown($sheet, 'G', ['AVAILABLE', 'IN_USE', 'CLASS_A', 'CLASS_B']);
+                $this->applyDropdown($sheet, 'H', $unitCodes);
+                $this->applyDropdown($sheet, 'J', ['1', '0']);
                 $fileName = 'template-assets.xlsx';
                 break;
         }
@@ -547,5 +581,48 @@ class ImportManager extends Page implements HasForms
         }, $fileName, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ]);
+    }
+
+    private function applyDropdown(Worksheet $sheet, string $column, array $values, int $maxRows = 300): void
+    {
+        $cleanValues = array_values(array_filter(array_map('trim', $values)));
+        if (empty($cleanValues)) {
+            return;
+        }
+
+        $formula = '"'.implode(',', array_map(fn ($v) => str_replace('"', '""', (string) $v), $cleanValues)).'"';
+
+        // Limit formula length to fit Excel maximum formula length for inline list (255 chars)
+        if (strlen($formula) > 255) {
+            $shortened = [];
+            $lengthCounter = 2;
+            foreach ($cleanValues as $val) {
+                if ($lengthCounter + strlen($val) + 1 > 250) {
+                    break;
+                }
+                $shortened[] = $val;
+                $lengthCounter += strlen($val) + 1;
+            }
+            if (! empty($shortened)) {
+                $formula = '"'.implode(',', $shortened).'"';
+            } else {
+                return;
+            }
+        }
+
+        for ($row = 2; $row <= $maxRows; $row++) {
+            $validation = $sheet->getCell("{$column}{$row}")->getDataValidation();
+            $validation->setType(DataValidation::TYPE_LIST);
+            $validation->setErrorStyle(DataValidation::STYLE_STOP);
+            $validation->setAllowBlank(true);
+            $validation->setShowInputMessage(true);
+            $validation->setShowErrorMessage(true);
+            $validation->setShowDropDown(true);
+            $validation->setErrorTitle('Pilihan Tidak Valid');
+            $validation->setError('Nilai yang Anda masukkan harus memilih dari daftar dropdown resmi database.');
+            $validation->setPromptTitle('Pilih dari Daftar Database');
+            $validation->setPrompt('Silakan pilih salah satu nilai resmi dari pilihan dropdown.');
+            $validation->setFormula1($formula);
+        }
     }
 }

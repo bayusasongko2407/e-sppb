@@ -95,16 +95,7 @@ class GoodsReleasePolicy
      */
     public function delete(User $user, GoodsRelease $goodsRelease): bool
     {
-        if ($user->hasRole('super_admin')) {
-            return true;
-        }
-
-        $sppb = $goodsRelease->sppbHeader;
-        if (! $sppb) {
-            return false;
-        }
-
-        return $user->hasDocumentAccess('goods_release', 'delete', $sppb->plant_id, $sppb->department_id);
+        return $user->hasRole('super_admin');
     }
 
     /**
@@ -119,6 +110,21 @@ class GoodsReleasePolicy
      * Determine whether the user can permanently delete the model.
      */
     public function forceDelete(User $user, GoodsRelease $goodsRelease): bool
+    {
+        return $user->hasRole('super_admin');
+    }
+
+    public function deleteAny(User $user): bool
+    {
+        return $user->hasRole('super_admin');
+    }
+
+    public function restoreAny(User $user): bool
+    {
+        return $user->hasRole('super_admin');
+    }
+
+    public function forceDeleteAny(User $user): bool
     {
         return $user->hasRole('super_admin');
     }

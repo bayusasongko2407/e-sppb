@@ -99,19 +99,7 @@ class SppbHeaderPolicy
      */
     public function delete(User $user, SppbHeader $sppbHeader): bool
     {
-        if ($user->hasRole('super_admin')) {
-            return true;
-        }
-
-        if (! in_array($sppbHeader->status, [SppbStatus::DRAFT->value, SppbStatus::REJECTED->value])) {
-            return false;
-        }
-
-        if ($sppbHeader->requester_id === $user->id) {
-            return true;
-        }
-
-        return $user->hasDocumentAccess('sppb', 'delete', $sppbHeader->plant_id, $sppbHeader->department_id);
+        return $user->hasRole('super_admin');
     }
 
     /**
@@ -126,6 +114,21 @@ class SppbHeaderPolicy
      * Determine whether the user can permanently delete the model.
      */
     public function forceDelete(User $user, SppbHeader $sppbHeader): bool
+    {
+        return $user->hasRole('super_admin');
+    }
+
+    public function deleteAny(User $user): bool
+    {
+        return $user->hasRole('super_admin');
+    }
+
+    public function restoreAny(User $user): bool
+    {
+        return $user->hasRole('super_admin');
+    }
+
+    public function forceDeleteAny(User $user): bool
     {
         return $user->hasRole('super_admin');
     }

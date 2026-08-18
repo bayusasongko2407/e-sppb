@@ -14,9 +14,6 @@ class PositionSeeder extends Seeder
      */
     public function run(): void
     {
-        // Bersihkan data posisi lama agar tersinkronisasi sempurna
-        Position::query()->delete();
-
         $positions = [
             [
                 'code' => 'STAFF',
@@ -32,8 +29,8 @@ class PositionSeeder extends Seeder
             ],
             [
                 'code' => 'BAT',
-                'name' => 'BAT',
-                'description' => 'Bagian Aset Tetap.',
+                'name' => 'BAT (Bagian Aset Tetap)',
+                'description' => 'Tim Verifikasi & Pengelolaan Bagian Aset Tetap.',
                 'is_active' => true,
             ],
             [
@@ -48,10 +45,22 @@ class PositionSeeder extends Seeder
                 'description' => 'Manager departemen.',
                 'is_active' => true,
             ],
+            [
+                'code' => 'GUDANG',
+                'name' => 'Gudang',
+                'description' => 'Petugas Pengelola Gudang & Pelepasan Barang.',
+                'is_active' => true,
+            ],
+            [
+                'code' => 'AUDITOR',
+                'name' => 'Auditor',
+                'description' => 'Tim Audit & Pemeriksaan Internal.',
+                'is_active' => true,
+            ],
         ];
 
         foreach ($positions as $position) {
-            Position::create($position);
+            Position::firstOrCreate(['code' => $position['code']], $position);
         }
     }
 }

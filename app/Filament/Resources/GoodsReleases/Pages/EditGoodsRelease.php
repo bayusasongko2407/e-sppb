@@ -13,6 +13,21 @@ class EditGoodsRelease extends EditRecord
 {
     protected static string $resource = GoodsReleaseResource::class;
 
+    public ?string $desiredStatus = null;
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        if ($this->desiredStatus !== null) {
+            $data['status'] = $this->desiredStatus;
+        }
+
+        if (! empty($data['sppbHeaders']) && is_array($data['sppbHeaders'])) {
+            $data['sppb_header_id'] = (int) $data['sppbHeaders'][0];
+        }
+
+        return $data;
+    }
+
     protected function getHeaderActions(): array
     {
         $record = $this->getRecord();
@@ -41,6 +56,7 @@ class EditGoodsRelease extends EditRecord
             Action::make('saveDraft')
                 ->label('Simpan Sebagai Draft')
                 ->action(function () {
+                    $this->desiredStatus = 'DRAFT';
                     $this->data['status'] = 'DRAFT';
                     $this->save();
                 })
@@ -52,6 +68,7 @@ class EditGoodsRelease extends EditRecord
                 ->modalHeading('Simpan Final Surat Jalan')
                 ->modalDescription('Apakah Anda yakin? Setelah disimpan final, data Surat Jalan tidak dapat diubah kembali.')
                 ->action(function () {
+                    $this->desiredStatus = 'RELEASED';
                     $this->data['status'] = 'RELEASED';
                     $this->save();
                 })

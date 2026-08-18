@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\DashboardMetricsController;
 use App\Http\Controllers\Api\V1\GoodsReleaseController;
+use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\SppbController;
 use App\Http\Controllers\Api\V1\SystemHealthController;
 use App\Http\Controllers\Api\V1\WorkflowTaskController;
@@ -14,6 +16,12 @@ use Illuminate\Support\Facades\Route;
 Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
+
+// Direct Top-Level Contract Aliases (/api/login, /api/me, /api/health)
+Route::post('login', [AuthController::class, 'login']);
+Route::post('logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
+Route::get('me', [AuthController::class, 'me'])->middleware('auth:sanctum');
+Route::get('health', [SystemHealthController::class, 'index']);
 
 // Public API Auth routes (Token & Session)
 Route::prefix('v1/auth')->group(function () {
@@ -59,8 +67,13 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
         Route::get('me', [AuthController::class, 'me']);
     });
 
-    // SPPB Endpoints
-    Route::prefix('sppb')->group(function () {
+    // Dashboard & Metrics Endpoints
+    Route::get('dashboard/metrics', [DashboardMetricsController::class, 'metrics']);
+    Route::get('notifications', [NotificationController::class, 'index']);
+    Route::patch('notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+
+    // SPPB Endpoints (Supports both /sppb and /sppb-headers)
+    $registerSppbRoutes = function () {
         Route::get('stats', [SppbController::class, 'stats'])->middleware('permission:view_any_sppbheader');
         Route::get('master/plants', [SppbController::class, 'plants']);
         Route::get('master/departments', [SppbController::class, 'departments']);
@@ -89,6 +102,8 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
             Route::post('submit', [SppbController::class, 'submit'])->middleware('permission:update_sppbheader');
             Route::post('resubmit', [SppbController::class, 'resubmit'])->middleware('permission:update_sppbheader');
             Route::post('cancel', [SppbController::class, 'cancel'])->middleware('permission:update_sppbheader');
+            Route::post('approve', [SppbController::class, 'approve'])->middleware('permission:update_sppbheader');
+            Route::post('reject', [SppbController::class, 'reject'])->middleware('permission:update_sppbheader');
 
             // Status Logs
             Route::get('status-logs', [SppbController::class, 'statusLogs'])->middleware('permission:view_sppbstatuslog');
@@ -97,7 +112,10 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
             Route::get('releasable-items', [SppbController::class, 'releasableItems'])->middleware('permission:view_sppbheader');
             Route::post('goods-releases', [GoodsReleaseController::class, 'store'])->middleware('permission:create_goodsrelease');
         });
-    });
+    };
+
+    Route::prefix('sppb')->group($registerSppbRoutes);
+    Route::prefix('sppb-headers')->group($registerSppbRoutes);
 
     // Workflow Endpoints
     Route::prefix('workflow')->group(function () {
@@ -124,16 +142,12 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
     // Goods Releases Endpoints
     Route::prefix('goods-releases')->group(function () {
         Route::get('/', [GoodsReleaseController::class, 'index'])->middleware('permission:view_any_goodsrelease');
+        Route::post('/', [GoodsReleaseController::class, 'storeCompatibility'])->middleware('permission:create_goodsrelease');
         Route::get('{uuid}', [GoodsReleaseController::class, 'show']);
         Route::post('{uuid}/receive', [GoodsReleaseController::class, 'receive']);
+        Route::post('{uuid}/confirm-receipt', [GoodsReleaseController::class, 'receive']);
         Route::patch('{uuid}/status', [GoodsReleaseController::class, 'receive']);
     });
-
-    // Document Endpoints
-    Route::prefix('documents')->group(function () {
-        // ... placeholders
-    });
-
 });
 
 // Public endpoints
@@ -165,9 +179,27 @@ Route::prefix('v1/verify')->middleware(['throttle:60,1', CorsMiddleware::class])
 
 Route::prefix('v1/goods-releases')->middleware(['throttle:60,1', CorsMiddleware::class])->group(function () {
     Route::options('{uuid}/receive', fn () => response('', 200));
+    Route::options('{uuid}/confirm-receipt', fn () => response('', 200));
     Route::options('{uuid}/status', fn () => response('', 200));
     Route::post('{uuid}/receive', [GoodsReleaseController::class, 'receive']);
+    Route::post('{uuid}/confirm-receipt', [GoodsReleaseController::class, 'receive']);
     Route::patch('{uuid}/status', [GoodsReleaseController::class, 'receive']);
+});
+
+Route::prefix('v1/public/sppb')->middleware(['throttle:60,1', CorsMiddleware::class])->group(function () {
+    Route::options('verify/{code}', fn () => response('', 200));
+    Route::get('verify/{code}', [DocumentVerificationController::class, 'verifyDocument']);
+});
+
+Route::prefix('v1/sppb')->middleware(['throttle:60,1', CorsMiddleware::class])->group(function () {
+    Route::options('verify-barcode', fn () => response('', 200));
+    Route::post('verify-barcode', [DocumentVerificationController::class, 'verifyBarcode']);
+    Route::get('verify', [DocumentVerificationController::class, 'verifyDocument']);
+});
+
+Route::prefix('v1')->middleware(['throttle:60,1', CorsMiddleware::class])->group(function () {
+    Route::options('verify-barcode', fn () => response('', 200));
+    Route::post('verify-barcode', [DocumentVerificationController::class, 'verifyBarcode']);
 });
 
 // System Health & Real-time Diagnostic Endpoints

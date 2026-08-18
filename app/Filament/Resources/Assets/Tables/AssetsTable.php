@@ -35,10 +35,36 @@ class AssetsTable
                     ->searchable(),
                 TextColumn::make('condition')
                     ->label('Kondisi')
-                    ->searchable(),
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => match (strtoupper((string) $state)) {
+                        'GOOD' => 'Baik',
+                        'FAIR' => 'Cukup',
+                        'POOR', 'DAMAGED' => 'Rusak',
+                        default => $state ?? 'Baik',
+                    })
+                    ->color(fn (?string $state): string => match (strtoupper((string) $state)) {
+                        'GOOD' => 'success',
+                        'FAIR' => 'warning',
+                        'POOR', 'DAMAGED' => 'danger',
+                        default => 'gray',
+                    }),
                 TextColumn::make('status')
                     ->label('Status')
-                    ->searchable(),
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => match (strtoupper((string) $state)) {
+                        'AVAILABLE' => 'Tersedia',
+                        'IN_USE', 'USED' => 'Digunakan',
+                        'MAINTENANCE' => 'Perbaikan',
+                        'DISPOSED', 'SCRAPPED' => 'Dihapuskan',
+                        default => $state ?? 'Tersedia',
+                    })
+                    ->color(fn (?string $state): string => match (strtoupper((string) $state)) {
+                        'AVAILABLE' => 'success',
+                        'IN_USE', 'USED' => 'info',
+                        'MAINTENANCE' => 'warning',
+                        'DISPOSED', 'SCRAPPED' => 'danger',
+                        default => 'gray',
+                    }),
                 IconColumn::make('is_active')
                     ->label('Aktif')
                     ->boolean(),

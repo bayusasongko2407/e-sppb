@@ -38,6 +38,7 @@ class GoodsRelease extends Model
         'vehicle_number',
         'expedition_name',
         'delivery_date',
+        'release_date',
         'received_at',
         'received_by_id',
         'recipient_name',
@@ -66,6 +67,7 @@ class GoodsRelease extends Model
             'sender_user_id' => 'integer',
             'receiver_user_id' => 'integer',
             'delivery_date' => 'date:Y-m-d',
+            'release_date' => 'datetime',
             'received_at' => 'datetime',
             'received_by_id' => 'integer',
             'sender_user_id_id' => 'integer',
@@ -82,6 +84,14 @@ class GoodsRelease extends Model
 
             if (empty($release->created_by_id)) {
                 $release->created_by_id = auth()->id() ?? 1;
+            }
+
+            if (empty($release->sender_name)) {
+                $release->sender_name = 'PT Santos Jaya Abadi';
+            }
+
+            if (empty($release->release_date)) {
+                $release->release_date = now();
             }
 
             if (empty($release->release_sequence)) {

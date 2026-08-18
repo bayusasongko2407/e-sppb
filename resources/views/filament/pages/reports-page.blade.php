@@ -8,11 +8,11 @@
             </x-filament::button>
             
             <x-filament::button wire:click="exportExcel" color="success">
-                Export Excel
+                Ekspor Excel
             </x-filament::button>
 
             <x-filament::button wire:click="exportPdf" color="danger">
-                Export PDF
+                Ekspor PDF
             </x-filament::button>
         </div>
     </form>

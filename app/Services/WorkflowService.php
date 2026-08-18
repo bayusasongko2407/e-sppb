@@ -632,11 +632,11 @@ final class WorkflowService implements WorkflowServiceContract
             $step->remarks = $data->remarks;
             $step->save();
 
-            $instance->status = WorkflowInstanceStatus::REVISION_REQUIRED->value;
+            $instance->status = WorkflowInstanceStatus::REJECTED->value;
             $instance->finished_at = now();
             $instance->save();
 
-            $header->status = SppbStatus::REVISION_REQUIRED->value;
+            $header->status = SppbStatus::REJECTED->value;
             $header->current_approver_id = null;
             $header->save();
 
@@ -644,10 +644,10 @@ final class WorkflowService implements WorkflowServiceContract
                 $header,
                 $instance->id,
                 SppbStatus::WAITING_APPROVAL->value,
-                SppbStatus::REVISION_REQUIRED->value,
+                SppbStatus::REJECTED->value,
                 $data->actorId,
                 $data->commandUuid,
-                'REVISION_REQUESTED',
+                'SPPB_REJECTED',
                 $data->remarks,
             );
 
@@ -721,6 +721,56 @@ final class WorkflowService implements WorkflowServiceContract
                 null,
                 'SPPB_CANCELLED',
                 $reason,
+            );
+        });
+    }
+
+    public function forceCompleteSppb(int $sppbHeaderId, int $actorId, string $reason): void
+    {
+        DB::transaction(function () use ($sppbHeaderId, $actorId, $reason) {
+            $header = SppbHeader::lockForUpdate()->findOrFail($sppbHeaderId);
+            $fromStatus = $header->status;
+
+            if (in_array($header->status, [SppbStatus::CANCELLED->value, SppbStatus::COMPLETED->value])) {
+                throw new \DomainException('Dokumen SPPB ini sudah dalam status akhir dan tidak dapat diubah.');
+            }
+
+            $header->status = SppbStatus::COMPLETED->value;
+            $header->completed_at = now();
+            $header->current_approver_id = null;
+            $header->save();
+
+            if ($header->current_workflow_instance_id) {
+                WorkflowInstance::where('id', $header->current_workflow_instance_id)
+                    ->update([
+                        'status' => WorkflowInstanceStatus::APPROVED->value,
+                        'finished_at' => now(),
+                    ]);
+            }
+
+            $this->writeStatusLog(
+                $header,
+                $header->current_workflow_instance_id,
+                $fromStatus,
+                SppbStatus::COMPLETED->value,
+                $actorId,
+                null,
+                'FORCE_COMPLETED',
+                $reason,
+            );
+
+            $this->sendNotification(
+                $header->requester,
+                'SPPB Transaksi Selesai',
+                "Transaksi SPPB dengan nomor {$header->document_number} telah diselesaikan secara resmi. Catatan: {$reason}",
+                SppbHeaderResource::getUrl('view', ['record' => $header]),
+                'sppb_approved',
+                [
+                    'document_number' => $header->document_number,
+                    'requester_name' => $header->requester?->name,
+                    'url' => SppbHeaderResource::getUrl('view', ['record' => $header]),
+                    'notes' => $reason,
+                ]
             );
         });
     }
@@ -844,16 +894,19 @@ final class WorkflowService implements WorkflowServiceContract
 
         if ($systemEnabled && $eventAllowed) {
             try {
-                Notification::make()
+                $notification = Notification::make()
                     ->title($emailSubject)
                     ->body($emailBody)
                     ->icon('heroicon-o-document-text')
                     ->actions([
                         Action::make('view')
-                            ->label('Lihat Detail')
-                            ->url($url),
-                    ])
-                    ->sendToDatabase($user, isEventDispatched: true);
+                            ->label('Buka Dokumen')
+                            ->button()
+                            ->url($url)
+                            ->markAsRead(),
+                    ]);
+
+                $user->notifyNow($notification->toDatabase());
             } catch (\Throwable $e) {
                 Log::error('Gagal mengirim notifikasi sistem: '.$e->getMessage());
             }

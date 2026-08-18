@@ -14,6 +14,21 @@ class CreateGoodsRelease extends CreateRecord
 {
     protected static string $resource = GoodsReleaseResource::class;
 
+    public string $desiredStatus = 'DRAFT';
+
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        $data['status'] = $this->desiredStatus;
+
+        if (! empty($data['sppbHeaders']) && is_array($data['sppbHeaders'])) {
+            $data['sppb_header_id'] = (int) $data['sppbHeaders'][0];
+        } elseif (request()->query('sppb_header_id')) {
+            $data['sppb_header_id'] = (int) request()->query('sppb_header_id');
+        }
+
+        return $data;
+    }
+
     protected function afterCreate(): void
     {
         $goodsRelease = $this->record;
@@ -42,6 +57,7 @@ class CreateGoodsRelease extends CreateRecord
             Action::make('saveDraft')
                 ->label('Simpan Sebagai Draft')
                 ->action(function () {
+                    $this->desiredStatus = 'DRAFT';
                     $this->data['status'] = 'DRAFT';
                     $this->create();
                 })
@@ -53,6 +69,7 @@ class CreateGoodsRelease extends CreateRecord
                 ->modalHeading('Simpan Final Surat Jalan')
                 ->modalDescription('Apakah Anda yakin? Setelah disimpan final, Anda tidak dapat mengubah data selain Nama Pengemudi, No. Kendaraan, Ekspedisi, dan Tanggal Pengiriman.')
                 ->action(function () {
+                    $this->desiredStatus = 'RELEASED';
                     $this->data['status'] = 'RELEASED';
                     $this->create();
                 })

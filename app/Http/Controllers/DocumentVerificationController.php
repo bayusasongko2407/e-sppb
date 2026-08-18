@@ -21,10 +21,17 @@ class DocumentVerificationController extends Controller
     public function verifyDocument(Request $request, ?string $hash = null): JsonResponse
     {
         $payload = $hash
+            ?? $request->input('barcode')
+            ?? $request->input('barcode_string')
+            ?? $request->input('code')
             ?? $request->input('qr_data')
             ?? $request->input('encrypted_data')
             ?? $request->input('hash')
             ?? $request->input('token')
+            ?? $request->query('barcode')
+            ?? $request->query('code')
+            ?? $request->query('hash')
+            ?? $request->query('token')
             ?? $request->all();
 
         $result = $this->service->verifyDocument(
@@ -34,6 +41,13 @@ class DocumentVerificationController extends Controller
             $request->user()
         );
 
+        $result['success'] = ($result['status'] === 'VALID');
+        $result['valid'] = ($result['status'] === 'VALID');
+
+        if ($result['status'] !== 'VALID') {
+            $result['error_code'] = 'INVALID_OR_EXPIRED_BARCODE';
+        }
+
         $statusCode = match ($result['status']) {
             'VALID' => 200,
             'NOT_FOUND' => 404,
@@ -42,6 +56,22 @@ class DocumentVerificationController extends Controller
         };
 
         return response()->json($result, $statusCode);
+    }
+
+    /**
+     * Compatibility handler for POST /api/v1/sppb/verify-barcode and /api/v1/verify-barcode
+     */
+    public function verifyBarcode(Request $request): JsonResponse
+    {
+        $input = $request->input('barcode')
+            ?? $request->input('barcode_string')
+            ?? $request->input('code')
+            ?? $request->input('qr_data')
+            ?? $request->input('encrypted_data')
+            ?? $request->input('hash')
+            ?? $request->input('token');
+
+        return $this->verifyDocument($request, $input);
     }
 
     /**

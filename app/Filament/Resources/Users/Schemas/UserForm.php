@@ -44,7 +44,7 @@ class UserForm
                     ->label('Nomor Telepon / WhatsApp')
                     ->tel()
                     ->placeholder('Contoh: 081234567890')
-                    ->helperText('Nomor HP/WA aktif untuk penerimaan notifikasi WhatsApp OpenWA.')
+                    ->helperText('Nomor HP/WA aktif untuk penerimaan notifikasi WhatsApp.')
                     ->default(null),
                 TextInput::make('password')
                     ->label('Kata Sandi')

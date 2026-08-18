@@ -12,6 +12,35 @@ class EnumControlSeeder extends Seeder
     public function run(): void
     {
         $enums = [
+            // SPPB Header Statuses
+            ['table_name' => 'sppb_headers', 'column_name' => 'status', 'value' => 'DRAFT', 'label' => 'Draft', 'sequence' => 10],
+            ['table_name' => 'sppb_headers', 'column_name' => 'status', 'value' => 'SUBMISSION_QUEUED', 'label' => 'Sedang Diproses', 'sequence' => 15],
+            ['table_name' => 'sppb_headers', 'column_name' => 'status', 'value' => 'WAITING_APPROVAL', 'label' => 'Menunggu Persetujuan', 'sequence' => 20],
+            ['table_name' => 'sppb_headers', 'column_name' => 'status', 'value' => 'WAITING_APPROVAL_MANAGER', 'label' => 'Menunggu Persetujuan Manager', 'sequence' => 25],
+            ['table_name' => 'sppb_headers', 'column_name' => 'status', 'value' => 'WAITING_VERIFICATION_BAT', 'label' => 'Menunggu Verifikasi BAT', 'sequence' => 30],
+            ['table_name' => 'sppb_headers', 'column_name' => 'status', 'value' => 'PROCESS_VERIFICATION_BAT', 'label' => 'Proses Verifikasi BAT', 'sequence' => 35],
+            ['table_name' => 'sppb_headers', 'column_name' => 'status', 'value' => 'APPROVED', 'label' => 'Disetujui', 'sequence' => 40],
+            ['table_name' => 'sppb_headers', 'column_name' => 'status', 'value' => 'REVISION_REQUIRED', 'label' => 'Perlu Revisi', 'sequence' => 45],
+            ['table_name' => 'sppb_headers', 'column_name' => 'status', 'value' => 'RELEASE_IN_PROGRESS', 'label' => 'Proses Pengeluaran Barang', 'sequence' => 50],
+            ['table_name' => 'sppb_headers', 'column_name' => 'status', 'value' => 'COMPLETED', 'label' => 'Selesai', 'sequence' => 60],
+            ['table_name' => 'sppb_headers', 'column_name' => 'status', 'value' => 'REJECTED', 'label' => 'Ditolak', 'sequence' => 70],
+            ['table_name' => 'sppb_headers', 'column_name' => 'status', 'value' => 'CANCELLED', 'label' => 'Dibatalkan', 'sequence' => 80],
+
+            // Goods Release Statuses (Surat Jalan)
+            ['table_name' => 'goods_releases', 'column_name' => 'status', 'value' => 'DRAFT', 'label' => 'Draft', 'sequence' => 10],
+            ['table_name' => 'goods_releases', 'column_name' => 'status', 'value' => 'RELEASED', 'label' => 'Diterbitkan / Dikirim', 'sequence' => 20],
+            ['table_name' => 'goods_releases', 'column_name' => 'status', 'value' => 'IN_TRANSIT', 'label' => 'Dalam Perjalanan', 'sequence' => 30],
+            ['table_name' => 'goods_releases', 'column_name' => 'status', 'value' => 'DELIVERED', 'label' => 'Sudah Diterima (e-POD)', 'sequence' => 40],
+            ['table_name' => 'goods_releases', 'column_name' => 'status', 'value' => 'RECEIVED', 'label' => 'Diterima', 'sequence' => 50],
+            ['table_name' => 'goods_releases', 'column_name' => 'status', 'value' => 'CANCELLED', 'label' => 'Dibatalkan', 'sequence' => 60],
+
+            // SPPB Details Delivery Statuses
+            ['table_name' => 'sppb_details', 'column_name' => 'delivery_status', 'value' => 'PENDING', 'label' => 'Belum Dikirim', 'sequence' => 10],
+            ['table_name' => 'sppb_details', 'column_name' => 'delivery_status', 'value' => 'PARTIALLY_RELEASED', 'label' => 'Rilis Sebagian', 'sequence' => 20],
+            ['table_name' => 'sppb_details', 'column_name' => 'delivery_status', 'value' => 'FULLY_RELEASED', 'label' => 'Rilis Penuh', 'sequence' => 30],
+            ['table_name' => 'sppb_details', 'column_name' => 'delivery_status', 'value' => 'PARTIALLY_DELIVERED', 'label' => 'Pengiriman Sebagian', 'sequence' => 40],
+            ['table_name' => 'sppb_details', 'column_name' => 'delivery_status', 'value' => 'DELIVERED', 'label' => 'Pengiriman Penuh / Diterima', 'sequence' => 50],
+
             // Asset conditions
             ['table_name' => 'assets', 'column_name' => 'condition', 'value' => 'GOOD', 'label' => 'Baik', 'sequence' => 10],
             ['table_name' => 'assets', 'column_name' => 'condition', 'value' => 'NEEDS_REPAIR', 'label' => 'Perlu Perbaikan', 'sequence' => 20],

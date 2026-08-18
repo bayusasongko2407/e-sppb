@@ -107,7 +107,7 @@ class AppSettingSeeder extends Seeder
         AppSetting::set('mail_from_name', 'E-SPPB Enterprise', 'notification', 'string');
         AppSetting::set('resend_api_key', '', 'notification', 'string');
 
-        // 13. Pengaturan Notifikasi WhatsApp (OpenWA)
+        // 13. Pengaturan Notifikasi WhatsApp (whatsapp-web.js / wwebjs)
         AppSetting::set('notify_wa_enabled', false, 'notification', 'boolean');
         AppSetting::set('wa_server_url', 'http://127.0.0.1:3000/send-message', 'notification', 'string');
         AppSetting::set('wa_api_secret', '', 'notification', 'string');

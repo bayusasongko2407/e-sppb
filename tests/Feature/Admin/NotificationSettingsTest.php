@@ -8,7 +8,6 @@ use App\Filament\Pages\NotificationSettings;
 use App\Models\AppSetting;
 use App\Models\User;
 use App\Services\WhatsAppService;
-use Filament\Notifications\Notification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -81,6 +80,9 @@ class NotificationSettingsTest extends TestCase
                 'mail_host' => 'smtp.mailtrap.io',
                 'mail_port' => 2525,
                 'notify_wa_enabled' => true,
+                'wa_provider' => 'meta_cloud',
+                'wa_phone_number_id' => '100609346382109',
+                'wa_access_token' => 'EAAG_dummy_token',
                 'wa_server_url' => 'http://127.0.0.1:3000/send-message',
                 'wa_sender_number' => '6281234567890',
             ])
@@ -95,6 +97,7 @@ class NotificationSettingsTest extends TestCase
         $this->assertTrue(AppSetting::get('notify_email_enabled'));
         $this->assertEquals(2525, AppSetting::get('mail_port'));
         $this->assertTrue(AppSetting::get('notify_wa_enabled'));
+        $this->assertEquals('meta_cloud', AppSetting::get('wa_provider'));
     }
 
     public function test_whatsapp_service_format_phone_number(): void
@@ -147,12 +150,7 @@ class NotificationSettingsTest extends TestCase
 
     public function test_send_test_email(): void
     {
-        Mail::shouldReceive('purge')->andReturnNull();
-        Mail::shouldReceive('raw')
-            ->once()
-            ->withArgs(function ($body, $callback) {
-                return str_contains($body, 'uji coba');
-            });
+        Mail::fake();
 
         $this->actingAs($this->superAdmin);
 
@@ -163,6 +161,9 @@ class NotificationSettingsTest extends TestCase
                 'mail_port' => 1025,
                 'mail_from_address' => 'admin@esppb.local',
                 'mail_from_name' => 'E-SPPB',
+                'wa_provider' => 'meta_cloud',
+                'wa_phone_number_id' => '100609346382109',
+                'wa_access_token' => 'EAAG_dummy_token',
             ])
             ->set('test_email_recipient', 'test@example.com')
             ->call('sendTestEmail')
@@ -171,12 +172,7 @@ class NotificationSettingsTest extends TestCase
 
     public function test_send_test_email_via_resend(): void
     {
-        Mail::shouldReceive('purge')->andReturnNull();
-        Mail::shouldReceive('raw')
-            ->once()
-            ->withArgs(function ($body, $callback) {
-                return str_contains($body, 'uji coba');
-            });
+        Mail::fake();
 
         $this->actingAs($this->superAdmin);
 
@@ -186,28 +182,55 @@ class NotificationSettingsTest extends TestCase
                 'resend_api_key' => 're_123456',
                 'mail_from_address' => 'admin@esppb.local',
                 'mail_from_name' => 'E-SPPB',
+                'wa_provider' => 'meta_cloud',
+                'wa_phone_number_id' => '100609346382109',
+                'wa_access_token' => 'EAAG_dummy_token',
             ])
             ->set('test_email_recipient', 'test@example.com')
             ->call('sendTestEmail')
             ->assertHasNoFormErrors();
     }
 
-    public function test_send_test_wa(): void
+    public function test_send_test_wa_meta_cloud_api(): void
     {
         Http::fake([
-            '*/api/sessions' => Http::response([
-                [
-                    'id' => 'sess-uuid-123',
-                    'name' => 'sppb-bot',
-                    'status' => 'ready',
-                    'phone' => '6281234567890',
-                ],
+            'https://graph.facebook.com/*' => Http::response([
+                'messaging_product' => 'whatsapp',
+                'contacts' => [['input' => '6281234567890', 'wa_id' => '6281234567890']],
+                'messages' => [['id' => 'wamid.HBgL...']],
+                'verified_name' => 'E-SPPB Enterprise',
+                'display_phone_number' => '+62 812-3456-7890',
+                'quality_rating' => 'GREEN',
             ], 200),
-            '*/api/sessions/*/messages/send-text' => Http::response(['messageId' => 'msg-123'], 201),
         ]);
 
-        // Enable WA notifications
         AppSetting::set('notify_wa_enabled', true, 'notification', 'boolean');
+        AppSetting::set('wa_provider', 'meta_cloud', 'notification', 'string');
+        AppSetting::set('wa_phone_number_id', '100609346382109', 'notification', 'string');
+        AppSetting::set('wa_access_token', 'EAAG_dummy_access_token', 'notification', 'string');
+
+        $this->actingAs($this->superAdmin);
+
+        Livewire::test(NotificationSettings::class)
+            ->set('test_wa_recipient', '081234567890')
+            ->call('sendTestWa')
+            ->assertHasNoFormErrors();
+    }
+
+    public function test_send_test_wa_custom_gateway(): void
+    {
+        Http::fake([
+            '*/status' => Http::response([
+                'success' => true,
+                'connected' => true,
+                'status' => 'READY',
+                'message' => 'Terhubung dengan WhatsApp Gateway.',
+            ], 200),
+            '*/send-message' => Http::response(['success' => true, 'messageId' => 'msg-123'], 200),
+        ]);
+
+        AppSetting::set('notify_wa_enabled', true, 'notification', 'boolean');
+        AppSetting::set('wa_provider', 'wwebjs', 'notification', 'string');
 
         $this->actingAs($this->superAdmin);
 

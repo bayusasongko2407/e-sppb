@@ -7,8 +7,8 @@
                 Simpan Pengaturan
             </x-filament::button>
 
-            <x-filament::button href="/docs/api" tag="a" target="_blank" color="gray" icon="heroicon-o-document-text">
-                Lihat Dokumentasi API (Swagger)
+            <x-filament::button href="/docs/api-reference" tag="a" target="_blank" color="gray" icon="heroicon-o-document-text">
+                Lihat Dokumentasi API Lengkap
             </x-filament::button>
         </div>
     </form>

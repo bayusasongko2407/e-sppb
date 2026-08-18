@@ -41,7 +41,7 @@ enum SppbStatus: string
             self::REVISION_REQUIRED => 'Perlu Revisi',
             self::REJECTED => 'Ditolak',
             self::CANCELLED => 'Dibatalkan',
-            self::RELEASE_IN_PROGRESS => 'Proses Pengiriman',
+            self::RELEASE_IN_PROGRESS => 'Proses Pengeluaran Barang',
             self::COMPLETED => 'Selesai',
             self::WAITING_VERIFICATION_BAT => 'Menunggu Verifikasi BAT',
             self::PROCESS_VERIFICATION_BAT => 'Proses Verifikasi BAT',

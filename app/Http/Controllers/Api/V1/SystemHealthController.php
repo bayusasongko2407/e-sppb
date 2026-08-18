@@ -43,6 +43,7 @@ class SystemHealthController extends Controller
         $recentValidationsCount = DocumentValidation::where('created_at', '>=', now()->subHours(24))->count();
 
         return response()->json([
+            'status' => 'ok',
             'success' => true,
             'service' => 'E-SPPB Backend Enterprise API',
             'version' => '1.0.0',

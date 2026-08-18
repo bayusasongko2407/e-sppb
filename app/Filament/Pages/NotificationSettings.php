@@ -95,28 +95,28 @@ class NotificationSettings extends Page implements HasForms
             'notify_event_goods_released' => true,
 
             'notify_template_sppb_created_email_subject' => '[E-SPPB] Pengajuan SPPB Baru: {document_number}',
-            'notify_template_sppb_created_email_body' => 'SPPB dengan nomor {document_number} telah berhasil diajukan oleh {requester_name}.',
-            'notify_template_sppb_created_wa_body' => "*[E-SPPB Enterprise]*\n*Pengajuan SPPB Baru*\n\nSPPB dengan nomor {document_number} telah berhasil diajukan oleh {requester_name}.\n\n🔗 Link: {url}",
+            'notify_template_sppb_created_email_body' => "Yth. Bpk/Ibu,\n\nSPPB dengan nomor {document_number} telah berhasil diajukan oleh {requester_name}.\nSilakan periksa detailnya melalui sistem.",
+            'notify_template_sppb_created_wa_body' => "*[E-SPPB Enterprise]*\n*Pengajuan SPPB Baru*\n\nSPPB dengan nomor *{document_number}* telah berhasil diajukan oleh *{requester_name}*.\n\n🔗 Link Akses: {url}",
 
             'notify_template_approval_requested_email_subject' => '[E-SPPB] Permintaan Persetujuan SPPB: {document_number}',
-            'notify_template_approval_requested_email_body' => 'SPPB dengan nomor {document_number} (Pemohon: {requester_name}) memerlukan persetujuan/verifikasi Anda.',
-            'notify_template_approval_requested_wa_body' => "*[E-SPPB Enterprise]*\n*Persetujuan Baru*\n\nSPPB dengan nomor {document_number} (Pemohon: {requester_name}) memerlukan persetujuan/verifikasi Anda.\n\n🔗 Link: {url}",
+            'notify_template_approval_requested_email_body' => "Yth. Approver,\n\nSPPB dengan nomor {document_number} (Pemohon: {requester_name}) memerlukan persetujuan/verifikasi Anda.",
+            'notify_template_approval_requested_wa_body' => "*[E-SPPB Enterprise]*\n*Permintaan Persetujuan*\n\nSPPB dengan nomor *{document_number}* (Pemohon: *{requester_name}*) memerlukan persetujuan/verifikasi Anda.\n\n🔗 Link Akses: {url}",
 
             'notify_template_approval_stage_updated_email_subject' => '[E-SPPB] Update Persetujuan SPPB: {document_number}',
-            'notify_template_approval_stage_updated_email_body' => 'Proses persetujuan untuk SPPB nomor {document_number} telah diperbarui ke tahap berikutnya.',
-            'notify_template_approval_stage_updated_wa_body' => "*[E-SPPB Enterprise]*\n*Update Persetujuan SPPB*\n\nProses persetujuan untuk SPPB nomor {document_number} telah diperbarui ke tahap berikutnya.\n\n🔗 Link: {url}",
+            'notify_template_approval_stage_updated_email_body' => "Halo {requester_name},\n\nProses persetujuan untuk SPPB nomor {document_number} telah diperbarui ke tahap berikutnya ({status}).",
+            'notify_template_approval_stage_updated_wa_body' => "*[E-SPPB Enterprise]*\n*Update Persetujuan SPPB*\n\nProses persetujuan untuk SPPB nomor *{document_number}* telah diperbarui ke tahap berikutnya (*{status}*).\n\n🔗 Link Akses: {url}",
 
             'notify_template_sppb_approved_email_subject' => '[E-SPPB] SPPB Disetujui Sepenuhnya: {document_number}',
-            'notify_template_sppb_approved_email_body' => 'Selamat! SPPB dengan nomor {document_number} telah disetujui sepenuhnya.',
-            'notify_template_sppb_approved_wa_body' => "*[E-SPPB Enterprise]*\n*SPPB Disetujui Sepenuhnya*\n\nSelamat! SPPB dengan nomor {document_number} telah disetujui sepenuhnya.\n\n🔗 Link: {url}",
+            'notify_template_sppb_approved_email_body' => "Selamat!\n\nSPPB dengan nomor {document_number} telah disetujui sepenuhnya. Dokumen Surat Jalan siap untuk diproses.",
+            'notify_template_sppb_approved_wa_body' => "*[E-SPPB Enterprise]*\n*SPPB Disetujui Sepenuhnya*\n\nSelamat! SPPB dengan nomor *{document_number}* telah disetujui sepenuhnya.\n\n🔗 Link Akses: {url}",
 
             'notify_template_sppb_rejected_revised_email_subject' => '[E-SPPB] Permintaan Revisi / Penolakan SPPB: {document_number}',
-            'notify_template_sppb_rejected_revised_email_body' => 'SPPB dengan nomor {document_number} memerlukan revisi atau telah ditolak. Catatan: {notes}',
-            'notify_template_sppb_rejected_revised_wa_body' => "*[E-SPPB Enterprise]*\n*Revisi / Penolakan SPPB*\n\nSPPB dengan nomor {document_number} memerlukan revisi atau telah ditolak. Catatan: {notes}\n\n🔗 Link: {url}",
+            'notify_template_sppb_rejected_revised_email_body' => "Halo {requester_name},\n\nSPPB dengan nomor {document_number} memerlukan revisi atau telah ditolak.\nCatatan: {notes}",
+            'notify_template_sppb_rejected_revised_wa_body' => "*[E-SPPB Enterprise]*\n*Revisi / Penolakan SPPB*\n\nSPPB dengan nomor *{document_number}* memerlukan revisi atau telah ditolak.\nCatatan: _{notes}_\n\n🔗 Link Akses: {url}",
 
             'notify_template_goods_released_email_subject' => '[E-SPPB] Penerbitan Surat Jalan: {document_number}',
-            'notify_template_goods_released_email_body' => 'Surat Jalan (Goods Release) untuk SPPB nomor {document_number} telah diterbitkan.',
-            'notify_template_goods_released_wa_body' => "*[E-SPPB Enterprise]*\n*Surat Jalan Diterbitkan*\n\nSurat Jalan (Goods Release) untuk SPPB nomor {document_number} telah diterbitkan.\n\n🔗 Link: {url}",
+            'notify_template_goods_released_email_body' => "Yth. Bpk/Ibu,\n\nSurat Jalan (Goods Release) untuk SPPB nomor {document_number} telah diterbitkan dan barang siap dipindahkan/diambil.",
+            'notify_template_goods_released_wa_body' => "*[E-SPPB Enterprise]*\n*Surat Jalan Diterbitkan*\n\nSurat Jalan (Goods Release) untuk SPPB nomor *{document_number}* telah diterbitkan.\n\n🔗 Link Akses: {url}",
 
             'notify_email_enabled' => false,
             'mail_driver' => 'smtp',
@@ -129,6 +129,11 @@ class NotificationSettings extends Page implements HasForms
             'mail_from_name' => 'E-SPPB Enterprise',
 
             'notify_wa_enabled' => false,
+            'wa_provider' => 'meta_cloud',
+            'wa_phone_number_id' => '',
+            'wa_access_token' => '',
+            'wa_business_account_id' => '',
+            'wa_api_version' => 'v20.0',
             'wa_server_url' => 'http://127.0.0.1:3000/send-message',
             'wa_api_secret' => '',
             'wa_sender_number' => '',
@@ -173,190 +178,153 @@ class NotificationSettings extends Page implements HasForms
                                                     60 => '60 Hari',
                                                     90 => '90 Hari',
                                                 ])
-                                                ->helperText('Durasi penyimpan riwayat notifikasi sebelum dibersihkan otomatis.')
+                                                ->helperText('Durasi penyimpanan riwayat notifikasi sebelum dibersihkan otomatis.')
                                                 ->required(),
                                         ]),
                                     ]),
 
-                                Section::make('Checklist & Template Event Notifikasi')
-                                    ->description('Pilih peristiwa (events) mana saja yang memicu notifikasi dan atur template pesan untuk setiap saluran (Email / WhatsApp).')
+                                Section::make('Status Peristiwa (Event Triggers)')
+                                    ->description('Aktifkan atau nonaktifkan peristiwa yang dapat memicu pengiriman notifikasi.')
+                                    ->schema([
+                                        Grid::make(2)->schema([
+                                            Toggle::make('notify_event_sppb_created')
+                                                ->label('Pengajuan SPPB Baru')
+                                                ->helperText('Notifikasi saat SPPB baru berhasil diajukan.'),
+
+                                            Toggle::make('notify_event_approval_requested')
+                                                ->label('Permintaan Persetujuan (Approver)')
+                                                ->helperText('Notifikasi ke Approver yang perlu melakukan verifikasi.'),
+
+                                            Toggle::make('notify_event_approval_stage_updated')
+                                                ->label('Update Persetujuan Antar-Tahap')
+                                                ->helperText('Notifikasi saat SPPB melanjut ke tahap berikutnya.'),
+
+                                            Toggle::make('notify_event_sppb_approved')
+                                                ->label('SPPB Disetujui Sepenuhnya')
+                                                ->helperText('Notifikasi saat SPPB disetujui akhir oleh semua pihak.'),
+
+                                            Toggle::make('notify_event_sppb_rejected_revised')
+                                                ->label('Permintaan Revisi / Penolakan')
+                                                ->helperText('Notifikasi saat SPPB ditolak atau perlu revisi.'),
+
+                                            Toggle::make('notify_event_goods_released')
+                                                ->label('Penerbitan Surat Jalan (SAT)')
+                                                ->helperText('Notifikasi saat Surat Jalan / Goods Release diterbitkan.'),
+                                        ]),
+                                    ]),
+                            ]),
+
+                        Tab::make('Template Notifikasi')
+                            ->icon('heroicon-m-document-text')
+                            ->schema([
+                                Placeholder::make('template_guide')
+                                    ->columnSpanFull()
+                                    ->view('filament.pages.template-placeholders-guide'),
+
+                                Section::make('Pengaturan Template Per Event')
+                                    ->description('Atur format teks pesan Email dan WhatsApp untuk setiap peristiwa transaksi.')
                                     ->schema([
                                         // 1. Pengajuan SPPB Baru
-                                        Section::make('Pengajuan SPPB Baru')
+                                        Section::make('1. Pengajuan SPPB Baru')
                                             ->collapsible()
-                                            ->collapsed()
+                                            ->collapsed(false)
                                             ->schema([
-                                                Toggle::make('notify_event_sppb_created')
-                                                    ->label('Aktifkan Notifikasi Pengajuan SPPB Baru')
-                                                    ->helperText('Dikirim saat pemohon berhasil mengajukan SPPB baru.')
-                                                    ->live()
-                                                    ->columnSpanFull(),
-
-                                                Grid::make(1)
-                                                    ->schema([
-                                                        TextInput::make('notify_template_sppb_created_email_subject')
-                                                            ->label('Subjek Email')
-                                                            ->required(fn ($get) => (bool) $get('notify_event_sppb_created'))
-                                                            ->placeholder('Contoh: [E-SPPB] Pengajuan SPPB Baru: {document_number}'),
-                                                        Textarea::make('notify_template_sppb_created_email_body')
-                                                            ->label('Isi Email')
-                                                            ->rows(3)
-                                                            ->required(fn ($get) => (bool) $get('notify_event_sppb_created'))
-                                                            ->placeholder('Contoh: SPPB dengan nomor {document_number} telah diajukan oleh {requester_name}.'),
-                                                        Textarea::make('notify_template_sppb_created_wa_body')
-                                                            ->label('Isi WhatsApp')
-                                                            ->rows(3)
-                                                            ->required(fn ($get) => (bool) $get('notify_event_sppb_created'))
-                                                            ->placeholder('Tulis pesan WhatsApp. Gunakan format Markdown jika diinginkan.'),
-                                                    ])
-                                                    ->visible(fn ($get) => (bool) $get('notify_event_sppb_created'))
-                                                    ->columnSpanFull(),
+                                                Grid::make(1)->schema([
+                                                    TextInput::make('notify_template_sppb_created_email_subject')
+                                                        ->label('Subjek Email')
+                                                        ->placeholder('Contoh: [E-SPPB] Pengajuan SPPB Baru: {document_number}'),
+                                                    Textarea::make('notify_template_sppb_created_email_body')
+                                                        ->label('Isi Email')
+                                                        ->rows(3),
+                                                    Textarea::make('notify_template_sppb_created_wa_body')
+                                                        ->label('Isi WhatsApp (Markdown Supported)')
+                                                        ->rows(4),
+                                                ]),
                                             ]),
 
                                         // 2. Permintaan Persetujuan (Approver)
-                                        Section::make('Permintaan Persetujuan (Approver)')
+                                        Section::make('2. Permintaan Persetujuan (Approver)')
                                             ->collapsible()
                                             ->collapsed()
                                             ->schema([
-                                                Toggle::make('notify_event_approval_requested')
-                                                    ->label('Aktifkan Notifikasi Permintaan Persetujuan')
-                                                    ->helperText('Dikirim ke Approver/Verifier saat membutuhkan tindakan persetujuan.')
-                                                    ->live()
-                                                    ->columnSpanFull(),
-
-                                                Grid::make(1)
-                                                    ->schema([
-                                                        TextInput::make('notify_template_approval_requested_email_subject')
-                                                            ->label('Subjek Email')
-                                                            ->required(fn ($get) => (bool) $get('notify_event_approval_requested'))
-                                                            ->placeholder('Contoh: [E-SPPB] Permintaan Persetujuan SPPB: {document_number}'),
-                                                        Textarea::make('notify_template_approval_requested_email_body')
-                                                            ->label('Isi Email')
-                                                            ->rows(3)
-                                                            ->required(fn ($get) => (bool) $get('notify_event_approval_requested')),
-                                                        Textarea::make('notify_template_approval_requested_wa_body')
-                                                            ->label('Isi WhatsApp')
-                                                            ->rows(3)
-                                                            ->required(fn ($get) => (bool) $get('notify_event_approval_requested')),
-                                                    ])
-                                                    ->visible(fn ($get) => (bool) $get('notify_event_approval_requested'))
-                                                    ->columnSpanFull(),
+                                                Grid::make(1)->schema([
+                                                    TextInput::make('notify_template_approval_requested_email_subject')
+                                                        ->label('Subjek Email'),
+                                                    Textarea::make('notify_template_approval_requested_email_body')
+                                                        ->label('Isi Email')
+                                                        ->rows(3),
+                                                    Textarea::make('notify_template_approval_requested_wa_body')
+                                                        ->label('Isi WhatsApp (Markdown Supported)')
+                                                        ->rows(4),
+                                                ]),
                                             ]),
 
                                         // 3. Update Persetujuan Antar-Tahap
-                                        Section::make('Update Persetujuan Antar-Tahap')
+                                        Section::make('3. Update Persetujuan Antar-Tahap')
                                             ->collapsible()
                                             ->collapsed()
                                             ->schema([
-                                                Toggle::make('notify_event_approval_stage_updated')
-                                                    ->label('Aktifkan Notifikasi Update Persetujuan')
-                                                    ->helperText('Dikirim ke Pemohon saat SPPB berlanjut ke tahap approval berikutnya.')
-                                                    ->live()
-                                                    ->columnSpanFull(),
-
-                                                Grid::make(1)
-                                                    ->schema([
-                                                        TextInput::make('notify_template_approval_stage_updated_email_subject')
-                                                            ->label('Subjek Email')
-                                                            ->required(fn ($get) => (bool) $get('notify_event_approval_stage_updated')),
-                                                        Textarea::make('notify_template_approval_stage_updated_email_body')
-                                                            ->label('Isi Email')
-                                                            ->rows(3)
-                                                            ->required(fn ($get) => (bool) $get('notify_event_approval_stage_updated')),
-                                                        Textarea::make('notify_template_approval_stage_updated_wa_body')
-                                                            ->label('Isi WhatsApp')
-                                                            ->rows(3)
-                                                            ->required(fn ($get) => (bool) $get('notify_event_approval_stage_updated')),
-                                                    ])
-                                                    ->visible(fn ($get) => (bool) $get('notify_event_approval_stage_updated'))
-                                                    ->columnSpanFull(),
+                                                Grid::make(1)->schema([
+                                                    TextInput::make('notify_template_approval_stage_updated_email_subject')
+                                                        ->label('Subjek Email'),
+                                                    Textarea::make('notify_template_approval_stage_updated_email_body')
+                                                        ->label('Isi Email')
+                                                        ->rows(3),
+                                                    Textarea::make('notify_template_approval_stage_updated_wa_body')
+                                                        ->label('Isi WhatsApp (Markdown Supported)')
+                                                        ->rows(4),
+                                                ]),
                                             ]),
 
                                         // 4. SPPB Disetujui Sepenuhnya (Final Approved)
-                                        Section::make('SPPB Disetujui Sepenuhnya (Final Approved)')
+                                        Section::make('4. SPPB Disetujui Sepenuhnya')
                                             ->collapsible()
                                             ->collapsed()
                                             ->schema([
-                                                Toggle::make('notify_event_sppb_approved')
-                                                    ->label('Aktifkan Notifikasi SPPB Disetujui')
-                                                    ->helperText('Dikirim ke Pemohon saat SPPB disetujui sepenuhnya.')
-                                                    ->live()
-                                                    ->columnSpanFull(),
-
-                                                Grid::make(1)
-                                                    ->schema([
-                                                        TextInput::make('notify_template_sppb_approved_email_subject')
-                                                            ->label('Subjek Email')
-                                                            ->required(fn ($get) => (bool) $get('notify_event_sppb_approved')),
-                                                        Textarea::make('notify_template_sppb_approved_email_body')
-                                                            ->label('Isi Email')
-                                                            ->rows(3)
-                                                            ->required(fn ($get) => (bool) $get('notify_event_sppb_approved')),
-                                                        Textarea::make('notify_template_sppb_approved_wa_body')
-                                                            ->label('Isi WhatsApp')
-                                                            ->rows(3)
-                                                            ->required(fn ($get) => (bool) $get('notify_event_sppb_approved')),
-                                                    ])
-                                                    ->visible(fn ($get) => (bool) $get('notify_event_sppb_approved'))
-                                                    ->columnSpanFull(),
+                                                Grid::make(1)->schema([
+                                                    TextInput::make('notify_template_sppb_approved_email_subject')
+                                                        ->label('Subjek Email'),
+                                                    Textarea::make('notify_template_sppb_approved_email_body')
+                                                        ->label('Isi Email')
+                                                        ->rows(3),
+                                                    Textarea::make('notify_template_sppb_approved_wa_body')
+                                                        ->label('Isi WhatsApp (Markdown Supported)')
+                                                        ->rows(4),
+                                                ]),
                                             ]),
 
                                         // 5. Permintaan Revisi / Penolakan SPPB
-                                        Section::make('Permintaan Revisi / Penolakan SPPB')
+                                        Section::make('5. Permintaan Revisi / Penolakan SPPB')
                                             ->collapsible()
                                             ->collapsed()
                                             ->schema([
-                                                Toggle::make('notify_event_sppb_rejected_revised')
-                                                    ->label('Aktifkan Notifikasi Revisi / Penolakan')
-                                                    ->helperText('Dikirim ke Pemohon saat SPPB ditolak atau diminta revisi.')
-                                                    ->live()
-                                                    ->columnSpanFull(),
-
-                                                Grid::make(1)
-                                                    ->schema([
-                                                        TextInput::make('notify_template_sppb_rejected_revised_email_subject')
-                                                            ->label('Subjek Email')
-                                                            ->required(fn ($get) => (bool) $get('notify_event_sppb_rejected_revised')),
-                                                        Textarea::make('notify_template_sppb_rejected_revised_email_body')
-                                                            ->label('Isi Email')
-                                                            ->rows(3)
-                                                            ->required(fn ($get) => (bool) $get('notify_event_sppb_rejected_revised')),
-                                                        Textarea::make('notify_template_sppb_rejected_revised_wa_body')
-                                                            ->label('Isi WhatsApp')
-                                                            ->rows(3)
-                                                            ->required(fn ($get) => (bool) $get('notify_event_sppb_rejected_revised')),
-                                                    ])
-                                                    ->visible(fn ($get) => (bool) $get('notify_event_sppb_rejected_revised'))
-                                                    ->columnSpanFull(),
+                                                Grid::make(1)->schema([
+                                                    TextInput::make('notify_template_sppb_rejected_revised_email_subject')
+                                                        ->label('Subjek Email'),
+                                                    Textarea::make('notify_template_sppb_rejected_revised_email_body')
+                                                        ->label('Isi Email')
+                                                        ->rows(3),
+                                                    Textarea::make('notify_template_sppb_rejected_revised_wa_body')
+                                                        ->label('Isi WhatsApp (Markdown Supported)')
+                                                        ->rows(4),
+                                                ]),
                                             ]),
 
                                         // 6. Penerbitan Surat Jalan / Pelepasan Barang (SAT)
-                                        Section::make('Penerbitan Surat Jalan / Pelepasan Barang (SAT)')
+                                        Section::make('6. Penerbitan Surat Jalan (SAT)')
                                             ->collapsible()
                                             ->collapsed()
                                             ->schema([
-                                                Toggle::make('notify_event_goods_released')
-                                                    ->label('Aktifkan Notifikasi Surat Jalan')
-                                                    ->helperText('Dikirim saat Surat Jalan (Goods Release) dibuat atau diterbitkan.')
-                                                    ->live()
-                                                    ->columnSpanFull(),
-
-                                                Grid::make(1)
-                                                    ->schema([
-                                                        TextInput::make('notify_template_goods_released_email_subject')
-                                                            ->label('Subjek Email')
-                                                            ->required(fn ($get) => (bool) $get('notify_event_goods_released')),
-                                                        Textarea::make('notify_template_goods_released_email_body')
-                                                            ->label('Isi Email')
-                                                            ->rows(3)
-                                                            ->required(fn ($get) => (bool) $get('notify_event_goods_released')),
-                                                        Textarea::make('notify_template_goods_released_wa_body')
-                                                            ->label('Isi WhatsApp')
-                                                            ->rows(3)
-                                                            ->required(fn ($get) => (bool) $get('notify_event_goods_released')),
-                                                    ])
-                                                    ->visible(fn ($get) => (bool) $get('notify_event_goods_released'))
-                                                    ->columnSpanFull(),
+                                                Grid::make(1)->schema([
+                                                    TextInput::make('notify_template_goods_released_email_subject')
+                                                        ->label('Subjek Email'),
+                                                    Textarea::make('notify_template_goods_released_email_body')
+                                                        ->label('Isi Email')
+                                                        ->rows(3),
+                                                    Textarea::make('notify_template_goods_released_wa_body')
+                                                        ->label('Isi WhatsApp (Markdown Supported)')
+                                                        ->rows(4),
+                                                ]),
                                             ]),
                                     ]),
                             ]),
@@ -444,37 +412,86 @@ class NotificationSettings extends Page implements HasForms
                         Tab::make('Notifikasi WhatsApp')
                             ->icon('heroicon-m-chat-bubble-left-right')
                             ->schema([
-                                Section::make('Setup OpenWA Gateway')
-                                    ->description('Integrasi WhatsApp gateway berbasis OpenWA Node.js server.')
+                                Section::make('Pengaturan Engine WhatsApp')
+                                    ->description('Konfigurasi penyedia layanan WhatsApp (Official Meta WhatsApp Business Cloud API atau Custom REST Gateway).')
                                     ->schema([
                                         Toggle::make('notify_wa_enabled')
                                             ->label('Aktifkan Notifikasi WhatsApp')
                                             ->helperText('Jika aktif, notifikasi akan dikirimkan langsung ke nomor WA pengguna.')
                                             ->columnSpanFull(),
 
-                                        Grid::make(3)->schema([
-                                            TextInput::make('wa_server_url')
-                                                ->label('Server URL Gateway')
-                                                ->required()
-                                                ->url()
-                                                ->default('http://127.0.0.1:3000/send-message')
-                                                ->placeholder('http://127.0.0.1:3000/send-message')
-                                                ->columnSpan(2),
+                                        Select::make('wa_provider')
+                                            ->label('Penyedia Layanan (WhatsApp Engine Provider)')
+                                            ->options([
+                                                'meta_cloud' => 'Official Meta WhatsApp Business Cloud API',
+                                                'wwebjs' => 'Custom REST Gateway / Node.js wwebjs',
+                                            ])
+                                            ->default('meta_cloud')
+                                            ->required()
+                                            ->live()
+                                            ->afterStateUpdated(fn () => $this->checkWaStatus())
+                                            ->columnSpanFull(),
 
-                                            TextInput::make('wa_sender_number')
-                                                ->label('Nomor Bot WA Pengirim')
-                                                ->tel()
-                                                ->nullable()
-                                                ->placeholder('6281234567890'),
+                                        // Meta Cloud API Setup
+                                        Grid::make(2)
+                                            ->schema([
+                                                TextInput::make('wa_phone_number_id')
+                                                    ->label('Phone Number ID (Meta)')
+                                                    ->required(fn ($get) => ($get('wa_provider') ?? 'meta_cloud') === 'meta_cloud')
+                                                    ->placeholder('Contoh: 100609346382109')
+                                                    ->helperText('Dapatkan ID ini dari Meta Developer Portal > WhatsApp > API Setup.'),
 
-                                            TextInput::make('wa_api_secret')
-                                                ->label('API Secret Token Header')
-                                                ->password()
-                                                ->revealable()
-                                                ->nullable()
-                                                ->placeholder('Token Rahasia Header OpenWA')
-                                                ->columnSpanFull(),
-                                        ]),
+                                                TextInput::make('wa_business_account_id')
+                                                    ->label('WhatsApp Business Account ID (WABA ID)')
+                                                    ->nullable()
+                                                    ->placeholder('Contoh: 102948271039485'),
+
+                                                TextInput::make('wa_access_token')
+                                                    ->label('Permanent System User Access Token (Meta)')
+                                                    ->password()
+                                                    ->revealable()
+                                                    ->required(fn ($get) => ($get('wa_provider') ?? 'meta_cloud') === 'meta_cloud')
+                                                    ->placeholder('Token EAAG...')
+                                                    ->helperText('Gunakan Token Permanen dari Business Manager (System User) dengan izin whatsapp_business_messaging.')
+                                                    ->columnSpanFull(),
+
+                                                TextInput::make('wa_api_version')
+                                                    ->label('Meta Graph API Version')
+                                                    ->default('v20.0')
+                                                    ->required(fn ($get) => ($get('wa_provider') ?? 'meta_cloud') === 'meta_cloud')
+                                                    ->placeholder('v20.0')
+                                                    ->columnSpanFull(),
+                                            ])
+                                            ->visible(fn ($get) => ($get('wa_provider') ?? 'meta_cloud') === 'meta_cloud')
+                                            ->columnSpanFull(),
+
+                                        // Custom REST Gateway (wwebjs) Setup
+                                        Grid::make(3)
+                                            ->schema([
+                                                TextInput::make('wa_server_url')
+                                                    ->label('Server URL Gateway')
+                                                    ->required(fn ($get) => $get('wa_provider') === 'wwebjs')
+                                                    ->url()
+                                                    ->default('http://127.0.0.1:3000/send-message')
+                                                    ->placeholder('http://127.0.0.1:3000/send-message')
+                                                    ->columnSpan(2),
+
+                                                TextInput::make('wa_sender_number')
+                                                    ->label('Nomor Bot WA Pengirim')
+                                                    ->tel()
+                                                    ->nullable()
+                                                    ->placeholder('6281234567890'),
+
+                                                TextInput::make('wa_api_secret')
+                                                    ->label('API Secret Token Header (Optional)')
+                                                    ->password()
+                                                    ->revealable()
+                                                    ->nullable()
+                                                    ->placeholder('Token Rahasia Header API Key')
+                                                    ->columnSpanFull(),
+                                            ])
+                                            ->visible(fn ($get) => $get('wa_provider') === 'wwebjs')
+                                            ->columnSpanFull(),
                                     ]),
 
                                 Placeholder::make('wa_status_section')
@@ -491,7 +508,8 @@ class NotificationSettings extends Page implements HasForms
     {
         /** @var WhatsAppService $waService */
         $waService = app(WhatsAppService::class);
-        $this->waStatusData = $waService->getStatus();
+        $state = $this->data ?? [];
+        $this->waStatusData = $waService->getStatus($state);
     }
 
     public function sendTestEmail(): void
@@ -572,7 +590,8 @@ class NotificationSettings extends Page implements HasForms
 
         /** @var WhatsAppService $waService */
         $waService = app(WhatsAppService::class);
-        $success = $waService->sendTestMessage($recipient);
+        $state = $this->data ?? [];
+        $success = $waService->sendTestMessage($recipient, $state);
 
         if ($success) {
             Notification::make()
@@ -583,7 +602,7 @@ class NotificationSettings extends Page implements HasForms
         } else {
             Notification::make()
                 ->title('Gagal Mengirim WhatsApp Uji Coba')
-                ->body('Koneksi OpenWA Gateway gagal atau tidak merespons. Periksa log sistem untuk detail.')
+                ->body('Koneksi WhatsApp API / Gateway gagal atau tidak merespons. Periksa log sistem untuk detail.')
                 ->danger()
                 ->send();
         }
@@ -638,6 +657,11 @@ class NotificationSettings extends Page implements HasForms
             'mail_from_name' => 'string',
 
             'notify_wa_enabled' => 'boolean',
+            'wa_provider' => 'string',
+            'wa_phone_number_id' => 'string',
+            'wa_access_token' => 'string',
+            'wa_business_account_id' => 'string',
+            'wa_api_version' => 'string',
             'wa_server_url' => 'string',
             'wa_api_secret' => 'string',
             'wa_sender_number' => 'string',

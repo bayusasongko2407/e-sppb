@@ -18,19 +18,20 @@ class LocationSeeder extends Seeder
         $plants = Plant::all();
 
         foreach ($plants as $plant) {
+            $cleanPlantCode = substr(str_replace([' ', '-'], '', $plant->code), 0, 10);
             $locations = [
                 [
-                    'code' => 'LOC-'.str_replace(' ', '', $plant->code).'-ENG',
+                    'code' => "LOC-{$cleanPlantCode}-ENG",
                     'name' => 'Workshop Engineering '.$plant->name,
                     'address' => 'Area workshop pemeliharaan mesin pada '.$plant->name,
                 ],
                 [
-                    'code' => 'LOC-'.str_replace(' ', '', $plant->code).'-GRAW',
+                    'code' => "LOC-{$cleanPlantCode}-GRAW",
                     'name' => 'Gudang Bahan Baku '.$plant->name,
                     'address' => 'Area penyimpanan raw material pada '.$plant->name,
                 ],
                 [
-                    'code' => 'LOC-'.str_replace(' ', '', $plant->code).'-GFIN',
+                    'code' => "LOC-{$cleanPlantCode}-GFIN",
                     'name' => 'Gudang Barang Jadi '.$plant->name,
                     'address' => 'Area penyimpanan produk jadi / finished goods pada '.$plant->name,
                 ],

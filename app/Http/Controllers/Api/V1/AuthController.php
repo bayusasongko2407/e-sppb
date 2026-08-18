@@ -26,8 +26,12 @@ class AuthController extends Controller
      */
     public function login(Request $request): JsonResponse
     {
+        if ($request->has('username') && ! $request->has('email')) {
+            $request->merge(['email' => $request->input('username')]);
+        }
+
         $request->validate([
-            'email' => 'required|string', // can be email or NIK
+            'email' => 'required|string', // can be email, NIK, or username
             'password' => 'required|string',
         ]);
 
@@ -69,10 +73,12 @@ class AuthController extends Controller
                 'message' => 'Login berhasil.',
                 'data' => [
                     'access_token' => $accessToken,
+                    'token' => $accessToken, // compatibility alias
                     'refresh_token' => $refreshToken,
                     'user' => [
                         'id' => $user->id,
                         'nik' => $user->nik,
+                        'nip' => $user->nik, // compatibility alias
                         'name' => $user->name,
                         'email' => $user->email,
                         'plant_id' => $user->plant_id,
@@ -201,6 +207,7 @@ class AuthController extends Controller
             'data' => [
                 'id' => $user->id,
                 'nik' => $user->nik,
+                'nip' => $user->nik, // compatibility alias
                 'name' => $user->name,
                 'email' => $user->email,
                 'plant_id' => $user->plant_id,

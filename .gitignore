@@ -19,6 +19,7 @@
 /storage/*.key
 /storage/pail
 /vendor
+/whatsapp-gateway/node_modules
 Homestead.json
 Homestead.yaml
 Thumbs.db

@@ -22,9 +22,12 @@ class DatabaseSeeder extends Seeder
         $roles = [
             'super_admin',
             'admin',
-            'requester',
-            'approver',
-            'manager',
+            'Pemohon',
+            'Supervisor',
+            'Manager',
+            'BAT Verifier',
+            'Sekuriti/Gudang',
+            'Auditor',
         ];
 
         foreach ($roles as $role) {
@@ -45,5 +48,13 @@ class DatabaseSeeder extends Seeder
         if (! $superAdmin->hasRole('super_admin')) {
             $superAdmin->assignRole('super_admin');
         }
+
+        $this->call([
+            RolePermissionSeeder::class,
+            ItemSeeder::class,
+            EnumControlSeeder::class,
+            WorkflowTemplateSeeder::class,
+            AppSettingSeeder::class,
+        ]);
     }
 }

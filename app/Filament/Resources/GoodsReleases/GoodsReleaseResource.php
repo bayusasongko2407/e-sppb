@@ -556,7 +556,7 @@ class GoodsReleaseResource extends Resource
                                     }
 
                                     // Grouping check: only show header for the first item of this SPPB
-                                    $items = $get('../../goodsReleaseItems') ?? [];
+                                    $items = $get('goodsReleaseItems') ?? $get('../goodsReleaseItems') ?? $get('../../goodsReleaseItems') ?? [];
                                     $sppbHeaderId = $detail->sppb_header_id;
                                     $firstItemWithThisSppb = null;
                                     foreach ($items as $item) {
@@ -582,7 +582,7 @@ class GoodsReleaseResource extends Resource
                             Placeholder::make('row_no')
                                 ->label('No.')
                                 ->content(function ($component, Get $get) {
-                                    $items = $get('../../goodsReleaseItems') ?? [];
+                                    $items = $get('goodsReleaseItems') ?? $get('../goodsReleaseItems') ?? $get('../../goodsReleaseItems') ?? [];
                                     $statePath = $component->getContainer()->getStatePath();
                                     $parts = explode('.', $statePath);
                                     $keyIndex = array_search('goodsReleaseItems', $parts);
@@ -616,8 +616,21 @@ class GoodsReleaseResource extends Resource
                                 ->live()
                                 ->searchable()
                                 ->disabled(fn ($record) => $record && $record->status !== 'DRAFT')
-                                ->options(function (Get $get) {
-                                    $sppbIds = $get('../../sppbHeaders') ?? [];
+                                ->options(function (Get $get, $component, $record) {
+                                    $livewireData = $component?->getLivewire()?->data ?? [];
+                                    $sppbIds = $livewireData['sppbHeaders']
+                                        ?? $get('sppbHeaders')
+                                        ?? $get('../../sppbHeaders')
+                                        ?? $get('../../../sppbHeaders')
+                                        ?? $get('../../../../sppbHeaders')
+                                        ?? [];
+
+                                    if (empty($sppbIds) && $record) {
+                                        $sppbIds = $record->sppbHeaders->pluck('id')->toArray() ?: ($record->sppb_header_id ? [$record->sppb_header_id] : []);
+                                    }
+                                    if (empty($sppbIds) && request()->query('sppb_header_id')) {
+                                        $sppbIds = [(int) request()->query('sppb_header_id')];
+                                    }
                                     if (empty($sppbIds)) {
                                         return [];
                                     }
@@ -627,7 +640,8 @@ class GoodsReleaseResource extends Resource
                                         ->get();
 
                                     $currentDetailId = $get('sppb_detail_id');
-                                    $allSelected = collect($get('../../goodsReleaseItems') ?? [])
+                                    $allItems = $livewireData['goodsReleaseItems'] ?? $get('goodsReleaseItems') ?? $get('../goodsReleaseItems') ?? $get('../../goodsReleaseItems') ?? [];
+                                    $allSelected = collect($allItems)
                                         ->pluck('sppb_detail_id')
                                         ->filter()
                                         ->reject(fn ($id) => $id == $currentDetailId)

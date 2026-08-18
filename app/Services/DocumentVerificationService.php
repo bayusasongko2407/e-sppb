@@ -67,7 +67,7 @@ class DocumentVerificationService
                 }
             }
 
-            $candidate = $rawInput['qr_data'] ?? $rawInput['encrypted_data'] ?? $rawInput['hash'] ?? $rawInput['token'] ?? null;
+            $candidate = $rawInput['barcode'] ?? $rawInput['barcode_string'] ?? $rawInput['code'] ?? $rawInput['qr_data'] ?? $rawInput['encrypted_data'] ?? $rawInput['hash'] ?? $rawInput['token'] ?? null;
             if ($candidate && (is_string($candidate) || is_array($candidate))) {
                 return $this->decryptQrPayload($candidate);
             }

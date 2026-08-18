@@ -37,6 +37,12 @@ class EmailChangeRequestsTable
                 TextColumn::make('status')
                     ->label('Status')
                     ->badge()
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'PENDING' => 'Menunggu',
+                        'APPROVED' => 'Disetujui',
+                        'REJECTED' => 'Ditolak',
+                        default => $state,
+                    })
                     ->color(fn (string $state): string => match ($state) {
                         'PENDING' => 'warning',
                         'APPROVED' => 'success',
@@ -58,7 +64,7 @@ class EmailChangeRequestsTable
                 SelectFilter::make('status')
                     ->label('Status')
                     ->options([
-                        'PENDING' => 'Pending',
+                        'PENDING' => 'Menunggu',
                         'APPROVED' => 'Disetujui',
                         'REJECTED' => 'Ditolak',
                     ]),

@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\DTOs\Sppb\CreateSppbData;
 use App\DTOs\Sppb\SppbDetailData;
+use App\DTOs\Workflow\ApprovalDecisionData;
+use App\Enums\ApproverStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Sppb\CreateSppbRequest;
 use App\Http\Requests\Api\V1\Sppb\SubmitSppbRequest;
@@ -17,6 +19,8 @@ use App\Models\Plant;
 use App\Models\SppbDetail;
 use App\Models\SppbHeader;
 use App\Models\SppbStatusLog;
+use App\Models\Unit;
+use App\Models\WorkflowStepApprover;
 use App\Services\SppbService;
 use App\Services\WorkflowService;
 use Carbon\Carbon;
@@ -48,13 +52,34 @@ class SppbController extends Controller
             ->orderBy($request->query('sort', 'created_at'), $request->query('direction', 'desc'));
 
         if ($request->has('status')) {
-            $query->where('status', $request->query('status'));
+            $status = $request->query('status');
+            $normalizedStatus = match (strtoupper((string) $status)) {
+                'SUBMITTED' => 'WAITING_APPROVAL',
+                'RELEASED' => 'RELEASE_IN_PROGRESS',
+                default => $status,
+            };
+            $query->where('status', $normalizedStatus);
         }
         if ($request->has('plant_id')) {
             $query->where('plant_id', $request->query('plant_id'));
         }
+        if ($request->filled('search')) {
+            $search = $request->query('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('document_number', 'like', '%'.$search.'%')
+                    ->orWhere('needed_name', 'like', '%'.$search.'%')
+                    ->orWhere('purpose', 'like', '%'.$search.'%')
+                    ->orWhere('remarks', 'like', '%'.$search.'%')
+                    ->orWhereHas('requester', function ($rq) use ($search) {
+                        $rq->where('name', 'like', '%'.$search.'%')
+                            ->orWhere('nik', 'like', '%'.$search.'%')
+                            ->orWhere('email', 'like', '%'.$search.'%');
+                    });
+            });
+        }
 
-        $sppbs = $query->paginate($request->query('per_page', 15));
+        $perPage = (int) ($request->query('per_page') ?? $request->query('limit') ?? 15);
+        $sppbs = $query->paginate($perPage);
 
         return response()->json([
             'success' => true,
@@ -94,6 +119,22 @@ class SppbController extends Controller
         );
 
         $sppb = $this->sppbService->createDraft($dto);
+
+        if ($request->has('items') && is_array($request->input('items'))) {
+            foreach ($request->input('items') as $itemData) {
+                $unitId = Unit::where('name', 'like', $itemData['unit'] ?? 'Pcs')->value('id') ?? 1;
+                SppbDetail::create([
+                    'sppb_header_id' => $sppb->id,
+                    'item_asset_name' => $itemData['item_name'] ?? 'Item',
+                    'quantity' => $itemData['qty_requested'] ?? ($itemData['quantity'] ?? 1),
+                    'unit_id' => $unitId,
+                    'remarks' => $itemData['notes'] ?? ($itemData['remarks'] ?? null),
+                    'reference_code' => $itemData['item_code'] ?? null,
+                    'delivery_status' => 'PENDING',
+                ]);
+            }
+            $sppb->load('details');
+        }
 
         return response()->json([
             'success' => true,
@@ -532,5 +573,100 @@ class SppbController extends Controller
                 'sppbStatusLogs.workflowInstanceStep',
             ])
             ->firstOrFail();
+    }
+
+    /**
+     * Compatibility Route: Setujui Dokumen SPPB via UUID/ID SPPB.
+     *
+     * POST /api/v1/sppb/{id_or_uuid}/approve
+     */
+    public function approve(Request $request, string $uuid)
+    {
+        $sppb = $this->findSppb($uuid);
+        $user = $request->user();
+
+        $pendingStep = WorkflowStepApprover::whereHas('workflowInstanceStep.workflowInstance', function ($q) use ($sppb) {
+            $q->where('sppb_header_id', $sppb->id);
+        })
+            ->where('approver_id', $user->id)
+            ->where('status', ApproverStatus::PENDING->value)
+            ->first();
+
+        if (! $pendingStep) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda tidak memiliki hak persetujuan aktif untuk dokumen SPPB ini.',
+            ], 403);
+        }
+
+        $remarks = $request->input('remarks') ?? $request->input('notes') ?? $request->input('note');
+
+        $dto = new ApprovalDecisionData(
+            workflowInstanceStepId: (int) $pendingStep->workflow_instance_step_id,
+            actorId: (int) $user->id,
+            commandUuid: (string) Str::uuid(),
+            decision: 'approve',
+            remarks: $remarks,
+            correlationId: (string) Str::uuid()
+        );
+
+        $this->workflowService->queueApproval($dto);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Persetujuan SPPB berhasil diproses.',
+            'timestamp' => now()->toIso8601String(),
+        ]);
+    }
+
+    /**
+     * Compatibility Route: Tolak Dokumen SPPB via UUID/ID SPPB.
+     *
+     * POST /api/v1/sppb/{id_or_uuid}/reject
+     */
+    public function reject(Request $request, string $uuid)
+    {
+        $remarks = $request->input('remarks') ?? $request->input('reason') ?? $request->input('notes');
+        if (empty($remarks)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Alasan penolakan (remarks/reason) wajib diisi.',
+                'errors' => ['remarks' => ['Field remarks, reason, atau notes wajib diisi.']],
+            ], 422);
+        }
+
+        $sppb = $this->findSppb($uuid);
+        $user = $request->user();
+
+        $pendingStep = WorkflowStepApprover::whereHas('workflowInstanceStep.workflowInstance', function ($q) use ($sppb) {
+            $q->where('sppb_header_id', $sppb->id);
+        })
+            ->where('approver_id', $user->id)
+            ->where('status', ApproverStatus::PENDING->value)
+            ->first();
+
+        if (! $pendingStep) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda tidak memiliki hak persetujuan aktif untuk dokumen SPPB ini.',
+            ], 403);
+        }
+
+        $dto = new ApprovalDecisionData(
+            workflowInstanceStepId: (int) $pendingStep->workflow_instance_step_id,
+            actorId: (int) $user->id,
+            commandUuid: (string) Str::uuid(),
+            decision: 'reject',
+            remarks: (string) $remarks,
+            correlationId: (string) Str::uuid()
+        );
+
+        $this->workflowService->queueApproval($dto);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Penolakan SPPB berhasil diproses.',
+            'timestamp' => now()->toIso8601String(),
+        ]);
     }
 }

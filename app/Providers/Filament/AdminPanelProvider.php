@@ -66,6 +66,7 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('')
             ->databaseNotifications()
+            ->databaseNotificationsPolling('30s')
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->login(CustomLogin::class)
             ->brandName(fn () => AppSetting::get('app_custom_name', 'E-SPPB Enterprise'))

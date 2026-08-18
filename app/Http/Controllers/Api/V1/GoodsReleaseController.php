@@ -1,10 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers\Api\V1;
 
 use App\DTOs\GoodsRelease\CreateGoodsReleaseData;
 use App\DTOs\GoodsRelease\GoodsReleaseItemData;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\ConfirmReceiptRequest;
 use App\Models\GoodsRelease;
 use App\Models\GoodsReleaseItem;
 use App\Models\SppbHeader;
@@ -31,7 +34,23 @@ class GoodsReleaseController extends Controller
             $query->where('sppb_header_id', $request->query('sppb_header_id'));
         }
 
-        $releases = $query->paginate($request->query('per_page', 15));
+        if ($request->filled('search')) {
+            $search = $request->query('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('release_number', 'like', '%'.$search.'%')
+                    ->orWhere('manual_release_number', 'like', '%'.$search.'%')
+                    ->orWhere('recipient_name', 'like', '%'.$search.'%')
+                    ->orWhere('driver_name', 'like', '%'.$search.'%')
+                    ->orWhere('vehicle_number', 'like', '%'.$search.'%')
+                    ->orWhere('expedition_name', 'like', '%'.$search.'%')
+                    ->orWhereHas('sppbHeader', function ($sq) use ($search) {
+                        $sq->where('document_number', 'like', '%'.$search.'%');
+                    });
+            });
+        }
+
+        $perPage = (int) ($request->query('per_page') ?? $request->query('limit') ?? 15);
+        $releases = $query->paginate($perPage);
 
         return response()->json([
             'success' => true,
@@ -119,6 +138,42 @@ class GoodsReleaseController extends Controller
     }
 
     /**
+     * Compatibility Route: Store a newly created Goods Release using sppb_header_id in payload.
+     *
+     * POST /api/v1/goods-releases
+     */
+    public function storeCompatibility(Request $request, GoodsReleaseService $goodsReleaseService): JsonResponse
+    {
+        $sppbHeaderId = $request->input('sppb_header_id');
+        if (! $sppbHeaderId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Parameter sppb_header_id wajib diisi.',
+                'errors' => ['sppb_header_id' => ['Field sppb_header_id wajib diisi.']],
+            ], 422);
+        }
+
+        $sppb = SppbHeader::query()
+            ->where(function ($q) use ($sppbHeaderId) {
+                $q->where('uuid', $sppbHeaderId)
+                    ->orWhere('document_number', $sppbHeaderId);
+                if (is_numeric($sppbHeaderId)) {
+                    $q->orWhere('id', (int) $sppbHeaderId);
+                }
+            })
+            ->first();
+
+        if (! $sppb) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Dokumen SPPB tidak ditemukan.',
+            ], 404);
+        }
+
+        return $this->store($request, $sppb->uuid, $goodsReleaseService);
+    }
+
+    /**
      * Display the specified resource.
      */
     public function show(string $uuid): JsonResponse
@@ -134,46 +189,59 @@ class GoodsReleaseController extends Controller
     }
 
     /**
-     * Confirm receipt of goods release (Surat Jalan DELIVERED).
+     * Confirm receipt of goods — called from mobile app (authenticated or public via QR scan).
+     *
+     * POST /api/v1/goods-releases/{uuid}/receive
+     * POST /api/v1/goods-releases/{uuid}/receive  (public, no auth required)
+     *
+     * Body:
+     *   recipient_name      string  required  Nama penerima barang di lapangan
+     *   recipient_signature string  optional  Tanda tangan base64 (data:image/png;base64,...)
+     *   receiving_notes     string  optional  Catatan tambahan penerimaan
+     *   received_at         date    optional  Waktu penerimaan (default: sekarang)
      */
-    public function receive(Request $request, string $uuid, GoodsReleaseService $goodsReleaseService): JsonResponse
+    public function receive(ConfirmReceiptRequest $request, string $uuid, GoodsReleaseService $goodsReleaseService): JsonResponse
     {
         $release = $this->findGoodsRelease($uuid);
 
-        $request->validate([
-            'status' => 'nullable|string|max:50',
-            'notes' => 'nullable|string|max:1000',
-            'receiving_notes' => 'nullable|string|max:1000',
-            'recipient_name' => 'nullable|string|max:255',
-            'received_by_name' => 'nullable|string|max:255',
-            'recipient_signature' => 'nullable|string',
-            'signature' => 'nullable|string',
-            'received_by_id' => 'nullable|integer',
-            'received_at' => 'nullable|date',
-        ]);
+        $isAlreadyConfirmed = $release->received_at !== null
+            && in_array($release->getRawOriginal('status'), ['DELIVERED', 'RECEIVED', 'COMPLETED']);
 
-        $updatedRelease = $goodsReleaseService->receiveGoodsRelease(
-            $release,
-            $request->all(),
-            $request->user()?->id
-        );
+        try {
+            $updatedRelease = $goodsReleaseService->receiveGoodsRelease(
+                $release,
+                $request->validated(),
+                $request->user()?->id
+            );
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 413);
+        }
 
         return response()->json([
-            'status' => 'success',
             'success' => true,
-            'message' => 'Surat Jalan berhasil dikonfirmasi diterima',
+            'message' => $isAlreadyConfirmed
+                ? 'Surat Jalan ini sudah pernah dikonfirmasi sebelumnya.'
+                : 'Penerimaan barang berhasil dikonfirmasi.',
             'data' => [
-                'id' => $updatedRelease->id,
                 'uuid' => $updatedRelease->uuid,
-                'release_number' => $updatedRelease->release_number,
+                'release_number' => $updatedRelease->manual_release_number ?? $updatedRelease->release_number,
                 'status' => $updatedRelease->status,
-                'notes' => $updatedRelease->notes,
                 'recipient_name' => $updatedRelease->recipient_name,
+                'has_signature' => ! empty($updatedRelease->recipient_signature),
                 'recipient_signature' => $updatedRelease->recipient_signature,
                 'receiving_notes' => $updatedRelease->receiving_notes,
                 'received_at' => $updatedRelease->received_at?->toIso8601String(),
                 'updated_at' => $updatedRelease->updated_at?->toIso8601String(),
             ],
+            'already_confirmed' => $isAlreadyConfirmed,
         ]);
     }
 

@@ -139,25 +139,37 @@ class GoodsReleaseService
         return DB::transaction(function () use ($release, $data, $actorId) {
             $release->loadMissing(['goodsReleaseItems', 'sppbHeader']);
 
-            $status = strtoupper((string) ($data['status'] ?? 'DELIVERED'));
-            $notes = $data['receiving_notes'] ?? $data['notes'] ?? $release->notes;
+            // Guard: cannot confirm cancelled Surat Jalan
+            if ($release->getRawOriginal('status') === 'CANCELLED') {
+                throw new \RuntimeException('Surat Jalan yang dibatalkan tidak dapat dikonfirmasi penerimaannya.');
+            }
+
+            // Idempotency: already confirmed — return as-is (do not overwrite signature/name)
+            $rawStatus = $release->getRawOriginal('status');
+            if (in_array($rawStatus, ['DELIVERED', 'RECEIVED', 'COMPLETED']) && $release->received_at !== null) {
+                return $release;
+            }
+
             $receivedAt = ! empty($data['received_at']) ? Carbon::parse($data['received_at']) : now();
             $receivedById = $data['received_by_id'] ?? $actorId ?? $release->received_by_id;
-
-            $recipientName = $data['recipient_name'] ?? $data['received_by_name'] ?? $data['receiver_name'] ?? $release->recipient_name;
-            $recipientSignature = $data['recipient_signature'] ?? $data['signature'] ?? $release->recipient_signature;
+            $recipientName = $data['recipient_name'] ?? $data['received_by_name'] ?? $release->recipient_name;
+            $signature = $data['recipient_signature'] ?? $data['signature'] ?? $release->recipient_signature;
             $receivingNotes = $data['receiving_notes'] ?? $data['notes'] ?? $release->receiving_notes;
 
-            $oldStatus = $release->status;
-            $release->status = $status;
+            // Validate base64 signature size (max ~5 MB encoded)
+            if ($signature && strlen($signature) > 7_340_032) {
+                throw new \InvalidArgumentException('Ukuran tanda tangan melebihi batas maksimum (5 MB).');
+            }
+
+            $oldStatus = $rawStatus;
+
+            $release->status = 'DELIVERED';
             $release->received_at = $receivedAt;
             $release->received_by_id = $receivedById;
             $release->recipient_name = $recipientName;
-            $release->recipient_signature = $recipientSignature;
+            $release->recipient_signature = $signature;
             $release->receiving_notes = $receivingNotes;
-            if (! empty($notes)) {
-                $release->notes = $notes;
-            }
+            $release->notes = $receivingNotes ?? $release->notes;
             $release->save();
 
             foreach ($release->goodsReleaseItems as $item) {
@@ -173,8 +185,8 @@ class GoodsReleaseService
                     'actor_id' => $receivedById,
                     'action' => 'GOODS_RELEASE_DELIVERED',
                     'from_status' => $oldStatus,
-                    'to_status' => $status,
-                    'remarks' => $notes ?? 'Surat Jalan dikonfirmasi diterima.',
+                    'to_status' => 'DELIVERED',
+                    'remarks' => $receivingNotes ?? 'Surat Jalan dikonfirmasi diterima oleh '.$recipientName.'.',
                     'logged_at' => now(),
                 ]);
 

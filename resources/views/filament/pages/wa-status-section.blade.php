@@ -1,3 +1,10 @@
+@php
+    $currentProvider = $this->data['wa_provider'] ?? $this->waStatusData['provider'] ?? 'meta_cloud';
+    $providerLabel = $currentProvider === 'meta_cloud' 
+        ? 'Official Meta WhatsApp Business Cloud API' 
+        : 'Custom REST Gateway (wwebjs)';
+@endphp
+
 <div class="mt-4 p-4 bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-xl space-y-4">
     <div class="flex items-center justify-between pb-3 border-b border-gray-200 dark:border-gray-800">
         <div class="flex items-center gap-x-3">
@@ -7,8 +14,8 @@
                 </svg>
             </div>
             <div>
-                <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Status Koneksi & Uji Coba WhatsApp</h4>
-                <p class="text-xs text-gray-500 dark:text-gray-400">Pantau status bot pengirim dan lakukan pengujian pengiriman pesan.</p>
+                <h4 class="text-sm font-semibold text-gray-900 dark:text-white">Status Koneksi: {{ $providerLabel }}</h4>
+                <p class="text-xs text-gray-500 dark:text-gray-400">Pantau status koneksi engine WhatsApp terpilih dan lakukan uji coba pengiriman pesan.</p>
             </div>
         </div>
         <button type="button" wire:click="checkWaStatus" class="inline-flex items-center gap-x-1 px-2.5 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition cursor-pointer">
@@ -23,11 +30,23 @@
         <!-- Status & Test Send -->
         <div class="space-y-4">
             <div class="flex items-center gap-x-2">
-                <span class="text-xs font-medium text-gray-600 dark:text-gray-400">Status Gateway:</span>
+                <span class="text-xs font-medium text-gray-600 dark:text-gray-400">Engine Terpilih:</span>
+                <span class="inline-flex items-center gap-x-1 px-2.5 py-0.5 rounded-md text-xs font-semibold bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-400 border border-sky-200 dark:border-sky-800">
+                    {{ $providerLabel }}
+                </span>
+            </div>
+
+            <div class="flex items-center gap-x-2">
+                <span class="text-xs font-medium text-gray-600 dark:text-gray-400">Status Koneksi:</span>
                 @if ($this->waStatusData['connected'])
                     <span class="inline-flex items-center gap-x-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400">
                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                         CONNECTED (Terhubung)
+                    </span>
+                @elseif (($this->waStatusData['status_label'] ?? '') === 'PAIRING_REQUIRED')
+                    <span class="inline-flex items-center gap-x-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400">
+                        <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                        PERLU SCAN QR
                     </span>
                 @else
                     <span class="inline-flex items-center gap-x-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-400">
@@ -37,7 +56,7 @@
                 @endif
             </div>
 
-            <p class="text-xs text-gray-500 dark:text-gray-400">
+            <p class="text-xs text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-900 p-2.5 rounded-lg border border-gray-200 dark:border-gray-800">
                 {{ $this->waStatusData['message'] ?? 'Tidak ada pesan status.' }}
             </p>
 
@@ -67,30 +86,49 @@
             </div>
         </div>
 
-        <!-- QR Code Pairing / Status Success -->
+        <!-- Provider Specific Card / QR Code -->
         <div class="flex flex-col items-center justify-center p-4 border border-dashed border-gray-300 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900 min-h-[160px]">
-            @if (!empty($this->waStatusData['qr_code']))
-                <div class="text-center space-y-2">
-                    <p class="text-xs font-medium text-gray-700 dark:text-gray-300">Scan QR Code dengan WhatsApp Bot:</p>
-                    <img src="{{ $this->waStatusData['qr_code'] }}" alt="OpenWA Pairing QR Code" class="w-36 h-36 object-contain rounded border p-1 bg-white mx-auto" />
-                </div>
-            @elseif ($this->waStatusData['connected'])
-                <div class="text-center space-y-2 text-emerald-600 dark:text-emerald-400">
-                    <svg class="w-10 h-10 mx-auto text-emerald-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                    </svg>
-                    <p class="text-xs font-semibold">Perangkat WhatsApp Terhubung</p>
-                    <p class="text-[11px] text-gray-500 dark:text-gray-400">Bot siap mengirimkan pesan notifikasi secara otomatis.</p>
-                </div>
+            @if ($currentProvider === 'meta_cloud')
+                @if ($this->waStatusData['connected'])
+                    <div class="text-center space-y-2 text-emerald-600 dark:text-emerald-400">
+                        <svg class="w-10 h-10 mx-auto text-emerald-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                        </svg>
+                        <p class="text-xs font-semibold">Official Meta Cloud API Terverifikasi</p>
+                        <p class="text-[11px] text-gray-500 dark:text-gray-400">Autentikasi Token Meta berhasil. Siap mengirim pesan notifikasi.</p>
+                    </div>
+                @else
+                    <div class="text-center space-y-2 text-gray-400 dark:text-gray-500">
+                        <svg class="w-10 h-10 mx-auto text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0zm-9 3.75h.008v.008H12v-.008z" />
+                        </svg>
+                        <p class="text-xs font-medium text-gray-700 dark:text-gray-300">Belum Terhubung ke Meta Cloud API</p>
+                        <p class="text-[11px] text-gray-400">Masukkan <strong>Phone Number ID</strong> & <strong>Permanent Access Token</strong> dari Meta Developer Portal, lalu klik Refresh Status.</p>
+                    </div>
+                @endif
             @else
-                <div class="text-center space-y-2 text-gray-400 dark:text-gray-500">
-                    <svg class="w-10 h-10 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 15h.008v.008H15V15Zm0 2.25h.008v.008H15v-.008ZM17.25 15h.008v.008h-.008V15Zm0 2.25h.008v.008h-.008v-.008ZM15 19.5h.008v.008H15V19.5Zm2.25 0h.008v.008h-.008V19.5ZM19.5 15h.008v.008h-.008V15Zm0 2.25h.008v.008h-.008v-.008ZM19.5 19.5h.008v.008h-.008V19.5Z" />
-                    </svg>
-                    <p class="text-xs font-medium">QR Code tidak tersedia / Server gateway offline.</p>
-                    <p class="text-[11px] text-gray-400">Klik "Refresh Status" untuk me-refresh status server.</p>
-                </div>
+                @if (!empty($this->waStatusData['qr_code']))
+                    <div class="text-center space-y-2">
+                        <p class="text-xs font-medium text-gray-700 dark:text-gray-300">Scan QR Code dengan WhatsApp Bot:</p>
+                        <img src="{{ $this->waStatusData['qr_code'] }}" alt="WhatsApp Pairing QR Code" class="w-36 h-36 object-contain rounded border p-1 bg-white mx-auto" />
+                    </div>
+                @elseif ($this->waStatusData['connected'])
+                    <div class="text-center space-y-2 text-emerald-600 dark:text-emerald-400">
+                        <svg class="w-10 h-10 mx-auto text-emerald-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                        </svg>
+                        <p class="text-xs font-semibold">WhatsApp Custom Gateway Terhubung</p>
+                        <p class="text-[11px] text-gray-500 dark:text-gray-400">REST Gateway Node.js siap mengirimkan notifikasi secara otomatis.</p>
+                    </div>
+                @else
+                    <div class="text-center space-y-2 text-gray-400 dark:text-gray-500">
+                        <svg class="w-10 h-10 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 3.75 9.375v-4.5ZM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 0 1-1.125-1.125v-4.5ZM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0 1 13.5 9.375v-4.5Z" />
+                        </svg>
+                        <p class="text-xs font-medium">QR Code belum tersedia / Server gateway offline.</p>
+                        <p class="text-[11px] text-gray-400">Pastikan service Node.js berjalan, lalu klik "Refresh Status".</p>
+                    </div>
+                @endif
             @endif
         </div>
     </div>

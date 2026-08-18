@@ -11,11 +11,16 @@ use Illuminate\Support\Facades\Log;
 class WhatsAppService
 {
     /**
-     * Send a WhatsApp message to a target phone number using OpenWA Gateway.
+     * Send a WhatsApp message to a target phone number using Meta WhatsApp Business API or Custom Gateway.
+     *
+     * @param  array<string, mixed>|null  $overrides
      */
-    public function sendMessage(string $targetPhone, string $message): bool
+    public function sendMessage(string $targetPhone, string $message, ?array $overrides = null): bool
     {
-        $isEnabled = AppSetting::get('notify_wa_enabled', false);
+        $isEnabled = isset($overrides['notify_wa_enabled'])
+            ? (bool) $overrides['notify_wa_enabled']
+            : (bool) AppSetting::get('notify_wa_enabled', false);
+
         if (! $isEnabled) {
             Log::info('WhatsApp notification skipped because master switch is disabled.');
 
@@ -29,29 +34,83 @@ class WhatsAppService
             return false;
         }
 
-        $serverUrl = (string) AppSetting::get('wa_server_url', 'http://127.0.0.1:3000/send-message');
-        $apiSecret = (string) AppSetting::get('wa_api_secret', '');
-        $senderNumber = (string) AppSetting::get('wa_sender_number', '');
+        $provider = $overrides['wa_provider'] ?? (string) AppSetting::get('wa_provider', 'meta_cloud');
+
+        if ($provider === 'meta_cloud') {
+            return $this->sendMetaCloudMessage($formattedPhone, $message, $overrides);
+        }
+
+        return $this->sendCustomGatewayMessage($formattedPhone, $message, $overrides);
+    }
+
+    /**
+     * Send message using Official Meta WhatsApp Business Cloud API.
+     *
+     * @param  array<string, mixed>|null  $overrides
+     */
+    protected function sendMetaCloudMessage(string $formattedPhone, string $message, ?array $overrides = null): bool
+    {
+        $phoneNumberId = $overrides['wa_phone_number_id'] ?? (string) AppSetting::get('wa_phone_number_id', '');
+        $accessToken = $overrides['wa_access_token'] ?? (string) AppSetting::get('wa_access_token', '');
+        $apiVersion = $overrides['wa_api_version'] ?? (string) AppSetting::get('wa_api_version', 'v20.0');
+
+        if (empty($phoneNumberId) || empty($accessToken)) {
+            Log::warning('WhatsApp Business Cloud API skipped: Phone Number ID or Access Token is missing.');
+
+            return false;
+        }
+
+        $url = "https://graph.facebook.com/{$apiVersion}/{$phoneNumberId}/messages";
+
+        try {
+            $payload = [
+                'messaging_product' => 'whatsapp',
+                'recipient_type' => 'individual',
+                'to' => $formattedPhone,
+                'type' => 'text',
+                'text' => [
+                    'preview_url' => false,
+                    'body' => $message,
+                ],
+            ];
+
+            $response = Http::withToken($accessToken)
+                ->timeout(8)
+                ->post($url, $payload);
+
+            if ($response->successful()) {
+                Log::info("WhatsApp Business Cloud API message sent successfully to {$formattedPhone}");
+
+                return true;
+            }
+
+            Log::warning("WhatsApp Business Cloud API returned error {$response->status()}: {$response->body()}");
+
+            return false;
+        } catch (\Throwable $e) {
+            Log::error('Failed to send WhatsApp message via Meta Cloud API: '.$e->getMessage());
+
+            return false;
+        }
+    }
+
+    /**
+     * Send message using Custom Node.js / Express REST Gateway (wwebjs).
+     *
+     * @param  array<string, mixed>|null  $overrides
+     */
+    protected function sendCustomGatewayMessage(string $formattedPhone, string $message, ?array $overrides = null): bool
+    {
+        $serverUrl = $overrides['wa_server_url'] ?? (string) AppSetting::get('wa_server_url', 'http://127.0.0.1:3000/send-message');
+        $apiSecret = $overrides['wa_api_secret'] ?? (string) AppSetting::get('wa_api_secret', '');
 
         if (empty($serverUrl)) {
-            Log::warning('WhatsApp notification failed: OpenWA Server URL is empty.');
+            Log::warning('WhatsApp notification failed: Custom Gateway Server URL is empty.');
 
             return false;
         }
 
-        // Parse base URL (e.g. http://127.0.0.1:2785)
-        $parsed = parse_url($serverUrl);
-        $baseUrl = isset($parsed['scheme'], $parsed['host'])
-            ? $parsed['scheme'].'://'.$parsed['host'].(isset($parsed['port']) ? ':'.$parsed['port'] : '')
-            : 'http://127.0.0.1:3000';
-
-        // Resolve dynamic session ID UUID
-        $sessionId = $this->resolveSessionId($baseUrl, $apiSecret, $senderNumber);
-        if (empty($sessionId)) {
-            Log::warning('WhatsApp notification failed: Gagal menemukan session ID aktif di OpenWA Gateway.');
-
-            return false;
-        }
+        $endpoint = $this->resolveSendEndpoint((string) $serverUrl);
 
         try {
             $headers = [
@@ -64,106 +123,133 @@ class WhatsAppService
             }
 
             $payload = [
+                'number' => $formattedPhone,
                 'chatId' => $formattedPhone.'@c.us',
                 'text' => $message,
             ];
 
-            $sendUrl = $baseUrl.'/api/sessions/'.$sessionId.'/messages/send-text';
-
             $response = Http::withHeaders($headers)
                 ->timeout(5)
-                ->post($sendUrl, $payload);
+                ->post($endpoint, $payload);
 
-            if ($response->successful()) {
-                Log::info("WhatsApp message sent successfully to {$formattedPhone}");
+            if ($response->successful() && ($response->json('success') ?? true)) {
+                Log::info("WhatsApp message sent successfully via Custom Gateway to {$formattedPhone}");
 
                 return true;
             }
 
-            Log::warning("WhatsApp Gateway returned error {$response->status()}: {$response->body()}");
+            Log::warning("WhatsApp Custom Gateway returned error {$response->status()}: {$response->body()}");
 
             return false;
         } catch (\Throwable $e) {
-            Log::error('Failed to send WhatsApp message via OpenWA Gateway: '.$e->getMessage());
+            Log::error('Failed to send WhatsApp message via Custom Gateway: '.$e->getMessage());
 
             return false;
         }
     }
 
     /**
-     * Resolve the active session UUID from OpenWA Gateway.
-     */
-    protected function resolveSessionId(string $baseUrl, string $apiSecret, ?string $senderNumber = null): ?string
-    {
-        try {
-            $headers = [
-                'Accept' => 'application/json',
-            ];
-            if (! empty($apiSecret)) {
-                $headers['X-API-Key'] = $apiSecret;
-            }
-
-            $response = Http::withHeaders($headers)
-                ->timeout(3)
-                ->get($baseUrl.'/api/sessions');
-
-            if ($response->successful()) {
-                $sessions = $response->json();
-                if (is_array($sessions) && count($sessions) > 0) {
-                    // Try to match by phone or name if senderNumber is provided
-                    if (! empty($senderNumber)) {
-                        $cleanSender = preg_replace('/[^0-9]/', '', $senderNumber);
-                        foreach ($sessions as $session) {
-                            $sessionPhone = isset($session['phone']) ? preg_replace('/[^0-9]/', '', (string) $session['phone']) : '';
-                            if (($sessionPhone && $sessionPhone === $cleanSender) || ($session['name'] ?? '') === $senderNumber) {
-                                return $session['id'];
-                            }
-                        }
-                    }
-
-                    // Fallback to first session where status is ready
-                    foreach ($sessions as $session) {
-                        if (($session['status'] ?? '') === 'ready') {
-                            return $session['id'];
-                        }
-                    }
-
-                    // Dynamic default fallback
-                    return $sessions[0]['id'];
-                }
-            }
-        } catch (\Throwable $e) {
-            Log::error('Gagal resolve session ID dari OpenWA: '.$e->getMessage());
-        }
-
-        return null;
-    }
-
-    /**
-     * Get OpenWA Gateway live connection status and QR code if available.
+     * Get live connection status of WhatsApp Business API / Custom Gateway.
      *
-     * @return array{connected: bool, status_label: string, qr_code: ?string, message: string}
+     * @param  array<string, mixed>|null  $overrides
+     * @return array{provider: string, connected: bool, status_label: string, qr_code: ?string, message: string}
      */
-    public function getStatus(): array
+    public function getStatus(?array $overrides = null): array
     {
-        $serverUrl = (string) AppSetting::get('wa_server_url', 'http://127.0.0.1:3000/send-message');
-        $apiSecret = (string) AppSetting::get('wa_api_secret', '');
-        $senderNumber = (string) AppSetting::get('wa_sender_number', '');
+        $provider = $overrides['wa_provider'] ?? (string) AppSetting::get('wa_provider', 'meta_cloud');
 
-        if (empty($serverUrl)) {
+        if ($provider === 'meta_cloud') {
+            return $this->getMetaCloudStatus($overrides);
+        }
+
+        return $this->getCustomGatewayStatus($overrides);
+    }
+
+    /**
+     * Get status for Meta WhatsApp Business Cloud API.
+     *
+     * @param  array<string, mixed>|null  $overrides
+     * @return array{provider: string, connected: bool, status_label: string, qr_code: ?string, message: string}
+     */
+    protected function getMetaCloudStatus(?array $overrides = null): array
+    {
+        $phoneNumberId = $overrides['wa_phone_number_id'] ?? (string) AppSetting::get('wa_phone_number_id', '');
+        $accessToken = $overrides['wa_access_token'] ?? (string) AppSetting::get('wa_access_token', '');
+        $apiVersion = $overrides['wa_api_version'] ?? (string) AppSetting::get('wa_api_version', 'v20.0');
+
+        if (empty($phoneNumberId) || empty($accessToken)) {
             return [
+                'provider' => 'meta_cloud',
                 'connected' => false,
                 'status_label' => 'DISCONNECTED',
                 'qr_code' => null,
-                'message' => 'URL Server OpenWA belum dikonfigurasi.',
+                'message' => 'Phone Number ID atau Permanent Access Token Meta belum dikonfigurasi.',
             ];
         }
 
-        // Parse base URL (e.g., http://127.0.0.1:3000)
-        $parsed = parse_url($serverUrl);
-        $baseUrl = isset($parsed['scheme'], $parsed['host'])
-            ? $parsed['scheme'].'://'.$parsed['host'].(isset($parsed['port']) ? ':'.$parsed['port'] : '')
-            : 'http://127.0.0.1:3000';
+        try {
+            $url = "https://graph.facebook.com/{$apiVersion}/{$phoneNumberId}?fields=id,display_phone_number,verified_name,quality_rating";
+            $response = Http::withToken($accessToken)
+                ->timeout(5)
+                ->get($url);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                $displayName = $data['verified_name'] ?? $data['display_phone_number'] ?? 'WhatsApp Business Account';
+                $displayPhone = $data['display_phone_number'] ?? '';
+                $quality = $data['quality_rating'] ?? 'UNKNOWN';
+
+                return [
+                    'provider' => 'meta_cloud',
+                    'connected' => true,
+                    'status_label' => 'CONNECTED',
+                    'qr_code' => null,
+                    'message' => "Terhubung ke Meta WhatsApp Business API ({$displayName} - {$displayPhone}) | Quality Rating: {$quality}",
+                ];
+            }
+
+            $errMsg = $response->json('error.message') ?? 'Access Token tidak valid atau Phone Number ID salah.';
+
+            return [
+                'provider' => 'meta_cloud',
+                'connected' => false,
+                'status_label' => 'DISCONNECTED',
+                'qr_code' => null,
+                'message' => 'Meta API Response Error: '.$errMsg,
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'provider' => 'meta_cloud',
+                'connected' => false,
+                'status_label' => 'DISCONNECTED',
+                'qr_code' => null,
+                'message' => 'Gagal terhubung ke Meta Graph API: '.$e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Get status for Custom Node.js / wwebjs Gateway.
+     *
+     * @param  array<string, mixed>|null  $overrides
+     * @return array{provider: string, connected: bool, status_label: string, qr_code: ?string, message: string}
+     */
+    protected function getCustomGatewayStatus(?array $overrides = null): array
+    {
+        $serverUrl = $overrides['wa_server_url'] ?? (string) AppSetting::get('wa_server_url', 'http://127.0.0.1:3000/send-message');
+        $apiSecret = $overrides['wa_api_secret'] ?? (string) AppSetting::get('wa_api_secret', '');
+
+        if (empty($serverUrl)) {
+            return [
+                'provider' => 'wwebjs',
+                'connected' => false,
+                'status_label' => 'DISCONNECTED',
+                'qr_code' => null,
+                'message' => 'URL Server WhatsApp Gateway belum dikonfigurasi.',
+            ];
+        }
+
+        $baseUrl = $this->resolveBaseUrl((string) $serverUrl);
 
         try {
             $headers = [
@@ -175,68 +261,21 @@ class WhatsAppService
 
             $response = Http::withHeaders($headers)
                 ->timeout(3)
-                ->get($baseUrl.'/api/sessions');
+                ->get($baseUrl.'/status');
 
             if ($response->successful()) {
-                $sessions = $response->json();
-                if (is_array($sessions) && count($sessions) > 0) {
-                    // Try to find the session corresponding to senderNumber
-                    $activeSession = null;
-                    if (! empty($senderNumber)) {
-                        $cleanSender = preg_replace('/[^0-9]/', '', $senderNumber);
-                        foreach ($sessions as $session) {
-                            $sessionPhone = isset($session['phone']) ? preg_replace('/[^0-9]/', '', (string) $session['phone']) : '';
-                            if (($sessionPhone && $sessionPhone === $cleanSender) || ($session['name'] ?? '') === $senderNumber) {
-                                $activeSession = $session;
-                                break;
-                            }
-                        }
-                    }
-
-                    // Fallback to first session
-                    if (! $activeSession) {
-                        $activeSession = $sessions[0];
-                    }
-
-                    $status = $activeSession['status'] ?? 'unknown';
-                    $isConnected = ($status === 'ready');
-                    $sessionId = $activeSession['id'];
-
-                    $qrCode = null;
-                    if ($status === 'qr_ready') {
-                        // Fetch QR Code
-                        $qrResponse = Http::withHeaders($headers)
-                            ->timeout(3)
-                            ->get($baseUrl.'/api/sessions/'.$sessionId.'/qr');
-                        if ($qrResponse->successful()) {
-                            $qrData = $qrResponse->json();
-                            $qrCode = $qrData['qrCode'] ?? null;
-                        }
-                    }
-
-                    $statusMsg = match ($status) {
-                        'ready' => 'Terhubung dengan OpenWA Gateway.',
-                        'qr_ready' => 'Perangkat belum terhubung (Perlu Scan QR).',
-                        'authenticating' => 'Sedang melakukan autentikasi...',
-                        'initializing' => 'Sedang menginisialisasi sesi...',
-                        'disconnected' => 'Sesi terputus.',
-                        'failed' => 'Inisialisasi sesi gagal: '.($activeSession['lastError'] ?? 'Unknown error'),
-                        default => 'Status sesi: '.ucfirst($status),
-                    };
-
-                    return [
-                        'connected' => $isConnected,
-                        'status_label' => $isConnected ? 'CONNECTED' : 'DISCONNECTED',
-                        'qr_code' => $qrCode,
-                        'message' => $statusMsg,
-                    ];
-                }
+                $data = $response->json();
+                $isConnected = (bool) ($data['connected'] ?? false);
+                $statusStr = (string) ($data['status'] ?? ($isConnected ? 'READY' : 'DISCONNECTED'));
+                $qrCode = $data['qr_code'] ?? $data['qrCode'] ?? null;
+                $message = (string) ($data['message'] ?? ($isConnected ? 'Terhubung dengan WhatsApp Gateway.' : 'Perangkat belum terhubung.'));
 
                 return [
-                    'connected' => false,
-                    'status_label' => 'DISCONNECTED',
-                    'qr_code' => null,
-                    'message' => 'Tidak ada sesi terdaftar di OpenWA Gateway.',
+                    'provider' => 'wwebjs',
+                    'connected' => $isConnected,
+                    'status_label' => $isConnected ? 'CONNECTED' : ($statusStr === 'QR_RECEIVED' ? 'PAIRING_REQUIRED' : 'DISCONNECTED'),
+                    'qr_code' => $qrCode,
+                    'message' => $message,
                 ];
             }
         } catch (\Throwable $e) {
@@ -244,21 +283,27 @@ class WhatsAppService
         }
 
         return [
+            'provider' => 'wwebjs',
             'connected' => false,
             'status_label' => 'DISCONNECTED',
             'qr_code' => null,
-            'message' => 'Gagal terhubung ke OpenWA Gateway (Server offline atau URL tidak valid).',
+            'message' => 'Gagal terhubung ke WhatsApp Gateway (Server offline atau URL tidak valid).',
         ];
     }
 
     /**
      * Send test notification to target phone.
+     *
+     * @param  array<string, mixed>|null  $overrides
      */
-    public function sendTestMessage(string $targetPhone): bool
+    public function sendTestMessage(string $targetPhone, ?array $overrides = null): bool
     {
-        $message = "🔔 [E-SPPB Enterprise]\n\nIni adalah pesan uji coba integrasi WhatsApp OpenWA Gateway.\nKoneksi berhasil dan notifikasi WhatsApp berfungsi dengan baik!";
+        $provider = $overrides['wa_provider'] ?? (string) AppSetting::get('wa_provider', 'meta_cloud');
+        $engineLabel = $provider === 'meta_cloud' ? 'Meta WhatsApp Business API' : 'Custom REST Gateway (wwebjs)';
 
-        return $this->sendMessage($targetPhone, $message);
+        $message = "🔔 *[E-SPPB Enterprise]*\n\nIni adalah pesan uji coba integrasi *{$engineLabel}*.\nKoneksi berhasil dan notifikasi WhatsApp berfungsi dengan baik!";
+
+        return $this->sendMessage($targetPhone, $message, $overrides);
     }
 
     /**
@@ -282,5 +327,30 @@ class WhatsAppService
         }
 
         return $cleaned;
+    }
+
+    /**
+     * Resolve base URL from server configuration URL.
+     */
+    protected function resolveBaseUrl(string $url): string
+    {
+        $parsed = parse_url($url);
+        if (isset($parsed['scheme'], $parsed['host'])) {
+            return $parsed['scheme'].'://'.$parsed['host'].(isset($parsed['port']) ? ':'.$parsed['port'] : '');
+        }
+
+        return 'http://127.0.0.1:3000';
+    }
+
+    /**
+     * Resolve full send-message endpoint.
+     */
+    protected function resolveSendEndpoint(string $url): string
+    {
+        if (str_contains($url, '/send-message')) {
+            return $url;
+        }
+
+        return rtrim($this->resolveBaseUrl($url), '/').'/send-message';
     }
 }

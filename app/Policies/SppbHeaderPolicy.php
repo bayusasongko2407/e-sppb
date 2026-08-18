@@ -14,7 +14,7 @@ class SppbHeaderPolicy
      */
     public function viewAny(User $user): bool
     {
-        if ($user->hasRole('super_admin')) {
+        if ($user->hasRole(['super_admin', 'gudang'])) {
             return true;
         }
 
@@ -30,7 +30,7 @@ class SppbHeaderPolicy
      */
     public function view(User $user, SppbHeader $sppbHeader): bool
     {
-        if ($user->hasRole('super_admin')) {
+        if ($user->hasRole(['super_admin', 'gudang'])) {
             return true;
         }
 

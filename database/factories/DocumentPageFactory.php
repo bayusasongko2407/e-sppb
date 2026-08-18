@@ -18,7 +18,7 @@ class DocumentPageFactory extends Factory
             'page_number' => fake()->randomNumber(),
             'page_checksum_sha256' => fake()->randomLetter(),
             'qr_payload_checksum_sha256' => fake()->randomLetter(),
-            'verification_token_hash' => fake()->randomLetter(),
+            'verification_token_hash' => hash('sha256', fake()->uuid()),
         ];
     }
 }

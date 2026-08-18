@@ -71,7 +71,16 @@ class WorkflowInstanceResource extends Resource
                     ->sortable(),
                 TextColumn::make('status')
                     ->label('Status')
-                    ->badge(),
+                    ->badge()
+                    ->formatStateUsing(fn ($state): string => $state instanceof WorkflowInstanceStatus
+                        ? $state->label()
+                        : (WorkflowInstanceStatus::tryFrom((string) $state)?->label() ?? (string) $state))
+                    ->color(fn ($state): string => match ($state instanceof WorkflowInstanceStatus ? $state->value : (string) $state) {
+                        'QUEUED', 'IN_PROGRESS' => 'warning',
+                        'APPROVED' => 'success',
+                        'REJECTED', 'FAILED', 'CANCELLED' => 'danger',
+                        default => 'gray',
+                    }),
                 TextColumn::make('current_sequence')
                     ->label('Sequence Saat Ini'),
                 TextColumn::make('started_at')

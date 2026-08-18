@@ -13,7 +13,7 @@ class GoodsReleasePolicy
      */
     public function viewAny(User $user): bool
     {
-        if ($user->hasRole('super_admin')) {
+        if ($user->hasRole(['super_admin', 'gudang'])) {
             return true;
         }
 
@@ -29,7 +29,7 @@ class GoodsReleasePolicy
      */
     public function view(User $user, GoodsRelease $goodsRelease): bool
     {
-        if ($user->hasRole('super_admin')) {
+        if ($user->hasRole(['super_admin', 'gudang'])) {
             return true;
         }
 

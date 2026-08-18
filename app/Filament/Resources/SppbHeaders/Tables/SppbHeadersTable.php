@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\SppbHeaders\Tables;
 
+use App\Contracts\WorkflowServiceContract;
 use App\Enums\SppbStatus;
 use App\Models\SppbHeader;
 use Filament\Actions\Action;
@@ -13,6 +14,7 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TrashedFilter;
@@ -108,6 +110,28 @@ class SppbHeadersTable
                         SppbStatus::RELEASE_IN_PROGRESS->value,
                         SppbStatus::COMPLETED->value,
                     ])),
+
+                Action::make('force_complete')
+                    ->label('Selesaikan SPPB')
+                    ->color('success')
+                    ->icon('heroicon-o-check-badge')
+                    ->requiresConfirmation()
+                    ->modalHeading('Selesaikan Transaksi SPPB')
+                    ->modalDescription('Apakah Anda yakin ingin menyelesaikan transaksi SPPB ini? Sisa kuantitas barang yang belum dikirim akan ditutup dan tidak dapat diterbitkan Surat Jalan lagi.')
+                    ->visible(fn (SppbHeader $record): bool => in_array($record->status, [SppbStatus::APPROVED->value, SppbStatus::RELEASE_IN_PROGRESS->value]) && (auth()->user()?->hasAnyRole(['pemohon', 'Pemohon', 'super_admin', 'gudang']) || $record->requester_id === auth()->id()))
+                    ->action(function (SppbHeader $record) {
+                        app(WorkflowServiceContract::class)->forceCompleteSppb(
+                            sppbHeaderId: $record->id,
+                            actorId: auth()->id(),
+                            reason: 'Transaksi SPPB diselesaikan via tabel.'
+                        );
+
+                        Notification::make()
+                            ->title('Berhasil')
+                            ->body('Transaksi SPPB berhasil diselesaikan.')
+                            ->success()
+                            ->send();
+                    }),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

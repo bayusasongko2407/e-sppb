@@ -45,7 +45,7 @@ class UserSeeder extends Seeder
                 'password' => bcrypt('password'),
                 'is_active' => true,
             ]);
-            $manager->assignRole('manager');
+            $manager->assignRole(['Manager', 'manager']);
             UserPosition::create([
                 'user_id' => $manager->id,
                 'position_id' => $positions->get('MGR'),
@@ -53,7 +53,26 @@ class UserSeeder extends Seeder
                 'is_active' => true,
             ]);
 
-            // 2. Buat Requester
+            // 2. Buat Supervisor
+            $supervisor = User::create([
+                'plant_id' => $plant->id,
+                'department_id' => $engDept->id,
+                'manager_id' => $manager->id,
+                'name' => 'Supervisor ENG '.$plant->code,
+                'email' => 'supervisor.'.strtolower(str_replace(' ', '', $plant->code)).'@esppb.local',
+                'nik' => 'SPV'.$plant->id.'00001',
+                'password' => bcrypt('password'),
+                'is_active' => true,
+            ]);
+            $supervisor->assignRole(['Supervisor', 'approver']);
+            UserPosition::create([
+                'user_id' => $supervisor->id,
+                'position_id' => $positions->get('SUPERVISOR') ?? $positions->get('SPV'),
+                'is_primary' => true,
+                'is_active' => true,
+            ]);
+
+            // 3. Buat Requester (Pemohon)
             $requester = User::create([
                 'plant_id' => $plant->id,
                 'department_id' => $engDept->id,
@@ -64,7 +83,7 @@ class UserSeeder extends Seeder
                 'password' => bcrypt('password'),
                 'is_active' => true,
             ]);
-            $requester->assignRole('Pemohon');
+            $requester->assignRole(['Pemohon', 'requester']);
             UserPosition::create([
                 'user_id' => $requester->id,
                 'position_id' => $positions->get('STAFF'),
@@ -72,17 +91,17 @@ class UserSeeder extends Seeder
                 'is_active' => true,
             ]);
 
-            // 3. Buat BAT (Bagian Aset Tetap)
+            // 4. Buat BAT (Bagian Aset Tetap / BAT Verifier)
             $bat = User::create([
                 'plant_id' => $plant->id,
                 'department_id' => $engDept->id,
-                'name' => 'BAT '.$plant->code,
+                'name' => 'BAT Verifier '.$plant->code,
                 'email' => 'bat.'.strtolower(str_replace(' ', '', $plant->code)).'@esppb.local',
                 'nik' => 'BAT'.$plant->id.'00001',
                 'password' => bcrypt('password'),
                 'is_active' => true,
             ]);
-            $bat->assignRole('approver');
+            $bat->assignRole(['BAT Verifier', 'approver']);
             UserPosition::create([
                 'user_id' => $bat->id,
                 'position_id' => $positions->get('BAT'),
@@ -90,7 +109,7 @@ class UserSeeder extends Seeder
                 'is_active' => true,
             ]);
 
-            // 4. Buat Gudang / Logistik Staff
+            // 5. Buat Gudang / Sekuriti Staff
             $gudang = User::create([
                 'plant_id' => $plant->id,
                 'department_id' => $logDept->id,
@@ -100,7 +119,7 @@ class UserSeeder extends Seeder
                 'password' => bcrypt('password'),
                 'is_active' => true,
             ]);
-            $gudang->assignRole('approver');
+            $gudang->assignRole(['Sekuriti/Gudang', 'gudang']);
             UserPosition::create([
                 'user_id' => $gudang->id,
                 'position_id' => $positions->get('STAFF'),

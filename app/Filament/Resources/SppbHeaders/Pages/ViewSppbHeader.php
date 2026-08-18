@@ -120,6 +120,45 @@ class ViewSppbHeader extends ViewRecord
                     }
                 }),
 
+            Action::make('force_complete_sppb')
+                ->label('Selesaikan SPPB')
+                ->icon('heroicon-o-check-badge')
+                ->color('success')
+                ->modalHeading('Selesaikan Transaksi SPPB')
+                ->modalDescription('Apakah Anda yakin ingin menyelesaikan transaksi SPPB ini secara resmi? Sisa kuantitas barang yang belum dikirim akan ditutup dan tidak dapat diterbitkan Surat Jalan lagi.')
+                ->modalSubmitActionLabel('Ya, Selesaikan SPPB')
+                ->form([
+                    Textarea::make('reason')
+                        ->label('Catatan Penutupan Transaksi (Opsional)')
+                        ->placeholder('Masukkan alasan atau catatan penyelesaian transaksi...')
+                        ->maxLength(1000)
+                        ->columnSpanFull(),
+                ])
+                ->visible(fn (): bool => in_array($this->record->status, [SppbStatus::APPROVED->value, SppbStatus::RELEASE_IN_PROGRESS->value]) && (auth()->user()?->hasAnyRole(['pemohon', 'Pemohon', 'super_admin', 'gudang']) || $this->record->requester_id === auth()->id()))
+                ->action(function (array $data, WorkflowServiceContract $workflowService) {
+                    try {
+                        $workflowService->forceCompleteSppb(
+                            sppbHeaderId: $this->record->id,
+                            actorId: auth()->id(),
+                            reason: $data['reason'] ?? 'Transaksi SPPB diselesaikan.'
+                        );
+
+                        Notification::make()
+                            ->title('Berhasil')
+                            ->body('Transaksi SPPB berhasil diselesaikan.')
+                            ->success()
+                            ->send();
+
+                        return redirect()->to(SppbHeaderResource::getUrl('view', ['record' => $this->record]));
+                    } catch (\Exception $e) {
+                        Notification::make()
+                            ->title('Gagal')
+                            ->body('Terjadi kesalahan: '.$e->getMessage())
+                            ->danger()
+                            ->send();
+                    }
+                }),
+
             Action::make('approve')
                 ->label('Setujui')
                 ->color('success')

@@ -22,6 +22,13 @@ class SppbResource extends JsonResource
         $destinationName = $this->destinationLocation?->name ?? null;
         $departmentName = $this->department?->name ?? null;
 
+        $data['sppb_number'] = $this->document_number;
+        $data['priority'] = $this->is_urgent ? 'urgent' : 'medium';
+        $data['verification_hash'] = $this->verification_hash;
+        $data['qr_code_url'] = $this->qr_code_url ?? url("/v1/verify/document/{$this->verification_hash}");
+        $data['barcode'] = $this->verification_hash ?? $this->document_number;
+        $data['total_items'] = $this->relationLoaded('details') ? $this->details->count() : ($this->details_count ?? 0);
+
         $data['requester_name'] = $requesterName;
         $data['needed_name'] = $this->needed_name ?? $requesterName;
         $data['requester'] = $this->requester ? [
@@ -30,6 +37,18 @@ class SppbResource extends JsonResource
             'nik' => $this->requester->nik ?? '',
             'email' => $this->requester->email ?? '',
         ] : null;
+        $data['creator'] = $data['requester']; // compatibility alias
+
+        if (isset($data['details'])) {
+            $data['items'] = $data['details']; // compatibility alias
+            $data['sppb_details'] = $data['details'];
+        } elseif ($this->relationLoaded('details')) {
+            $data['items'] = $this->details;
+            $data['sppb_details'] = $this->details;
+        } elseif ($this->relationLoaded('sppbDetails')) {
+            $data['sppb_details'] = $this->sppbDetails;
+            $data['items'] = $this->sppbDetails;
+        }
 
         $data['destination_location_name'] = $destinationName;
         $data['destination_name'] = $destinationName;

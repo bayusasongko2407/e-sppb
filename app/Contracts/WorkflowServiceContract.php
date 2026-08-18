@@ -27,5 +27,7 @@ interface WorkflowServiceContract
 
     public function cancelWorkflow(int $sppbHeaderId, int $actorId, string $reason): void;
 
+    public function forceCompleteSppb(int $sppbHeaderId, int $actorId, string $reason): void;
+
     public function sendNotification(?User $user, string $title, string $body, string $url, ?string $eventType = null, array $context = []): void;
 }

@@ -77,6 +77,14 @@ class SppbHeader extends Model
 
                 $model->document_number = $prefix.str_pad((string) $running->last_number, $running->digits, '0', STR_PAD_LEFT);
             }
+
+            if (empty($model->verification_hash)) {
+                $model->verification_hash = hash('sha256', ($model->document_number ?? 'SPPB').uniqid('', true));
+            }
+
+            if (empty($model->qr_code_url)) {
+                $model->qr_code_url = url("/v1/verify/document/{$model->verification_hash}");
+            }
         });
     }
 
@@ -104,6 +112,8 @@ class SppbHeader extends Model
         'current_step_sequence',
         'current_approver_id',
         'lock_version',
+        'verification_hash',
+        'qr_code_url',
         'submitted_at',
         'approved_at',
         'rejected_at',
@@ -238,14 +248,27 @@ class SppbHeader extends Model
                     });
             })->exists();
 
-        if ($isBatApprover) {
+        $hasBatPermission = false;
+        try {
+            $hasBatPermission = $user->hasPermissionTo('verify_bat');
+        } catch (\Throwable) {
+            $hasBatPermission = false;
+        }
+
+        $hasBatRoleOrPermission = $user->hasAnyRole(['BAT Verifier', 'BAT', 'Gudang', 'Verifikator BAT', 'admin', 'super_admin'])
+            || $hasBatPermission;
+
+        if ($isBatApprover || $hasBatRoleOrPermission) {
             $this->update(['status' => SppbStatus::PROCESS_VERIFICATION_BAT->value]);
 
             SppbStatusLog::create([
                 'sppb_header_id' => $this->id,
                 'workflow_instance_id' => $this->current_workflow_instance_id,
                 'actor_id' => $user->id,
+                'actor_name' => $user->name,
+                'actor_nik' => $user->nik,
                 'action' => 'BAT_OPENED',
+                'status' => SppbStatus::PROCESS_VERIFICATION_BAT->value,
                 'from_status' => SppbStatus::WAITING_VERIFICATION_BAT->value,
                 'to_status' => SppbStatus::PROCESS_VERIFICATION_BAT->value,
                 'logged_at' => now(),

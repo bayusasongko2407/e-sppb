@@ -210,7 +210,20 @@ class SppbReport implements ReportInterface
                 ->getStateUsing(fn (SppbHeader $record) => $record->goodsReleases->last()?->delivery_date ? Carbon::parse($record->goodsReleases->last()->delivery_date)->format('d/m/Y') : '-'),
             TextColumn::make('release_status')
                 ->label('Status Pengiriman')
-                ->getStateUsing(fn (SppbHeader $record) => $record->goodsReleases->last()?->status ?? '-'),
+                ->getStateUsing(function (SppbHeader $record): string {
+                    $st = $record->goodsReleases->last()?->status;
+                    if (! $st) {
+                        return '-';
+                    }
+
+                    return match (strtoupper((string) $st)) {
+                        'DRAFT' => 'Draft',
+                        'RELEASED', 'IN_TRANSIT', 'PENDING' => 'Dalam Pengiriman',
+                        'DELIVERED', 'RECEIVED', 'COMPLETED' => 'Terkirim',
+                        'CANCELLED' => 'Dibatalkan',
+                        default => (string) $st,
+                    };
+                }),
             TextColumn::make('sender_name')
                 ->label('Nama Pengirim')
                 ->getStateUsing(fn (SppbHeader $record) => $record->goodsReleases->last()?->createdBy?->name ?? $record->goodsReleases->last()?->senderUser?->name ?? $record->goodsReleases->last()?->sender_name ?? '-'),

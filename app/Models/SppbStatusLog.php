@@ -22,8 +22,11 @@ class SppbStatusLog extends Model
         'workflow_instance_id',
         'workflow_instance_step_id',
         'actor_id',
+        'actor_name',
+        'actor_nik',
         'command_uuid',
         'action',
+        'status',
         'from_status',
         'to_status',
         'remarks',
@@ -68,5 +71,15 @@ class SppbStatusLog extends Model
     public function actor(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function getActorNameAttribute(): ?string
+    {
+        return $this->attributes['actor_name'] ?? $this->actor?->name;
+    }
+
+    public function getActorNikAttribute(): ?string
+    {
+        return $this->attributes['actor_nik'] ?? $this->actor?->nik;
     }
 }

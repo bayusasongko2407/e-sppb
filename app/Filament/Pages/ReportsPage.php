@@ -30,7 +30,7 @@ class ReportsPage extends Page implements HasForms, HasTable
 
     protected static ?string $title = 'Laporan Enterprise';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Reporting';
+    protected static string|\UnitEnum|null $navigationGroup = 'Laporan';
 
     protected static ?int $navigationSort = 100;
 

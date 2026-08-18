@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 
 class SppbHeader extends Model
 {
@@ -84,6 +85,28 @@ class SppbHeader extends Model
 
             if (empty($model->qr_code_url)) {
                 $model->qr_code_url = url("/v1/verify/document/{$model->verification_hash}");
+            }
+        });
+
+        static::deleting(function (SppbHeader $model) {
+            if ($model->isForceDeleting()) {
+                $model->sppbDetails()->delete();
+                $model->sppbStatusLogs()->delete();
+                $model->attachments()->delete();
+
+                $instanceIds = $model->workflowInstances()->pluck('id')->toArray();
+                if (! empty($instanceIds)) {
+                    $stepIds = WorkflowInstanceStep::whereIn('workflow_instance_id', $instanceIds)->pluck('id')->toArray();
+                    if (! empty($stepIds)) {
+                        WorkflowStepApprover::whereIn('workflow_instance_step_id', $stepIds)->delete();
+                        WorkflowInstanceStep::whereIn('id', $stepIds)->delete();
+                    }
+                    WorkflowCommand::whereIn('workflow_instance_id', $instanceIds)->delete();
+                    WorkflowInstance::whereIn('id', $instanceIds)->delete();
+                }
+
+                DB::table('goods_release_sppb')->where('sppb_header_id', $model->id)->delete();
+                $model->goodsReleases()->delete();
             }
         });
     }

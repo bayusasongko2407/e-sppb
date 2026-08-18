@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\WorkflowInstances;
 
+use App\Enums\WorkflowInstanceStatus;
 use App\Filament\Resources\WorkflowInstances\Pages\ListWorkflowInstances;
 use App\Filament\Resources\WorkflowInstances\Pages\ViewWorkflowInstance;
 use App\Models\WorkflowInstance;

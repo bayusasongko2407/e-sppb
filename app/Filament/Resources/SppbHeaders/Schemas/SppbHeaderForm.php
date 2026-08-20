@@ -63,16 +63,28 @@ class SppbHeaderForm
                     return $query;
                 }
 
-                return $query->whereIn('id', function ($sub) use ($user) {
-                    $sub->select('plant_id')
-                        ->from('document_accesses')
-                        ->where('user_id', $user->id)
-                        ->where('module', 'sppb')
-                        ->where(function ($q) {
-                            $q->where('can_create', true)
-                                ->orWhere('can_view', true)
-                                ->orWhere('can_edit', true);
-                        });
+                $userRoleIds = $user->roles->pluck('id')->toArray();
+
+                return $query->where(function ($q) use ($user, $userRoleIds) {
+                    if ($user->plant_id) {
+                        $q->where('id', $user->plant_id);
+                    }
+                    $q->orWhereIn('id', function ($sub) use ($user, $userRoleIds) {
+                        $sub->select('plant_id')
+                            ->from('document_accesses')
+                            ->where('module', 'sppb')
+                            ->where(function ($userOrRoleQ) use ($user, $userRoleIds) {
+                                $userOrRoleQ->where('user_id', $user->id);
+                                if (! empty($userRoleIds)) {
+                                    $userOrRoleQ->orWhereIn('role_id', $userRoleIds);
+                                }
+                            })
+                            ->where(function ($accessQ) {
+                                $accessQ->where('can_create', true)
+                                    ->orWhere('can_view', true)
+                                    ->orWhere('can_edit', true);
+                            });
+                    });
                 });
             })
             ->searchable()
@@ -100,17 +112,32 @@ class SppbHeaderForm
 
                 $user = auth()->user();
                 if ($user && ! $user->hasRole('super_admin')) {
-                    $query->whereIn('id', function ($sub) use ($user, $plantId) {
-                        $sub->select('department_id')
-                            ->from('document_accesses')
-                            ->where('user_id', $user->id)
-                            ->where('plant_id', $plantId)
-                            ->where('module', 'sppb')
-                            ->where(function ($q) {
-                                $q->where('can_create', true)
-                                    ->orWhere('can_view', true)
-                                    ->orWhere('can_edit', true);
-                            });
+                    $userRoleIds = $user->roles->pluck('id')->toArray();
+
+                    $query->where(function ($q) use ($user, $userRoleIds, $plantId) {
+                        if ($user->department_id && ($user->plant_id == $plantId || ! $user->plant_id)) {
+                            $q->where('id', $user->department_id);
+                        }
+                        $q->orWhereIn('id', function ($sub) use ($user, $userRoleIds, $plantId) {
+                            $sub->select('department_id')
+                                ->from('document_accesses')
+                                ->where('module', 'sppb')
+                                ->where(function ($pq) use ($plantId) {
+                                    $pq->where('plant_id', $plantId)
+                                        ->orWhereNull('plant_id');
+                                })
+                                ->where(function ($userOrRoleQ) use ($user, $userRoleIds) {
+                                    $userOrRoleQ->where('user_id', $user->id);
+                                    if (! empty($userRoleIds)) {
+                                        $userOrRoleQ->orWhereIn('role_id', $userRoleIds);
+                                    }
+                                })
+                                ->where(function ($accessQ) {
+                                    $accessQ->where('can_create', true)
+                                        ->orWhere('can_view', true)
+                                        ->orWhere('can_edit', true);
+                                });
+                        });
                     });
                 }
 
@@ -313,6 +340,10 @@ class SppbHeaderForm
                                 ->default(function (Get $get): string {
                                     return static::getLocationAddress($get('origin_location_id'));
                                 })
+                                ->afterStateHydrated(function (Textarea $component, Get $get, ?SppbHeader $record) {
+                                    $locationId = $get('origin_location_id') ?: $record?->origin_location_id;
+                                    $component->state(static::getLocationAddress($locationId));
+                                })
                                 ->dehydrated(false),
 
                             Textarea::make('destination_address_display')
@@ -322,6 +353,10 @@ class SppbHeaderForm
                                 ->placeholder('Alamat akan terisi otomatis setelah lokasi tujuan dipilih')
                                 ->default(function (Get $get): string {
                                     return static::getLocationAddress($get('destination_location_id'));
+                                })
+                                ->afterStateHydrated(function (Textarea $component, Get $get, ?SppbHeader $record) {
+                                    $locationId = $get('destination_location_id') ?: $record?->destination_location_id;
+                                    $component->state(static::getLocationAddress($locationId));
                                 })
                                 ->dehydrated(false),
                         ]),

@@ -57,10 +57,20 @@ class RoleResource extends Resource
             'sppbheader' => 'Dokumen SPPB',
             'sppbdetail' => 'Detail Barang SPPB',
             'sppbstatuslog' => 'Log Status SPPB',
-            'goodsrelease' => 'Pelepasan Barang',
+            'goodsrelease' => 'Pelepasan Barang (Surat Jalan)',
             'goodsreleaseitem' => 'Detail Rilis Barang',
             'activitylog' => 'Audit Log Aktivitas',
             'attachment' => 'Lampiran File',
+            'documentaccess' => 'Hak Akses Dokumen',
+            'emailchangerequest' => 'Permintaan Ubah Email',
+            'apisetting' => 'Pengaturan API',
+            'appsetting' => 'Pengaturan Aplikasi',
+            'dataexport' => 'Ekspor Data',
+            'dataimport' => 'Impor Data',
+            'documenttemplate' => 'Templat Dokumen',
+            'documentgeneration' => 'Generasi Dokumen',
+            'documentpage' => 'Halaman Dokumen',
+            'documentvalidation' => 'Validasi Dokumen',
             'workflowtemplate' => 'Master Workflow Template',
             'workflowstep' => 'Langkah Persetujuan',
             'workflowstepapprover' => 'Approver Workflow',
@@ -74,6 +84,7 @@ class RoleResource extends Resource
 
         $allPermissions = Permission::all();
         $checkboxes = [];
+        $trackedPermissionIds = [];
 
         foreach ($modules as $module => $displayName) {
             $modulePermissions = $allPermissions->filter(function ($permission) use ($module) {
@@ -88,6 +99,8 @@ class RoleResource extends Resource
 
                 return $modelName === $module;
             });
+
+            $trackedPermissionIds = array_merge($trackedPermissionIds, $modulePermissions->pluck('id')->toArray());
 
             $options = $modulePermissions->mapWithKeys(function ($p) {
                 $label = $p->name;
@@ -126,6 +139,34 @@ class RoleResource extends Resource
                             $rolePermissionIds = $record->permissions->pluck('id')->toArray();
                             $modulePermIds = $modulePermissions->pluck('id')->toArray();
                             $state = array_values(array_intersect($rolePermissionIds, $modulePermIds));
+                            $component->state($state);
+                        })
+                        ->dehydrated(false)
+                        ->bulkToggleable(),
+                ])
+                ->columnSpan(1);
+        }
+
+        // Dynamic fallback for unmapped or custom permissions
+        $otherPermissions = $allPermissions->filter(fn ($p) => ! in_array($p->id, $trackedPermissionIds));
+
+        if ($otherPermissions->isNotEmpty()) {
+            $options = $otherPermissions->mapWithKeys(function ($p) {
+                return [$p->id => str($p->name)->headline()->toString()];
+            })->toArray();
+
+            $checkboxes[] = Section::make('Fitur & Hak Akses Lainnya (Otomatis)')
+                ->schema([
+                    CheckboxList::make('permissions_other')
+                        ->label('')
+                        ->options($options)
+                        ->afterStateHydrated(function ($component, $record) use ($otherPermissions) {
+                            if (! $record) {
+                                return;
+                            }
+                            $rolePermissionIds = $record->permissions->pluck('id')->toArray();
+                            $otherPermIds = $otherPermissions->pluck('id')->toArray();
+                            $state = array_values(array_intersect($rolePermissionIds, $otherPermIds));
                             $component->state($state);
                         })
                         ->dehydrated(false)
@@ -182,6 +223,12 @@ class RoleResource extends Resource
                                 $allPermissionIds = array_merge($allPermissionIds, $ids);
                             }
                         }
+
+                        $otherIds = $get('permissions_other') ?? [];
+                        if (is_array($otherIds)) {
+                            $allPermissionIds = array_merge($allPermissionIds, $otherIds);
+                        }
+
                         $record->permissions()->sync($allPermissionIds);
                     }),
             ]);

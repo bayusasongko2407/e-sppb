@@ -6,41 +6,82 @@ namespace App\Policies;
 
 use App\Models\EnumControl;
 use App\Models\User;
+use Spatie\Permission\Exceptions\PermissionDoesNotExist;
 
 class EnumControlPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->hasPermissionTo('view_any_enumcontrol');
+        if ($user->hasRole('super_admin')) {
+            return true;
+        }
+
+        try {
+            return $user->hasPermissionTo('view_any_enumcontrol');
+        } catch (PermissionDoesNotExist) {
+            return false;
+        }
     }
 
     public function view(User $user, EnumControl $model): bool
     {
-        return $user->hasPermissionTo('view_enumcontrol');
+        if ($user->hasRole('super_admin')) {
+            return true;
+        }
+
+        try {
+            return $user->hasPermissionTo('view_enumcontrol');
+        } catch (PermissionDoesNotExist) {
+            return false;
+        }
     }
 
     public function create(User $user): bool
     {
-        return $user->hasPermissionTo('create_enumcontrol');
+        if ($user->hasRole('super_admin')) {
+            return true;
+        }
+
+        try {
+            return $user->hasPermissionTo('create_enumcontrol');
+        } catch (PermissionDoesNotExist) {
+            return false;
+        }
     }
 
     public function update(User $user, EnumControl $model): bool
     {
-        return $user->hasPermissionTo('update_enumcontrol');
+        if ($user->hasRole('super_admin')) {
+            return true;
+        }
+
+        try {
+            return $user->hasPermissionTo('update_enumcontrol');
+        } catch (PermissionDoesNotExist) {
+            return false;
+        }
     }
 
     public function delete(User $user, EnumControl $model): bool
     {
-        return $user->hasPermissionTo('delete_enumcontrol');
+        if ($user->hasRole('super_admin')) {
+            return true;
+        }
+
+        try {
+            return $user->hasPermissionTo('delete_enumcontrol');
+        } catch (PermissionDoesNotExist) {
+            return false;
+        }
     }
 
     public function restore(User $user, EnumControl $model): bool
     {
-        return $user->hasPermissionTo('restore_enumcontrol');
+        return $user->hasRole('super_admin');
     }
 
     public function forceDelete(User $user, EnumControl $model): bool
     {
-        return $user->hasPermissionTo('force_delete_enumcontrol');
+        return $user->hasRole('super_admin');
     }
 }

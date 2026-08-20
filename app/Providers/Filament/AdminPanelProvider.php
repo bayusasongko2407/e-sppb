@@ -65,6 +65,7 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('')
+            ->globalSearch(false)
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')
             ->viteTheme('resources/css/filament/admin/theme.css')
@@ -74,22 +75,64 @@ class AdminPanelProvider extends PanelProvider
                 $isLogin = request()->routeIs('filament.admin.auth.login');
                 if ($isLogin) {
                     $loginLogo = AppSetting::get('logo_login');
-                    if ($loginLogo) {
-                        return asset('storage/'.$loginLogo);
+                    if (! empty($loginLogo)) {
+                        if (is_array($loginLogo)) {
+                            $loginLogo = reset($loginLogo);
+                        }
+                        if (is_string($loginLogo) && str_starts_with($loginLogo, '[')) {
+                            $decoded = json_decode($loginLogo, true);
+                            $loginLogo = is_array($decoded) ? ($decoded[0] ?? null) : $loginLogo;
+                        }
+                        if (! empty($loginLogo)) {
+                            return asset('storage/'.$loginLogo);
+                        }
                     }
                 }
                 $themeLogo = AppSetting::get('logo_light');
-                if ($themeLogo) {
-                    return asset('storage/'.$themeLogo);
+                if (! empty($themeLogo)) {
+                    if (is_array($themeLogo)) {
+                        $themeLogo = reset($themeLogo);
+                    }
+                    if (is_string($themeLogo) && str_starts_with($themeLogo, '[')) {
+                        $decoded = json_decode($themeLogo, true);
+                        $themeLogo = is_array($decoded) ? ($decoded[0] ?? null) : $themeLogo;
+                    }
+                    if (! empty($themeLogo)) {
+                        return asset('storage/'.$themeLogo);
+                    }
                 }
 
                 return $isLogin ? asset('images/logo-lanscape.png') : asset('images/logo.png');
             })
-            ->brandLogoHeight(fn () => AppSetting::get('logo_height', 36).'px')
+            ->brandLogoHeight(function () {
+                $isLogin = request()->routeIs('filament.admin.auth.login');
+                if ($isLogin) {
+                    $loginHeight = AppSetting::get('logo_login_height');
+                    if ($loginHeight && (int) $loginHeight > 0) {
+                        return (int) $loginHeight.'px';
+                    }
+                }
+
+                $logoHeight = AppSetting::get('logo_height', 36);
+
+                return ((int) $logoHeight > 0 ? (int) $logoHeight : 36).'px';
+            })
             ->favicon(function () {
                 $favicon = AppSetting::get('logo_favicon');
+                if (! empty($favicon)) {
+                    if (is_array($favicon)) {
+                        $favicon = reset($favicon);
+                    }
+                    if (is_string($favicon) && str_starts_with($favicon, '[')) {
+                        $decoded = json_decode($favicon, true);
+                        $favicon = is_array($decoded) ? ($decoded[0] ?? null) : $favicon;
+                    }
+                    if (! empty($favicon)) {
+                        return asset('storage/'.$favicon);
+                    }
+                }
 
-                return $favicon ? asset('storage/'.$favicon) : asset('images/logo.png');
+                return asset('images/logo.png');
             })
             ->userMenuItems([
                 'profile' => MenuItem::make()
@@ -159,6 +202,10 @@ class AdminPanelProvider extends PanelProvider
                 NavigationGroup::make('Pengaturan')
                     ->label('Pengaturan')
                     ->icon('heroicon-o-adjustments-horizontal')
+                    ->collapsed(true),
+                NavigationGroup::make('Recycle Bin')
+                    ->label('Recycle Bin')
+                    ->icon('heroicon-o-trash')
                     ->collapsed(true),
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')

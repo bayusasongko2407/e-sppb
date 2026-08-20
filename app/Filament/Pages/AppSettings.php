@@ -65,8 +65,68 @@ class AppSettings extends Page implements HasForms
                 $value = (int) $value;
             } elseif ($setting->type === 'json') {
                 $value = json_decode($value, true);
+            } elseif (in_array($setting->key, ['logo_light', 'logo_dark', 'logo_favicon', 'logo_login', 'logo_pdf'], true)) {
+                if ($value && str_starts_with((string) $value, '[')) {
+                    $decoded = json_decode((string) $value, true);
+                    $value = is_array($decoded) ? ($decoded[0] ?? null) : $value;
+                }
             }
             $state[$setting->key] = $value;
+        }
+
+        $defaults = [
+            'company_name' => 'PT SANTOS JAYA ABADI',
+            'app_custom_name' => 'E-SPPB Enterprise',
+            'app_primary_color' => '#2563EB',
+            'logo_height' => 36,
+            'logo_login_height' => 60,
+            'logo_pdf_position' => 'left',
+            'logo_pdf_height' => 40,
+            'logo_pdf_show_address' => true,
+            'regional_timezone' => 'Asia/Jakarta',
+            'regional_date_format' => 'd/m/Y',
+            'regional_currency_symbol' => 'Rp',
+            'regional_currency_code' => 'IDR',
+            'regional_thousand_separator' => '.',
+            'regional_decimal_separator' => ',',
+            'security_session_timeout' => 120,
+            'security_login_limit' => 5,
+            'security_strong_password' => false,
+            'op_maintenance_mode' => false,
+            'op_maintenance_message' => 'Aplikasi sedang dalam pemeliharaan berkala.',
+            'op_emergency_bypass' => false,
+            'label_plant' => 'Plant',
+            'label_department' => 'Departemen',
+            'label_location' => 'Lokasi',
+            'label_sppb' => 'SPPB',
+            'label_goods_release' => 'Surat Jalan',
+            'label_asset' => 'Aset',
+            'label_item' => 'Barang',
+            'label_unit' => 'Satuan',
+            'label_qty' => 'Qty',
+            'label_remarks' => 'Keterangan',
+            'label_asset_barcode' => 'Barcode',
+            'label_sppb_purpose' => 'Keperluan',
+            'label_driver_name' => 'Nama Pengemudi',
+            'label_vehicle_number' => 'No. Kendaraan',
+            'label_expedition_name' => 'Nama Ekspedisi',
+            'label_delivery_date' => 'Tanggal Pengiriman',
+            'label_status_draft' => 'Draft',
+            'label_status_pending' => 'Menunggu Persetujuan',
+            'label_status_approved' => 'Disetujui',
+            'label_status_rejected' => 'Ditolak',
+            'label_status_revision' => 'Revisi',
+            'label_actor_requester' => 'Pemohon',
+            'label_actor_approver' => 'Penyetuju',
+            'label_actor_receiver' => 'Penerima',
+            'label_shipment_transit' => 'Dalam Pengiriman',
+            'label_shipment_delivered' => 'Terkirim',
+        ];
+
+        foreach ($defaults as $key => $defaultValue) {
+            if (! isset($state[$key]) || $state[$key] === null || $state[$key] === '') {
+                $state[$key] = $defaultValue;
+            }
         }
 
         $this->form->fill($state);
@@ -151,6 +211,12 @@ class AppSettings extends Page implements HasForms
                                                 ->disk('public')
                                                 ->directory('logos')
                                                 ->helperText('Tampil di tengah halaman login. Jika kosong, menggunakan Logo default.'),
+                                            TextInput::make('logo_login_height')
+                                                ->label('Tinggi Logo Halaman Login (px)')
+                                                ->numeric()
+                                                ->required()
+                                                ->default(60)
+                                                ->helperText('Mengatur ukuran tinggi logo khusus pada halaman login.'),
                                         ]),
                                     ]),
 
@@ -431,6 +497,16 @@ class AppSettings extends Page implements HasForms
             'company_tax_id' => 'string',
             'app_custom_name' => 'string',
             'app_primary_color' => 'string',
+            'logo_light' => 'string',
+            'logo_dark' => 'string',
+            'logo_height' => 'integer',
+            'logo_favicon' => 'string',
+            'logo_login' => 'string',
+            'logo_login_height' => 'integer',
+            'logo_pdf' => 'string',
+            'logo_pdf_position' => 'string',
+            'logo_pdf_height' => 'integer',
+            'logo_pdf_show_address' => 'boolean',
             'security_session_timeout' => 'integer',
             'security_login_limit' => 'integer',
             'security_strong_password' => 'boolean',
@@ -473,7 +549,22 @@ class AppSettings extends Page implements HasForms
 
         foreach ($data as $key => $value) {
             $type = $types[$key] ?? 'string';
-            $group = 'general';
+            $group = match (true) {
+                str_starts_with($key, 'company_') => 'company',
+                str_starts_with($key, 'logo_') || str_starts_with($key, 'app_') => 'visual',
+                str_starts_with($key, 'regional_') => 'regional',
+                str_starts_with($key, 'security_') => 'security',
+                str_starts_with($key, 'op_') => 'operational',
+                str_starts_with($key, 'label_') => 'labels',
+                default => 'general',
+            };
+
+            if (in_array($key, ['logo_light', 'logo_dark', 'logo_favicon', 'logo_login', 'logo_pdf'], true)) {
+                if (is_array($value)) {
+                    $value = reset($value) ?: null;
+                }
+            }
+
             AppSetting::set($key, $value, $group, $type);
         }
 

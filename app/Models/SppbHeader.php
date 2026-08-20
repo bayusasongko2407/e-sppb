@@ -34,6 +34,16 @@ class SppbHeader extends Model
 
     protected static function booted(): void
     {
+        static::deleting(function (SppbHeader $model) {
+            if (! $model->isForceDeleting()) {
+                $activeReleases = $model->goodsReleases()->whereNull('deleted_at')->pluck('release_number')->toArray();
+                if (! empty($activeReleases)) {
+                    $releasesList = implode(', ', $activeReleases);
+                    throw new \RuntimeException("Dokumen SPPB ini tidak dapat dihapus karena masih memiliki Surat Jalan aktif ({$releasesList}). Silakan hapus seluruh Surat Jalan terkait terlebih dahulu.");
+                }
+            }
+        });
+
         static::creating(function (SppbHeader $model) {
             if (empty($model->document_number)) {
                 $year = date('Y');

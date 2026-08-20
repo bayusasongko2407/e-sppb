@@ -4,6 +4,7 @@ use App\Http\Controllers\AttachmentController;
 use App\Http\Controllers\DocumentVerificationController;
 use App\Http\Controllers\GoodsReleasePreviewController;
 use App\Http\Controllers\SppbPreviewController;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 // Public document verification route — uses SHA256 token for security
@@ -47,3 +48,19 @@ Route::get('/attachments/{attachment:uuid}/download', [AttachmentController::cla
 Route::get('/attachments/{attachment:uuid}/delete', [AttachmentController::class, 'delete'])
     ->name('attachments.delete')
     ->middleware('signed');
+
+// Gracefully handle GET calls and legacy hashed paths to Livewire update routes
+Route::get('/livewire/update', function (Request $request) {
+    $referer = $request->header('referer');
+
+    return $referer ? redirect()->to($referer) : redirect()->to('/');
+});
+
+Route::match(['get', 'post'], '/{livewirePath}/update', function (Request $request) {
+    if ($request->isMethod('post')) {
+        return redirect()->to('/livewire/update', 307);
+    }
+    $referer = $request->header('referer');
+
+    return $referer ? redirect()->to($referer) : redirect()->to('/');
+})->where('livewirePath', 'livewire-[a-zA-Z0-9_-]+');

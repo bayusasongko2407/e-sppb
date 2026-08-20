@@ -10,6 +10,7 @@ use App\Models\Position;
 use App\Models\User;
 use App\Models\UserPosition;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class UserSeeder extends Seeder
 {
@@ -18,114 +19,76 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
-        // Bersihkan user lama kecuali super admin
-        UserPosition::query()->delete();
-        User::query()->update(['manager_id' => null]);
-        User::query()->where('email', '!=', 'superadmin@esppb.local')->delete();
+        $plant = Plant::where('code', 'SJA-SPJ')->first() ?? Plant::first();
+        if (! $plant) {
+            return;
+        }
 
-        $plants = Plant::all();
+        $engDept = Department::where('plant_id', $plant->id)->where('code', 'ENG')->first();
+        if (! $engDept) {
+            return;
+        }
+
         $positions = Position::all()->pluck('id', 'code');
 
-        foreach ($plants as $plant) {
-            // Dapatkan departemen Engineering dan Gudang untuk plant ini
-            $engDept = Department::where('plant_id', $plant->id)->where('code', 'ENG')->first();
-            $logDept = Department::where('plant_id', $plant->id)->where('code', 'LOG')->first();
+        // Atasan Direct: Muhammad Rifa'i
+        $rifai = User::updateOrCreate(
+            ['nik' => '00000653'],
+            [
+                'name' => "Muhammad Rifa'i",
+                'email' => 'rifai@engiboard.web.id',
+                'password' => Hash::make('@Rifai123'),
+                'plant_id' => $plant->id,
+                'department_id' => $engDept->id,
+                'is_active' => true,
+            ]
+        );
+        $rifai->syncRoles(['Manager']);
+        if ($positions->has('MGR')) {
+            UserPosition::updateOrCreate(
+                ['user_id' => $rifai->id, 'is_primary' => true],
+                ['position_id' => $positions->get('MGR'), 'is_active' => true]
+            );
+        }
 
-            if (! $engDept || ! $logDept) {
-                continue;
+        // 11 Real Users
+        $users = [
+            ['nik' => '00062472', 'name' => 'Bayu Sasongko', 'email' => 'bayusasongko@admin.com', 'pos_code' => 'BAT', 'role' => 'BAT Verifier', 'pass' => '123BAYUs'],
+            ['nik' => '00033194', 'name' => 'M. Iman Dwi Surya Ananta', 'email' => 'iman@engiboard.web.id', 'pos_code' => 'ASST_MGR', 'role' => 'Manager', 'pass' => '@Iman123'],
+            ['nik' => '00039992', 'name' => 'M. Gunawan Fridiyanto', 'email' => 'gunawan@engiboard.web.id', 'pos_code' => 'SUPERVISOR', 'role' => 'Pemohon', 'pass' => '@Gunawan123'],
+            ['nik' => '00002948', 'name' => 'Nico Budiman', 'email' => 'nico@engiboard.web.id', 'pos_code' => 'ASST_MGR', 'role' => 'Manager', 'pass' => '@Nico123'],
+            ['nik' => '00002244', 'name' => 'Laksana Adi Nugroho', 'email' => 'laksana@engiboard.web.id', 'pos_code' => 'SUPERVISOR', 'role' => 'Pemohon', 'pass' => '@Laksana123'],
+            ['nik' => '00062473', 'name' => 'Angga Setiawan Putra', 'email' => 'angga@engiboard.web.id', 'pos_code' => 'SUPERVISOR', 'role' => 'Pemohon', 'pass' => '@Angga123'],
+            ['nik' => '00064284', 'name' => 'Christopher Aditya Cahya Dewata', 'email' => 'christopher@engiboard.web.id', 'pos_code' => 'SUPERVISOR', 'role' => 'Pemohon', 'pass' => '@Christopher123'],
+            ['nik' => '00016625', 'name' => 'Fahmi Maulana Iqbal', 'email' => 'fahmi@engiboard.web.id', 'pos_code' => 'SUPERVISOR', 'role' => 'Pemohon', 'pass' => '@Fahmi123'],
+            ['nik' => '00004266', 'name' => 'Irfan Permana Putra', 'email' => 'irfan@engiboard.web.id', 'pos_code' => 'SUPERVISOR', 'role' => 'Pemohon', 'pass' => '@Irfan123'],
+            ['nik' => '00051201', 'name' => 'Rokhman Hidayat', 'email' => 'rokhman@engiboard.web.id', 'pos_code' => 'SUPERVISOR', 'role' => 'Pemohon', 'pass' => '@Rokhman123'],
+            ['nik' => '00002259', 'name' => 'Endang Sunarmiasih', 'email' => 'endang@engiboard.web.id', 'pos_code' => 'BAT', 'role' => 'BAT Verifier', 'pass' => '@Endang123'],
+        ];
+
+        foreach ($users as $u) {
+            $user = User::updateOrCreate(
+                ['nik' => $u['nik']],
+                [
+                    'name' => $u['name'],
+                    'email' => $u['email'],
+                    'password' => Hash::make($u['pass']),
+                    'plant_id' => $plant->id,
+                    'department_id' => $engDept->id,
+                    'manager_id' => $rifai->id,
+                    'is_active' => true,
+                ]
+            );
+
+            $user->syncRoles([$u['role']]);
+
+            $posId = $positions->get($u['pos_code']);
+            if ($posId) {
+                UserPosition::updateOrCreate(
+                    ['user_id' => $user->id, 'is_primary' => true],
+                    ['position_id' => $posId, 'is_active' => true]
+                );
             }
-
-            // 1. Buat Manager
-            $manager = User::create([
-                'plant_id' => $plant->id,
-                'department_id' => $engDept->id,
-                'name' => 'Manager ENG '.$plant->code,
-                'email' => 'manager.'.strtolower(str_replace(' ', '', $plant->code)).'@esppb.local',
-                'nik' => 'MGR'.$plant->id.'00001',
-                'password' => bcrypt('password'),
-                'is_active' => true,
-            ]);
-            $manager->assignRole(['Manager', 'manager']);
-            UserPosition::create([
-                'user_id' => $manager->id,
-                'position_id' => $positions->get('MGR'),
-                'is_primary' => true,
-                'is_active' => true,
-            ]);
-
-            // 2. Buat Supervisor
-            $supervisor = User::create([
-                'plant_id' => $plant->id,
-                'department_id' => $engDept->id,
-                'manager_id' => $manager->id,
-                'name' => 'Supervisor ENG '.$plant->code,
-                'email' => 'supervisor.'.strtolower(str_replace(' ', '', $plant->code)).'@esppb.local',
-                'nik' => 'SPV'.$plant->id.'00001',
-                'password' => bcrypt('password'),
-                'is_active' => true,
-            ]);
-            $supervisor->assignRole(['Supervisor', 'approver']);
-            UserPosition::create([
-                'user_id' => $supervisor->id,
-                'position_id' => $positions->get('SUPERVISOR') ?? $positions->get('SPV'),
-                'is_primary' => true,
-                'is_active' => true,
-            ]);
-
-            // 3. Buat Requester (Pemohon)
-            $requester = User::create([
-                'plant_id' => $plant->id,
-                'department_id' => $engDept->id,
-                'manager_id' => $manager->id,
-                'name' => 'Staff ENG '.$plant->code,
-                'email' => 'requester.'.strtolower(str_replace(' ', '', $plant->code)).'@esppb.local',
-                'nik' => 'REQ'.$plant->id.'00001',
-                'password' => bcrypt('password'),
-                'is_active' => true,
-            ]);
-            $requester->assignRole(['Pemohon', 'requester']);
-            UserPosition::create([
-                'user_id' => $requester->id,
-                'position_id' => $positions->get('STAFF'),
-                'is_primary' => true,
-                'is_active' => true,
-            ]);
-
-            // 4. Buat BAT (Bagian Aset Tetap / BAT Verifier)
-            $bat = User::create([
-                'plant_id' => $plant->id,
-                'department_id' => $engDept->id,
-                'name' => 'BAT Verifier '.$plant->code,
-                'email' => 'bat.'.strtolower(str_replace(' ', '', $plant->code)).'@esppb.local',
-                'nik' => 'BAT'.$plant->id.'00001',
-                'password' => bcrypt('password'),
-                'is_active' => true,
-            ]);
-            $bat->assignRole(['BAT Verifier', 'approver']);
-            UserPosition::create([
-                'user_id' => $bat->id,
-                'position_id' => $positions->get('BAT'),
-                'is_primary' => true,
-                'is_active' => true,
-            ]);
-
-            // 5. Buat Gudang / Sekuriti Staff
-            $gudang = User::create([
-                'plant_id' => $plant->id,
-                'department_id' => $logDept->id,
-                'name' => 'Gudang '.$plant->code,
-                'email' => 'gudang.'.strtolower(str_replace(' ', '', $plant->code)).'@esppb.local',
-                'nik' => 'WH'.$plant->id.'00001',
-                'password' => bcrypt('password'),
-                'is_active' => true,
-            ]);
-            $gudang->assignRole(['Sekuriti/Gudang', 'gudang']);
-            UserPosition::create([
-                'user_id' => $gudang->id,
-                'position_id' => $positions->get('STAFF'),
-                'is_primary' => true,
-                'is_active' => true,
-            ]);
         }
     }
 }

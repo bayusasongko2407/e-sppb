@@ -28,16 +28,30 @@ class AppSetting extends Model
     {
         $setting = self::find($key);
 
-        if (! $setting) {
+        if (! $setting || $setting->value === null) {
             return $default;
         }
 
-        return match ($setting->type) {
+        if ($setting->value === '' && $setting->type !== 'boolean') {
+            return $default;
+        }
+
+        $val = match ($setting->type) {
             'boolean' => filter_var($setting->value, FILTER_VALIDATE_BOOLEAN),
             'integer' => (int) $setting->value,
             'json' => json_decode($setting->value, true),
             default => $setting->value,
         };
+
+        if (in_array($key, ['logo_light', 'logo_dark', 'logo_favicon', 'logo_login', 'logo_pdf'], true) && is_string($val)) {
+            if (str_starts_with($val, '[')) {
+                $decoded = json_decode($val, true);
+
+                return is_array($decoded) ? ($decoded[0] ?? $default) : $val;
+            }
+        }
+
+        return $val;
     }
 
     /**
@@ -45,7 +59,19 @@ class AppSetting extends Model
      */
     public static function set(string $key, mixed $value, string $group = 'general', string $type = 'string'): self
     {
-        $processedValue = is_array($value) ? json_encode($value) : (string) $value;
+        if (in_array($key, ['logo_light', 'logo_dark', 'logo_favicon', 'logo_login', 'logo_pdf'], true)) {
+            if (is_array($value)) {
+                $value = reset($value) ?: null;
+            }
+        }
+
+        if ($type === 'boolean') {
+            $processedValue = filter_var($value, FILTER_VALIDATE_BOOLEAN) ? '1' : '0';
+        } elseif (is_array($value)) {
+            $processedValue = json_encode($value);
+        } else {
+            $processedValue = (string) ($value ?? '');
+        }
 
         return self::updateOrCreate(
             ['key' => $key],

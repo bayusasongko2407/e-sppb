@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\Role;
 use App\Models\User;
+use Spatie\Permission\Exceptions\PermissionDoesNotExist;
 
 class RolePolicy
 {
@@ -12,7 +13,15 @@ class RolePolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->hasPermissionTo('view_any_role');
+        if ($user->hasRole('super_admin')) {
+            return true;
+        }
+
+        try {
+            return $user->hasPermissionTo('view_any_role');
+        } catch (PermissionDoesNotExist) {
+            return false;
+        }
     }
 
     /**
@@ -20,7 +29,15 @@ class RolePolicy
      */
     public function view(User $user, Role $role): bool
     {
-        return $user->hasPermissionTo('view_role');
+        if ($user->hasRole('super_admin')) {
+            return true;
+        }
+
+        try {
+            return $user->hasPermissionTo('view_role');
+        } catch (PermissionDoesNotExist) {
+            return false;
+        }
     }
 
     /**
@@ -28,7 +45,15 @@ class RolePolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasPermissionTo('create_role');
+        if ($user->hasRole('super_admin')) {
+            return true;
+        }
+
+        try {
+            return $user->hasPermissionTo('create_role');
+        } catch (PermissionDoesNotExist) {
+            return false;
+        }
     }
 
     /**
@@ -36,7 +61,15 @@ class RolePolicy
      */
     public function update(User $user, Role $role): bool
     {
-        return $user->hasPermissionTo('update_role');
+        if ($user->hasRole('super_admin')) {
+            return true;
+        }
+
+        try {
+            return $user->hasPermissionTo('update_role');
+        } catch (PermissionDoesNotExist) {
+            return false;
+        }
     }
 
     /**
@@ -44,7 +77,15 @@ class RolePolicy
      */
     public function delete(User $user, Role $role): bool
     {
-        return $user->hasPermissionTo('delete_role');
+        if ($user->hasRole('super_admin')) {
+            return true;
+        }
+
+        try {
+            return $user->hasPermissionTo('delete_role');
+        } catch (PermissionDoesNotExist) {
+            return false;
+        }
     }
 
     /**
@@ -52,7 +93,7 @@ class RolePolicy
      */
     public function restore(User $user, Role $role): bool
     {
-        return $user->hasPermissionTo('restore_role');
+        return $user->hasRole('super_admin');
     }
 
     /**
@@ -60,6 +101,6 @@ class RolePolicy
      */
     public function forceDelete(User $user, Role $role): bool
     {
-        return $user->hasPermissionTo('force_delete_role');
+        return $user->hasRole('super_admin');
     }
 }

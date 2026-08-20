@@ -25,7 +25,7 @@ class ManagerKpiWidget extends BaseWidget
             return false;
         }
 
-        return $user->hasRole('manager') || $user->hasRole('super_admin');
+        return $user->hasRole('super_admin') || $user->can('viewAny', SppbHeader::class);
     }
 
     protected function getStats(): array

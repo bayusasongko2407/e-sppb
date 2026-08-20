@@ -8,12 +8,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
 class GoodsRelease extends Model
 {
-    use HasFactory, SecureRouteBinding;
+    use HasFactory, SecureRouteBinding, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -103,8 +104,88 @@ class GoodsRelease extends Model
             }
 
             if (empty($release->release_number)) {
-                $count = static::whereDate('created_at', today())->count() + 1;
-                $release->release_number = 'SJ-'.now()->format('Ymd').'-'.str_pad((string) $count, 4, '0', STR_PAD_LEFT);
+                $year = date('Y');
+                $month = date('m');
+                $day = date('d');
+
+                $periodMonth = "{$year}-{$month}";
+                $periodYear = "{$year}";
+                $periodDay = "{$year}-{$month}-{$day}";
+
+                $sppb = $release->sppbHeader ?? ($release->sppb_header_id ? SppbHeader::find($release->sppb_header_id) : null);
+                $plantId = $sppb?->plant_id ?? auth()->user()?->plant_id;
+                $deptId = $sppb?->department_id ?? auth()->user()?->department_id;
+                $plantCode = $sppb?->plant?->code;
+                $deptCode = $sppb?->department?->code;
+
+                $documentTypes = ['GR', 'GOODS_RELEASE', 'SJ'];
+
+                $running = RunningNumber::whereIn('document_type', $documentTypes)
+                    ->where(function ($q) use ($plantId) {
+                        if ($plantId) {
+                            $q->where('plant_id', $plantId)->orWhereNull('plant_id');
+                        }
+                    })
+                    ->whereIn('period_key', [$periodMonth, $periodYear, $periodDay, 'GLOBAL'])
+                    ->where('is_active', true)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $running) {
+                    $template = RunningNumber::whereIn('document_type', $documentTypes)
+                        ->where('is_active', true)
+                        ->latest('id')
+                        ->first();
+
+                    if ($template) {
+                        $prefix = $template->prefix;
+                        $digits = $template->digits;
+                        $docType = $template->document_type;
+                        $periodKey = $periodMonth;
+                        if (strlen($template->period_key) === 4 && is_numeric($template->period_key)) {
+                            $periodKey = $periodYear;
+                        } elseif ($template->period_key === 'GLOBAL') {
+                            $periodKey = 'GLOBAL';
+                        } elseif (strlen($template->period_key) === 10) {
+                            $periodKey = $periodDay;
+                        }
+
+                        $running = RunningNumber::create([
+                            'plant_id' => $plantId,
+                            'department_id' => $deptId,
+                            'document_type' => $docType,
+                            'period_key' => $periodKey,
+                            'prefix' => $prefix,
+                            'digits' => $digits,
+                            'last_number' => 0,
+                            'is_active' => true,
+                        ]);
+                    }
+                }
+
+                if ($running) {
+                    $running->last_number += 1;
+                    $running->save();
+
+                    $prefix = $running->prefix;
+                    $prefix = str_replace('{DD}', date('d'), $prefix);
+                    $prefix = str_replace('{MM}', date('m'), $prefix);
+                    $prefix = str_replace('{YY}', date('y'), $prefix);
+                    $prefix = str_replace('{YYYY}', date('Y'), $prefix);
+
+                    if (str_contains($prefix, '{DEP}')) {
+                        $prefix = str_replace('{DEP}', $deptCode ?? 'NODEP', $prefix);
+                    }
+
+                    if (str_contains($prefix, '{PLN}')) {
+                        $prefix = str_replace('{PLN}', $plantCode ?? 'NOPLN', $prefix);
+                    }
+
+                    $release->release_number = $prefix.str_pad((string) $running->last_number, $running->digits, '0', STR_PAD_LEFT);
+                } else {
+                    $count = static::whereDate('created_at', today())->count() + 1;
+                    $release->release_number = 'SJ-'.now()->format('Ymd').'-'.str_pad((string) $count, 4, '0', STR_PAD_LEFT);
+                }
             }
 
             if (empty($release->verification_hash)) {

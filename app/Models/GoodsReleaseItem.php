@@ -15,13 +15,13 @@ class GoodsReleaseItem extends Model
     protected static function booted(): void
     {
         static::saved(function (GoodsReleaseItem $item) {
-            if ($item->goodsRelease) {
+            if ($item->goodsRelease && $item->sppb_detail_id) {
                 $item->goodsRelease->syncSppbDetailsDeliveryStatus();
             }
         });
 
         static::deleted(function (GoodsReleaseItem $item) {
-            if ($item->goodsRelease) {
+            if ($item->goodsRelease && $item->sppb_detail_id) {
                 $item->goodsRelease->syncSppbDetailsDeliveryStatus();
             }
         });
@@ -35,6 +35,10 @@ class GoodsReleaseItem extends Model
     protected $fillable = [
         'goods_release_id',
         'sppb_detail_id',
+        'item_name',
+        'item_type',
+        'barcode_code',
+        'unit_name',
         'quantity_requested',
         'quantity_released',
         'quantity_received',

@@ -10,6 +10,8 @@ enum GoodsReleaseStatus: string
 {
     case DRAFT = 'DRAFT';
     case RELEASED = 'RELEASED';
+    case IN_TRANSIT = 'IN_TRANSIT';
+    case DELIVERED = 'DELIVERED';
     case RECEIVED = 'RECEIVED';
     case CANCELLED = 'CANCELLED';
 
@@ -27,7 +29,9 @@ enum GoodsReleaseStatus: string
 
         return match ($this) {
             self::DRAFT => 'Draft',
-            self::RELEASED => 'Dikirim',
+            self::RELEASED => 'Dalam Pengiriman',
+            self::IN_TRANSIT => 'Dalam Perjalanan',
+            self::DELIVERED => 'Sudah Diterima',
             self::RECEIVED => 'Diterima',
             self::CANCELLED => 'Dibatalkan',
         };
@@ -37,8 +41,8 @@ enum GoodsReleaseStatus: string
     {
         return match ($this) {
             self::DRAFT => 'gray',
-            self::RELEASED => 'info',
-            self::RECEIVED => 'success',
+            self::RELEASED, self::IN_TRANSIT => 'info',
+            self::DELIVERED, self::RECEIVED => 'success',
             self::CANCELLED => 'danger',
         };
     }

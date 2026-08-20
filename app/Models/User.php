@@ -154,20 +154,23 @@ class User extends Authenticatable
             return true;
         }
 
-        // 1. Spatie Permission Check (Gerbang Utama)
+        // 1. Spatie Permission Check
         $moduleToModelMap = [
             'sppb' => 'sppbheader',
             'goodsrelease' => 'goodsrelease',
             'goods_release' => 'goodsrelease',
         ];
         $model = $moduleToModelMap[$module] ?? $module;
-
         $spatieAction = $action === 'edit' ? 'update' : $action;
 
         $hasSpatieAccess = false;
         try {
             if ($spatieAction === 'view') {
-                $hasSpatieAccess = $this->hasPermissionTo("view_{$model}") || $this->hasPermissionTo("view_any_{$model}");
+                $hasSpatieAccess = $this->hasPermissionTo("view_{$model}")
+                    || $this->hasPermissionTo("view_any_{$model}")
+                    || $this->hasPermissionTo("create_{$model}")
+                    || $this->hasPermissionTo("update_{$model}")
+                    || $this->hasPermissionTo("delete_{$model}");
             } else {
                 $hasSpatieAccess = $this->hasPermissionTo("{$spatieAction}_{$model}");
             }
@@ -175,62 +178,61 @@ class User extends Authenticatable
             $hasSpatieAccess = false;
         }
 
-        if (! $hasSpatieAccess) {
-            return false;
-        }
-
+        // 2. DocumentAccess Matrix Check
         $roleIds = $this->roles->pluck('id')->toArray();
 
-        $query = DocumentAccess::query()->where('module', $module);
-
-        // Check if assigned directly to user OR inherited from Spatie roles
-        $query->where(function ($q) use ($roleIds) {
-            $q->where('user_id', $this->id);
-            if (! empty($roleIds)) {
-                $q->orWhereIn('role_id', $roleIds);
-            }
-        });
-
-        // Wildcard check for Plant: If parameter is set, match record with that plant OR null (all plants).
-        // If parameter is null, only match record with null plant (all plants).
-        if ($plantId !== null) {
-            $query->where(function ($q) use ($plantId) {
-                $q->where('plant_id', $plantId)
-                    ->orWhereNull('plant_id');
+        $matrixQuery = DocumentAccess::query()
+            ->where('module', $module)
+            ->where(function ($q) use ($roleIds) {
+                $q->where('user_id', $this->id);
+                if (! empty($roleIds)) {
+                    $q->orWhereIn('role_id', $roleIds);
+                }
             });
-        } else {
-            $query->whereNull('plant_id');
-        }
-
-        // Wildcard check for Department: If parameter is set, match record with that department OR null (all departments).
-        // If parameter is null, only match record with null department (all departments).
-        if ($departmentId !== null) {
-            $query->where(function ($q) use ($departmentId) {
-                $q->where('department_id', $departmentId)
-                    ->orWhereNull('department_id');
-            });
-        } else {
-            $query->whereNull('department_id');
-        }
 
         switch ($action) {
             case 'view':
-                $query->where('can_view', true);
+                $matrixQuery->where(function ($q) {
+                    $q->where('can_view', true)
+                        ->orWhere('can_create', true)
+                        ->orWhere('can_edit', true)
+                        ->orWhere('can_delete', true);
+                });
                 break;
             case 'create':
-                $query->where('can_create', true);
+                $matrixQuery->where('can_create', true);
                 break;
             case 'edit':
-                $query->where('can_edit', true);
+                $matrixQuery->where('can_edit', true);
                 break;
             case 'delete':
-                $query->where('can_delete', true);
+                $matrixQuery->where('can_delete', true);
                 break;
             default:
                 return false;
         }
 
-        return $query->exists();
+        // If specific plant or department is requested, matrix MUST match
+        if ($plantId !== null || $departmentId !== null) {
+            if ($plantId !== null) {
+                $matrixQuery->where(function ($q) use ($plantId) {
+                    $q->where('plant_id', $plantId)
+                        ->orWhereNull('plant_id');
+                });
+            }
+
+            if ($departmentId !== null) {
+                $matrixQuery->where(function ($q) use ($departmentId) {
+                    $q->where('department_id', $departmentId)
+                        ->orWhereNull('department_id');
+                });
+            }
+
+            return $matrixQuery->exists();
+        }
+
+        // General module check (plantId and departmentId are null):
+        return $matrixQuery->exists() || $hasSpatieAccess;
     }
 
     /**

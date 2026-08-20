@@ -21,7 +21,7 @@ class RequesterStatsWidget extends BaseWidget
             return false;
         }
 
-        return ! ($user->hasRole('approver') || $user->hasRole('manager') || $user->hasRole('super_admin'));
+        return $user->hasRole('super_admin') || $user->can('create', SppbHeader::class);
     }
 
     protected function getStats(): array

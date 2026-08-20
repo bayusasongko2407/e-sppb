@@ -23,7 +23,7 @@ class PendingApprovalWidget extends BaseWidget
             return false;
         }
 
-        return $user->hasRole('approver') || $user->hasRole('manager') || $user->hasRole('super_admin');
+        return $user->hasRole('super_admin') || $user->can('viewAny', SppbHeader::class);
     }
 
     public function table(Table $table): Table

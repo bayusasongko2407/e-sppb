@@ -26,7 +26,7 @@ class CheckMaintenanceMode
 
         if ($maintenanceEnabled) {
             $user = auth()->user();
-            $isExempted = $user && ($user->hasRole('super_admin') || $user->hasRole('admin'));
+            $isExempted = $user && $user->hasRole('super_admin');
 
             $path = $request->path();
 

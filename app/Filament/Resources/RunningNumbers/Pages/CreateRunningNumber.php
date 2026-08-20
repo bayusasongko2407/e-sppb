@@ -8,4 +8,9 @@ use Filament\Resources\Pages\CreateRecord;
 class CreateRunningNumber extends CreateRecord
 {
     protected static string $resource = RunningNumberResource::class;
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
 }

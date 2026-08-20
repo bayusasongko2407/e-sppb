@@ -4,12 +4,18 @@ namespace App\Filament\Resources\DocumentAccesses\Pages;
 
 use App\Filament\Resources\DocumentAccesses\DocumentAccessResource;
 use App\Models\DocumentAccess;
+use App\Services\DocumentAccessSyncService;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
 
 class CreateDocumentAccess extends CreateRecord
 {
     protected static string $resource = DocumentAccessResource::class;
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
 
     protected function handleRecordCreation(array $data): Model
     {
@@ -42,6 +48,8 @@ class CreateDocumentAccess extends CreateRecord
                 'can_delete' => $item['can_delete'] ?? false,
             ]);
         }
+
+        DocumentAccessSyncService::syncAccessPermissions($userId, $roleId, $accessItems);
 
         return $lastRecord ?? new DocumentAccess([
             'user_id' => $userId,

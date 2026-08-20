@@ -76,21 +76,53 @@ class SppbHeaderResource extends Resource
             return $query;
         }
 
-        // Restrict by DocumentAccess configuration, or if requester, or if they are the current approver
-        return $query->where(function (Builder $q) use ($user) {
+        $userRoleIds = $user->roles->pluck('id')->toArray();
+
+        return $query->where(function (Builder $q) use ($user, $userRoleIds) {
             $q->where('requester_id', $user->id)
                 ->orWhere('current_approver_id', $user->id)
-                ->orWhere(function (Builder $sub) use ($user) {
-                    $sub->whereExists(function ($rawQuery) use ($user) {
+                ->orWhereHas('currentWorkflowInstance.workflowInstanceSteps', function ($stepQ) use ($user) {
+                    $stepQ->where('status', 'PENDING')
+                        ->whereHas('stepApprovers', function ($appQ) use ($user) {
+                            $appQ->where('approver_id', $user->id)->where('status', 'PENDING');
+                        });
+                })
+                ->orWhere(function (Builder $sub) use ($user, $userRoleIds) {
+                    $sub->whereExists(function ($rawQuery) use ($user, $userRoleIds) {
                         $rawQuery->select(DB::raw(1))
                             ->from('document_accesses')
-                            ->whereColumn('document_accesses.plant_id', 'sppb_headers.plant_id')
-                            ->whereColumn('document_accesses.department_id', 'sppb_headers.department_id')
-                            ->where('document_accesses.user_id', $user->id)
                             ->where('document_accesses.module', 'sppb')
-                            ->where('document_accesses.can_view', true);
+                            ->where(function ($actQ) {
+                                $actQ->where('document_accesses.can_view', true)
+                                    ->orWhere('document_accesses.can_create', true)
+                                    ->orWhere('document_accesses.can_edit', true)
+                                    ->orWhere('document_accesses.can_delete', true);
+                            })
+                            ->where(function ($userOrRoleQ) use ($user, $userRoleIds) {
+                                $userOrRoleQ->where('document_accesses.user_id', $user->id);
+                                if (! empty($userRoleIds)) {
+                                    $userOrRoleQ->orWhereIn('document_accesses.role_id', $userRoleIds);
+                                }
+                            })
+                            ->where(function ($plantQ) {
+                                $plantQ->whereColumn('document_accesses.plant_id', 'sppb_headers.plant_id')
+                                    ->orWhereNull('document_accesses.plant_id');
+                            })
+                            ->where(function ($deptQ) {
+                                $deptQ->whereColumn('document_accesses.department_id', 'sppb_headers.department_id')
+                                    ->orWhereNull('document_accesses.department_id');
+                            });
                     });
                 });
+
+            if ($user->plant_id) {
+                $q->orWhere(function ($userPlantQ) use ($user) {
+                    $userPlantQ->where('plant_id', $user->plant_id);
+                    if ($user->department_id) {
+                        $userPlantQ->where('department_id', $user->department_id);
+                    }
+                });
+            }
         });
     }
 

@@ -17,6 +17,7 @@ use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
 use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -46,6 +47,14 @@ return Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(function (Throwable $e, Request $request) {
+            if ($e instanceof MethodNotAllowedHttpException && ($request->is('livewire*') || str_contains($request->path(), 'livewire'))) {
+                $referer = $request->header('referer');
+                if ($referer) {
+                    return redirect()->to($referer);
+                }
+
+                return response()->json(['message' => 'Method GET tidak didukung untuk Livewire update.'], 405);
+            }
             if ($request->is('api/*') || $request->expectsJson()) {
                 if ($e instanceof UnauthorizedException
                     || $e instanceof AuthorizationException

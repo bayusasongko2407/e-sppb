@@ -6,6 +6,7 @@ namespace App\Filament\Resources\DocumentAccesses\Pages;
 
 use App\Filament\Resources\DocumentAccesses\DocumentAccessResource;
 use App\Models\DocumentAccess;
+use App\Services\DocumentAccessSyncService;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Database\Eloquent\Model;
@@ -103,6 +104,8 @@ class EditDocumentAccess extends EditRecord
                 'can_delete' => $item['can_delete'] ?? false,
             ]);
         }
+
+        DocumentAccessSyncService::syncAccessPermissions($newUserId, $newRoleId, $accessItems);
 
         return $lastRecord ?? $record;
     }

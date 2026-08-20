@@ -26,7 +26,7 @@ class SppbReport implements ReportInterface
 
     public function getName(): string
     {
-        return 'Laporan SPPB (Berdasarkan Dokumen)';
+        return '1. Laporan Matriks Master SPPB';
     }
 
     public function getFilterSchema(): array

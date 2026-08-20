@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources\GoodsReleases;
 
+use App\Enums\GoodsReleaseStatus;
 use App\Filament\Resources\GoodsReleases\Pages\CreateGoodsRelease;
 use App\Filament\Resources\GoodsReleases\Pages\EditGoodsRelease;
 use App\Filament\Resources\GoodsReleases\Pages\ListGoodsReleases;
@@ -12,8 +13,16 @@ use App\Models\GoodsRelease;
 use App\Models\GoodsReleaseItem;
 use App\Models\SppbDetail;
 use App\Models\SppbHeader;
+use App\Models\Unit;
 use Filament\Actions\Action;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ForceDeleteAction;
+use Filament\Actions\ForceDeleteBulkAction;
+use Filament\Actions\RestoreAction;
+use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
@@ -29,9 +38,11 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\TrashedFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\HtmlString;
@@ -53,6 +64,20 @@ class GoodsReleaseResource extends Resource
     protected static ?string $modelLabel = 'Surat Jalan';
 
     protected static ?string $pluralModelLabel = 'Surat Jalan';
+
+    public static function isPureManual(Get $get, $record): bool
+    {
+        $isManual = (bool) ($get('is_manual') ?? $get('../is_manual') ?? $get('../../is_manual') ?? $get('../../../is_manual') ?? $record?->is_manual);
+        if (! $isManual) {
+            return false;
+        }
+
+        $sppbIds = $get('sppbHeaders') ?? $get('../../sppbHeaders') ?? $get('../../../sppbHeaders') ?? [];
+        $sppbId = $get('sppb_header_id') ?? $get('../../sppb_header_id') ?? request()->query('sppb_header_id') ?? $record?->sppb_header_id;
+        $hasSppbRelation = $record && ($record->sppbHeaders?->isNotEmpty() || $record->sppb_header_id);
+
+        return empty($sppbIds) && empty($sppbId) && ! $hasSppbRelation;
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -131,27 +156,8 @@ class GoodsReleaseResource extends Resource
 
                         Select::make('status')
                             ->label('Status Pengiriman')
-                            ->options([
-                                'DRAFT' => 'Draft',
-                                'RELEASED' => 'Dalam Pengiriman',
-                                'DELIVERED' => 'Terkirim',
-                                'RECEIVED' => 'Terkirim',
-                                'COMPLETED' => 'Selesai',
-                                'CANCELLED' => 'Dibatalkan',
-                            ])
+                            ->options(collect(GoodsReleaseStatus::cases())->mapWithKeys(fn ($case) => [$case->value => $case->label()])->toArray())
                             ->default('DRAFT')
-                            ->formatStateUsing(function ($record, $state) {
-                                $st = strtoupper((string) ($record?->getRawOriginal('status') ?? $record?->status ?? $state ?? 'DRAFT'));
-
-                                return match ($st) {
-                                    'DRAFT' => 'DRAFT',
-                                    'RELEASED' => 'RELEASED',
-                                    'DELIVERED', 'RECEIVED' => 'DELIVERED',
-                                    'COMPLETED' => 'COMPLETED',
-                                    'CANCELLED' => 'CANCELLED',
-                                    default => $st,
-                                };
-                            })
                             ->required()
                             ->disabled()
                             ->dehydrated()
@@ -162,6 +168,7 @@ class GoodsReleaseResource extends Resource
 
             // ─── PANEL 2: INFORMASI SPPB ────────────────────────────────────
             Section::make('Dokumen Referensi SPPB')
+                ->hidden(fn (Get $get, $record) => static::isPureManual($get, $record))
                 ->schema([
                     Placeholder::make('sppb_select_css')
                         ->hiddenLabel()
@@ -315,7 +322,7 @@ class GoodsReleaseResource extends Resource
                         ->content(function (Get $get, $record): HtmlString {
                             $sppbIds = $get('sppbHeaders') ?? [];
                             if (empty($sppbIds) && $record) {
-                                $sppbIds = $record->sppbHeaders->pluck('id')->toArray();
+                                $sppbIds = $record->sppbHeaders?->pluck('id')?->toArray() ?? [];
                                 if (empty($sppbIds) && $record->sppb_header_id) {
                                     $sppbIds = [$record->sppb_header_id];
                                 }
@@ -420,67 +427,96 @@ class GoodsReleaseResource extends Resource
                     Grid::make([
                         'default' => 1,
                         'lg' => 2,
-                    ])->schema([
-                        Placeholder::make('origin_location_and_address')
-                            ->label('Lokasi & Alamat Asal')
-                            ->content(function (Get $get): HtmlString {
-                                $name = $get('sender_name');
-                                $address = $get('sender_address');
+                    ])
+                        ->hidden(fn (Get $get, $record) => ! static::isPureManual($get, $record))
+                        ->schema([
+                            TextInput::make('sender_name')
+                                ->label('Lokasi Asal / Pengirim *')
+                                ->required()
+                                ->placeholder('misal: Gudang Utama Sidoarjo'),
 
-                                if (empty($name) && empty($address)) {
-                                    $sppbIds = $get('sppbHeaders') ?? [];
-                                    $sppbId = request()->query('sppb_header_id') ?? ($sppbIds[0] ?? null);
-                                    if ($sppbId) {
-                                        $sppb = SppbHeader::with('originLocation')->find($sppbId);
-                                        $name = $sppb?->originLocation?->name;
-                                        $address = $sppb?->originLocation?->address;
+                            TextInput::make('receiver_name')
+                                ->label('Lokasi Tujuan / Penerima *')
+                                ->required()
+                                ->placeholder('misal: PT Vendor Repair Jaya'),
+
+                            Textarea::make('sender_address')
+                                ->label('Alamat Asal')
+                                ->rows(3)
+                                ->placeholder('Alamat pengirim...'),
+
+                            Textarea::make('receiver_address')
+                                ->label('Alamat Tujuan')
+                                ->rows(3)
+                                ->placeholder('Alamat tujuan...'),
+                        ]),
+
+                    Grid::make([
+                        'default' => 1,
+                        'lg' => 2,
+                    ])
+                        ->hidden(fn (Get $get, $record) => static::isPureManual($get, $record))
+                        ->schema([
+                            Placeholder::make('origin_location_and_address')
+                                ->label('Lokasi & Alamat Asal')
+                                ->content(function (Get $get): HtmlString {
+                                    $name = $get('sender_name');
+                                    $address = $get('sender_address');
+
+                                    if (empty($name) && empty($address)) {
+                                        $sppbIds = $get('sppbHeaders') ?? [];
+                                        $sppbId = request()->query('sppb_header_id') ?? ($sppbIds[0] ?? null);
+                                        if ($sppbId) {
+                                            $sppb = SppbHeader::with('originLocation')->find($sppbId);
+                                            $name = $sppb?->originLocation?->name;
+                                            $address = $sppb?->originLocation?->address;
+                                        }
                                     }
-                                }
 
-                                if (empty($name) && empty($address)) {
-                                    return new HtmlString('<div class="rounded-lg border border-gray-300 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3 text-xs text-gray-500 italic">- Belum ada SPPB terpilih -</div>');
-                                }
-
-                                $html = '<div class="rounded-lg border border-gray-300 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3 text-xs">';
-                                $html .= '<div class="font-bold text-gray-900 dark:text-white text-sm">'.e($name ?? '-').'</div>';
-                                if (! empty($address)) {
-                                    $html .= '<div class="text-gray-600 dark:text-gray-400 mt-1">'.nl2br(e($address)).'</div>';
-                                }
-                                $html .= '</div>';
-
-                                return new HtmlString($html);
-                            }),
-
-                        Placeholder::make('destination_location_and_address')
-                            ->label('Lokasi & Alamat Tujuan')
-                            ->content(function (Get $get): HtmlString {
-                                $name = $get('receiver_name');
-                                $address = $get('receiver_address');
-
-                                if (empty($name) && empty($address)) {
-                                    $sppbIds = $get('sppbHeaders') ?? [];
-                                    $sppbId = request()->query('sppb_header_id') ?? ($sppbIds[0] ?? null);
-                                    if ($sppbId) {
-                                        $sppb = SppbHeader::with('destinationLocation')->find($sppbId);
-                                        $name = $sppb?->destinationLocation?->name;
-                                        $address = $sppb?->destinationLocation?->address;
+                                    if (empty($name) && empty($address)) {
+                                        return new HtmlString('<div class="rounded-lg border border-gray-300 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3 text-xs text-gray-500 italic">- Belum ada SPPB terpilih -</div>');
                                     }
-                                }
 
-                                if (empty($name) && empty($address)) {
-                                    return new HtmlString('<div class="rounded-lg border border-gray-300 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3 text-xs text-gray-500 italic">- Belum ada SPPB terpilih -</div>');
-                                }
+                                    $html = '<div class="rounded-lg border border-gray-300 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3 text-xs">';
+                                    $html .= '<div class="font-bold text-gray-900 dark:text-white text-sm">'.e($name ?? '-').'</div>';
+                                    if (! empty($address)) {
+                                        $html .= '<div class="text-gray-600 dark:text-gray-400 mt-1">'.nl2br(e($address)).'</div>';
+                                    }
+                                    $html .= '</div>';
 
-                                $html = '<div class="rounded-lg border border-gray-300 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3 text-xs">';
-                                $html .= '<div class="font-bold text-gray-900 dark:text-white text-sm">'.e($name ?? '-').'</div>';
-                                if (! empty($address)) {
-                                    $html .= '<div class="text-gray-600 dark:text-gray-400 mt-1">'.nl2br(e($address)).'</div>';
-                                }
-                                $html .= '</div>';
+                                    return new HtmlString($html);
+                                }),
 
-                                return new HtmlString($html);
-                            }),
-                    ]),
+                            Placeholder::make('destination_location_and_address')
+                                ->label('Lokasi & Alamat Tujuan')
+                                ->content(function (Get $get): HtmlString {
+                                    $name = $get('receiver_name');
+                                    $address = $get('receiver_address');
+
+                                    if (empty($name) && empty($address)) {
+                                        $sppbIds = $get('sppbHeaders') ?? [];
+                                        $sppbId = request()->query('sppb_header_id') ?? ($sppbIds[0] ?? null);
+                                        if ($sppbId) {
+                                            $sppb = SppbHeader::with('destinationLocation')->find($sppbId);
+                                            $name = $sppb?->destinationLocation?->name;
+                                            $address = $sppb?->destinationLocation?->address;
+                                        }
+                                    }
+
+                                    if (empty($name) && empty($address)) {
+                                        return new HtmlString('<div class="rounded-lg border border-gray-300 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3 text-xs text-gray-500 italic">- Belum ada SPPB terpilih -</div>');
+                                    }
+
+                                    $html = '<div class="rounded-lg border border-gray-300 dark:border-white/10 bg-gray-50 dark:bg-white/5 p-3 text-xs">';
+                                    $html .= '<div class="font-bold text-gray-900 dark:text-white text-sm">'.e($name ?? '-').'</div>';
+                                    if (! empty($address)) {
+                                        $html .= '<div class="text-gray-600 dark:text-gray-400 mt-1">'.nl2br(e($address)).'</div>';
+                                    }
+                                    $html .= '</div>';
+
+                                    return new HtmlString($html);
+                                }),
+                        ]),
 
                     Textarea::make('notes')
                         ->label('Keterangan Pengiriman')
@@ -494,14 +530,159 @@ class GoodsReleaseResource extends Resource
             // ─── PANEL 4: DAFTAR BARANG ──────────────────────────────────────
             Section::make('Daftar Barang')
                 ->schema([
+                    Placeholder::make('goods_release_items_table')
+                        ->hiddenLabel()
+                        ->hidden(fn (string $operation) => $operation !== 'view')
+                        ->content(function ($record) {
+                            if (! $record) {
+                                return null;
+                            }
+
+                            $items = $record->goodsReleaseItems()->with(['sppbDetail.unit', 'sppbDetail.item', 'sppbDetail.asset'])->get();
+                            if ($items->isEmpty()) {
+                                return new HtmlString('<p class="text-sm text-gray-500 italic p-4">Tidak ada barang</p>');
+                            }
+
+                            $isPureManualRecord = $record->is_manual && empty($record->sppb_header_id) && ($record->sppbHeaders?->isEmpty() ?? true);
+                            if ($isPureManualRecord) {
+                                $html = '<div class="overflow-x-auto border border-gray-200 dark:border-white/10 rounded-lg">';
+                                $html .= '<table class="w-full text-left text-xs divide-y divide-gray-200 dark:divide-white/10">';
+                                $html .= '<thead class="bg-gray-50 dark:bg-white/5">';
+                                $html .= '<tr>';
+                                $html .= '<th class="px-3 py-2.5 font-semibold text-center border-r border-gray-200 dark:border-white/10" width="5%">No</th>';
+                                $html .= '<th class="px-3 py-2.5 font-semibold text-center border-r border-gray-200 dark:border-white/10" width="10%">Jenis</th>';
+                                $html .= '<th class="px-3 py-2.5 font-semibold border-r border-gray-200 dark:border-white/10" width="45%">Nama Barang / Aset</th>';
+                                $html .= '<th class="px-3 py-2.5 font-semibold text-right border-r border-gray-200 dark:border-white/10" width="12%">Qty Kirim</th>';
+                                $html .= '<th class="px-3 py-2.5 font-semibold text-center border-r border-gray-200 dark:border-white/10" width="8%">Satuan</th>';
+                                $html .= '<th class="px-3 py-2.5 font-semibold" width="20%">Keterangan</th>';
+                                $html .= '</tr></thead><tbody class="divide-y divide-gray-200 dark:divide-white/10 bg-white dark:bg-gray-900">';
+
+                                $totalKirimManual = 0;
+                                foreach ($items as $index => $item) {
+                                    $itemTitle = $item->item_name ?? $item->sppbDetail?->item_asset_name ?? '-';
+                                    $codeVal = $item->barcode_code ?? ($item->sppbDetail?->asset?->barcode ?? $item->sppbDetail?->item?->code ?? '-');
+                                    $qtyKirim = (float) $item->quantity_released;
+                                    $totalKirimManual += $qtyKirim;
+                                    $unitName = $item->unit_name ?? $item->sppbDetail?->unit?->name ?? '-';
+                                    $itemType = $item->item_type ?? 'Non Asset';
+
+                                    $codeHtml = (! empty($codeVal) && $codeVal !== '-')
+                                        ? '<br><span class="text-[11px] font-bold text-primary-600 dark:text-primary-400">Kode/Barcode: '.e($codeVal).'</span>'
+                                        : '';
+
+                                    $html .= '<tr>';
+                                    $html .= '<td class="px-3 py-2 text-center border-r border-gray-200 dark:border-white/10">'.($index + 1).'</td>';
+                                    $html .= '<td class="px-3 py-2 text-center border-r border-gray-200 dark:border-white/10"><span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium '.($itemType === 'Asset' ? 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300' : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300').'">'.e($itemType).'</span></td>';
+                                    $html .= '<td class="px-3 py-2 border-r border-gray-200 dark:border-white/10"><span class="font-medium text-gray-900 dark:text-white">'.e($itemTitle).'</span>'.$codeHtml.'</td>';
+                                    $html .= '<td class="px-3 py-2 text-right font-bold text-primary-600 dark:text-primary-400 border-r border-gray-200 dark:border-white/10">'.number_format($qtyKirim, 2).'</td>';
+                                    $html .= '<td class="px-3 py-2 text-center border-r border-gray-200 dark:border-white/10">'.e($unitName).'</td>';
+                                    $html .= '<td class="px-3 py-2">'.e($item->condition_on_release ?? '-').'</td>';
+                                    $html .= '</tr>';
+                                }
+
+                                $html .= '<tr class="bg-gray-50 dark:bg-white/5 font-bold">';
+                                $html .= '<td colspan="3" class="px-3 py-2 text-right border-r border-gray-200 dark:border-white/10">TOTAL</td>';
+                                $html .= '<td class="px-3 py-2 text-right text-primary-600 dark:text-primary-400 border-r border-gray-200 dark:border-white/10">'.number_format($totalKirimManual, 2).'</td>';
+                                $html .= '<td colspan="2" class="px-3 py-2"></td>';
+                                $html .= '</tr></tbody></table></div>';
+
+                                return new HtmlString($html);
+                            }
+
+                            $html = '<div class="overflow-x-auto border border-gray-200 dark:border-white/10 rounded-lg">';
+                            $html .= '<table class="w-full text-left text-xs divide-y divide-gray-200 dark:divide-white/10">';
+                            $html .= '<thead class="bg-gray-50 dark:bg-white/5">';
+                            $html .= '<tr>';
+                            $html .= '<th rowspan="2" class="px-3 py-2.5 font-semibold text-center border-r border-gray-200 dark:border-white/10">No</th>';
+                            $html .= '<th rowspan="2" class="px-3 py-2.5 font-semibold text-center border-r border-gray-200 dark:border-white/10">Jenis</th>';
+                            $html .= '<th rowspan="2" class="px-3 py-2.5 font-semibold border-r border-gray-200 dark:border-white/10">Nama Barang / Aset</th>';
+                            $html .= '<th colspan="2" class="px-3 py-1.5 font-semibold text-center border-b border-r border-gray-200 dark:border-white/10">Qty SPPB</th>';
+                            $html .= '<th rowspan="2" class="px-3 py-2.5 font-semibold text-right border-r border-gray-200 dark:border-white/10">Qty Kirim Ini</th>';
+                            $html .= '<th rowspan="2" class="px-3 py-2.5 font-semibold text-right border-r border-gray-200 dark:border-white/10">Sisa SPPB</th>';
+                            $html .= '<th rowspan="2" class="px-3 py-2.5 font-semibold text-center border-r border-gray-200 dark:border-white/10">Satuan</th>';
+                            $html .= '<th rowspan="2" class="px-3 py-2.5 font-semibold">Keterangan</th>';
+                            $html .= '</tr>';
+                            $html .= '<tr>';
+                            $html .= '<th class="px-3 py-1.5 font-semibold text-right border-r border-gray-200 dark:border-white/10">Awal</th>';
+                            $html .= '<th class="px-3 py-1.5 font-semibold text-right border-r border-gray-200 dark:border-white/10">Terkirim</th>';
+                            $html .= '</tr>';
+                            $html .= '</thead>';
+                            $html .= '<tbody class="divide-y divide-gray-200 dark:divide-white/10 bg-white dark:bg-gray-900">';
+
+                            $totalAwal = 0;
+                            $totalTerkirimBefore = 0;
+                            $totalKirimIni = 0;
+                            $totalSisa = 0;
+
+                            foreach ($items as $index => $item) {
+                                $sppbDetail = $item->sppbDetail;
+                                $isAsset = ! empty($sppbDetail?->asset_id) || ! empty($sppbDetail?->asset);
+                                $itemType = $isAsset ? 'Asset' : 'Non Asset';
+                                $codeValue = $isAsset
+                                    ? ($sppbDetail?->asset?->barcode ?? $sppbDetail?->reference_code)
+                                    : ($sppbDetail?->item?->code ?? $sppbDetail?->reference_code);
+
+                                $qtyAwal = (float) ($sppbDetail?->quantity ?? $item->quantity_requested);
+
+                                $previouslyReleased = $sppbDetail ? (float) GoodsReleaseItem::where('sppb_detail_id', $sppbDetail->id)
+                                    ->where('id', '!=', $item->id)
+                                    ->whereHas('goodsRelease', function ($q) use ($record) {
+                                        $q->where('status', '!=', 'CANCELLED');
+                                        if ($record->id) {
+                                            $q->where('id', '<', $record->id);
+                                        }
+                                    })
+                                    ->sum('quantity_released') : 0.0;
+
+                                $qtyKirimIni = (float) $item->quantity_released;
+                                $sisaSppb = max(0.0, $qtyAwal - ($previouslyReleased + $qtyKirimIni));
+
+                                $totalAwal += $qtyAwal;
+                                $totalTerkirimBefore += $previouslyReleased;
+                                $totalKirimIni += $qtyKirimIni;
+                                $totalSisa += $sisaSppb;
+
+                                $codeHtml = (! empty($codeValue) && $codeValue !== '-')
+                                    ? '<br><span class="text-[11px] font-bold text-primary-600 dark:text-primary-400">'.($isAsset ? 'Barcode' : 'Kode').': '.e($codeValue).'</span>'
+                                    : '';
+
+                                $html .= '<tr>';
+                                $html .= '<td class="px-3 py-2 text-center border-r border-gray-200 dark:border-white/10">'.($index + 1).'</td>';
+                                $html .= '<td class="px-3 py-2 text-center border-r border-gray-200 dark:border-white/10"><span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium '.($isAsset ? 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300' : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300').'">'.e($itemType).'</span></td>';
+                                $html .= '<td class="px-3 py-2 border-r border-gray-200 dark:border-white/10"><span class="font-medium text-gray-900 dark:text-white">'.e($sppbDetail?->item_asset_name).'</span>'.$codeHtml.'</td>';
+                                $html .= '<td class="px-3 py-2 text-right border-r border-gray-200 dark:border-white/10">'.number_format($qtyAwal, 2).'</td>';
+                                $html .= '<td class="px-3 py-2 text-right border-r border-gray-200 dark:border-white/10">'.number_format($previouslyReleased, 2).'</td>';
+                                $html .= '<td class="px-3 py-2 text-right font-bold text-primary-600 dark:text-primary-400 border-r border-gray-200 dark:border-white/10">'.number_format($qtyKirimIni, 2).'</td>';
+                                $html .= '<td class="px-3 py-2 text-right border-r border-gray-200 dark:border-white/10">'.number_format($sisaSppb, 2).'</td>';
+                                $html .= '<td class="px-3 py-2 text-center border-r border-gray-200 dark:border-white/10">'.e($sppbDetail?->unit?->name).'</td>';
+                                $html .= '<td class="px-3 py-2">'.e($item->condition_on_release ?? '-').'</td>';
+                                $html .= '</tr>';
+                            }
+
+                            $html .= '<tr class="bg-gray-50 dark:bg-white/5 font-bold">';
+                            $html .= '<td colspan="3" class="px-3 py-2 text-right border-r border-gray-200 dark:border-white/10">TOTAL</td>';
+                            $html .= '<td class="px-3 py-2 text-right border-r border-gray-200 dark:border-white/10">'.number_format($totalAwal, 2).'</td>';
+                            $html .= '<td class="px-3 py-2 text-right border-r border-gray-200 dark:border-white/10">'.number_format($totalTerkirimBefore, 2).'</td>';
+                            $html .= '<td class="px-3 py-2 text-right text-primary-600 dark:text-primary-400 border-r border-gray-200 dark:border-white/10">'.number_format($totalKirimIni, 2).'</td>';
+                            $html .= '<td class="px-3 py-2 text-right border-r border-gray-200 dark:border-white/10">'.number_format($totalSisa, 2).'</td>';
+                            $html .= '<td colspan="2" class="px-3 py-2"></td>';
+                            $html .= '</tr>';
+
+                            $html .= '</tbody></table></div>';
+
+                            return new HtmlString($html);
+                        })
+                        ->columnSpanFull(),
+
                     Repeater::make('goodsReleaseItems')
                         ->relationship('goodsReleaseItems')
                         ->label('Barang Dikirim')
                         ->addActionLabel('Tambah Barang')
+                        ->hidden(fn (string $operation) => $operation === 'view')
                         ->addable(fn ($record) => ! $record || $record->status === 'DRAFT')
                         ->deletable(fn ($record) => ! $record || $record->status === 'DRAFT')
                         ->reorderable(false)
-                        ->disabled(fn ($record) => $record && $record->status !== 'DRAFT')
+                        ->disabled(fn (string $operation, $record) => $operation === 'edit' && $record && $record->status !== 'DRAFT')
                         ->columns(12)
                         ->default(function () {
                             $sppbId = request()->query('sppb_header_id');
@@ -610,9 +791,17 @@ class GoodsReleaseResource extends Resource
                                 })
                                 ->columnSpan(1),
 
+                            TextInput::make('item_name')
+                                ->label('Nama Barang / Aset *')
+                                ->required(fn (Get $get, $record) => static::isPureManual($get, $record))
+                                ->visible(fn (Get $get, $record) => static::isPureManual($get, $record))
+                                ->placeholder('Ketik nama barang / aset...')
+                                ->columnSpan(4),
+
                             Select::make('sppb_detail_id')
                                 ->label('Barang SPPB')
-                                ->required()
+                                ->required(fn (Get $get, $record) => ! static::isPureManual($get, $record))
+                                ->hidden(fn (Get $get, $record) => static::isPureManual($get, $record))
                                 ->live()
                                 ->searchable()
                                 ->disabled(fn ($record) => $record && $record->status !== 'DRAFT')
@@ -626,7 +815,7 @@ class GoodsReleaseResource extends Resource
                                         ?? [];
 
                                     if (empty($sppbIds) && $record) {
-                                        $sppbIds = $record->sppbHeaders->pluck('id')->toArray() ?: ($record->sppb_header_id ? [$record->sppb_header_id] : []);
+                                        $sppbIds = $record->sppbHeaders?->pluck('id')?->toArray() ?: ($record->sppb_header_id ? [$record->sppb_header_id] : []);
                                     }
                                     if (empty($sppbIds) && request()->query('sppb_header_id')) {
                                         $sppbIds = [(int) request()->query('sppb_header_id')];
@@ -685,62 +874,87 @@ class GoodsReleaseResource extends Resource
                                 })
                                 ->columnSpan(3),
 
-                            TextInput::make('item_type')
+                            Select::make('item_type')
                                 ->label('Jenis')
-                                ->readOnly()
-                                ->dehydrated(false)
-                                ->afterStateHydrated(function (TextInput $component, Get $get) {
-                                    $detailId = $get('sppb_detail_id');
-                                    if ($detailId) {
-                                        $detail = SppbDetail::find($detailId);
-                                        $component->state($detail?->asset_id ? 'Asset' : 'Non Asset');
+                                ->options([
+                                    'Non Asset' => 'Non Asset',
+                                    'Asset' => 'Asset',
+                                ])
+                                ->default('Non Asset')
+                                ->disabled(fn (Get $get, $record) => ! static::isPureManual($get, $record))
+                                ->dehydrated()
+                                ->afterStateHydrated(function (Select $component, Get $get, $record) {
+                                    if (! static::isPureManual($get, $record)) {
+                                        $detailId = $get('sppb_detail_id');
+                                        if ($detailId) {
+                                            $detail = SppbDetail::find($detailId);
+                                            $component->state($detail?->asset_id ? 'Asset' : 'Non Asset');
+                                        }
                                     }
                                 })
                                 ->columnSpan(1),
 
                             TextInput::make('barcode_code')
                                 ->label('Barcode/Kode')
-                                ->readOnly()
-                                ->dehydrated(false)
-                                ->afterStateHydrated(function (TextInput $component, Get $get) {
-                                    $detailId = $get('sppb_detail_id');
-                                    if ($detailId) {
-                                        $detail = SppbDetail::with(['asset', 'item'])->find($detailId);
-                                        $code = $detail?->asset?->barcode ?? $detail?->item?->code ?? $detail?->reference_code ?? '-';
-                                        $component->state($code);
+                                ->placeholder('Opsional')
+                                ->dehydrated()
+                                ->afterStateHydrated(function (TextInput $component, Get $get, $record) {
+                                    if (! static::isPureManual($get, $record)) {
+                                        $detailId = $get('sppb_detail_id');
+                                        if ($detailId) {
+                                            $detail = SppbDetail::with(['asset', 'item'])->find($detailId);
+                                            $code = $detail?->asset?->barcode ?? $detail?->item?->code ?? $detail?->reference_code ?? '-';
+                                            $component->state($code);
+                                        }
                                     }
                                 })
                                 ->columnSpan(1),
 
                             TextInput::make('quantity_requested')
-                                ->label('Qty SPPB')
+                                ->label('Qty SPPB Awal')
                                 ->numeric()
                                 ->readOnly()
+                                ->hidden(fn (Get $get, $record) => static::isPureManual($get, $record))
+                                ->afterStateHydrated(function (TextInput $component, Get $get) {
+                                    $detailId = $get('sppb_detail_id');
+                                    if ($detailId) {
+                                        $detail = SppbDetail::find($detailId);
+                                        if ($detail) {
+                                            $component->state($detail->quantity);
+                                        }
+                                    }
+                                })
                                 ->columnSpan(1),
 
                             TextInput::make('quantity_released')
-                                ->label('Qty Kirim')
+                                ->label(fn (Get $get, $record) => static::isPureManual($get, $record) ? 'Qty Kirim *' : 'Qty Kirim Ini *')
                                 ->numeric()
                                 ->required()
                                 ->minValue(0.01)
                                 ->columnSpan(1),
 
-                            TextInput::make('unit_name')
-                                ->label('Satuan')
-                                ->readOnly()
-                                ->dehydrated(false)
-                                ->afterStateHydrated(function (TextInput $component, Get $get) {
-                                    $detailId = $get('sppb_detail_id');
-                                    if ($detailId) {
-                                        $detail = SppbDetail::with('unit')->find($detailId);
-                                        $component->state($detail?->unit?->name);
+                            Select::make('unit_name')
+                                ->label('Satuan *')
+                                ->options(fn () => Unit::query()->where('is_active', true)->orderBy('name')->pluck('name', 'name')->toArray())
+                                ->searchable()
+                                ->required(fn (Get $get, $record) => static::isPureManual($get, $record))
+                                ->disabled(fn (Get $get, $record) => ! static::isPureManual($get, $record))
+                                ->dehydrated()
+                                ->afterStateHydrated(function (Select $component, Get $get, $record) {
+                                    if (! static::isPureManual($get, $record)) {
+                                        $detailId = $get('sppb_detail_id');
+                                        if ($detailId) {
+                                            $detail = SppbDetail::with('unit')->find($detailId);
+                                            $component->state($detail?->unit?->name);
+                                        }
                                     }
                                 })
                                 ->columnSpan(1),
 
                             TextInput::make('condition_on_release')
                                 ->label('Keterangan')
-                                ->placeholder('Kondisi barang saat keluar...')
+                                ->placeholder('Keterangan / catatan barang saat rilis...')
+                                ->maxLength(255)
                                 ->columnSpan(3),
                         ])
                         ->columnSpanFull(),
@@ -818,6 +1032,27 @@ class GoodsReleaseResource extends Resource
                         return $query->where('release_number', 'like', "%{$search}%")
                             ->orWhere('manual_release_number', 'like', "%{$search}%");
                     }),
+
+                TextColumn::make('jenis_surat_jalan')
+                    ->label('Jenis SJ')
+                    ->badge()
+                    ->state(function (GoodsRelease $record): string {
+                        $hasSppb = ! empty($record->sppb_header_id) || ($record->sppbHeaders?->isNotEmpty() ?? false);
+                        if ($hasSppb) {
+                            return $record->is_manual ? 'SPPB (Manual SJ)' : 'SPPB (Otomatis)';
+                        }
+
+                        return 'Manual (Non-SPPB)';
+                    })
+                    ->color(function (string $state): string {
+                        return match ($state) {
+                            'SPPB (Otomatis)' => 'info',
+                            'SPPB (Manual SJ)' => 'primary',
+                            'Manual (Non-SPPB)' => 'warning',
+                            default => 'gray',
+                        };
+                    }),
+
                 TextColumn::make('sppbHeader.document_number')
                     ->label('No. SPPB')
                     ->searchable(),
@@ -830,23 +1065,19 @@ class GoodsReleaseResource extends Resource
                 TextColumn::make('status')
                     ->label('Status')
                     ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'DRAFT' => 'gray',
-                        'RELEASED' => 'info',
-                        'RECEIVED' => 'success',
-                        'CANCELLED' => 'danger',
-                        default => 'gray',
+                    ->color(function (string $state): string {
+                        $enum = GoodsReleaseStatus::tryFrom($state);
+
+                        return $enum ? $enum->color() : 'gray';
                     })
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'DRAFT' => 'Draft',
-                        'RELEASED' => 'Dalam Pengiriman',
-                        'RECEIVED' => 'Terkirim',
-                        'CANCELLED' => 'Dibatalkan',
-                        default => $state,
+                    ->formatStateUsing(function (string $state): string {
+                        $enum = GoodsReleaseStatus::tryFrom($state);
+
+                        return $enum ? $enum->label() : $state;
                     }),
             ])
             ->filters([
-                //
+                TrashedFilter::make(),
             ])
             ->recordUrl(fn (GoodsRelease $record): string => static::getUrl('view', ['record' => $record]))
             ->actions([
@@ -860,9 +1091,16 @@ class GoodsReleaseResource extends Resource
                     ->url(fn (GoodsRelease $record) => route('goods-releases.preview', $record))
                     ->openUrlInNewTab()
                     ->visible(fn (GoodsRelease $record) => $record->status !== 'DRAFT'),
+                DeleteAction::make(),
+                ForceDeleteAction::make(),
+                RestoreAction::make(),
             ])
             ->bulkActions([
-                //
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
+                    ForceDeleteBulkAction::make(),
+                    RestoreBulkAction::make(),
+                ]),
             ]);
     }
 
@@ -889,21 +1127,58 @@ class GoodsReleaseResource extends Resource
             return $query;
         }
 
-        return $query->whereHas('sppbHeader', function ($sppbQuery) use ($user) {
-            $sppbQuery->where(function ($q) use ($user) {
+        $userRoleIds = $user->roles->pluck('id')->toArray();
+
+        return $query->whereHas('sppbHeader', function ($sppbQuery) use ($user, $userRoleIds) {
+            $sppbQuery->where(function ($q) use ($user, $userRoleIds) {
                 $q->where('requester_id', $user->id)
                     ->orWhere('current_approver_id', $user->id)
-                    ->orWhereExists(function ($rawQuery) use ($user) {
-                        $rawQuery->select(DB::raw(1))
-                            ->from('document_accesses')
-                            ->whereColumn('document_accesses.plant_id', 'sppb_headers.plant_id')
-                            ->whereColumn('document_accesses.department_id', 'sppb_headers.department_id')
-                            ->where('document_accesses.user_id', $user->id)
-                            ->where('document_accesses.module', 'goods_release')
-                            ->where('document_accesses.can_view', true);
+                    ->orWhere(function ($sub) use ($user, $userRoleIds) {
+                        $sub->whereExists(function ($rawQuery) use ($user, $userRoleIds) {
+                            $rawQuery->select(DB::raw(1))
+                                ->from('document_accesses')
+                                ->where('document_accesses.module', 'goods_release')
+                                ->where(function ($actQ) {
+                                    $actQ->where('document_accesses.can_view', true)
+                                        ->orWhere('document_accesses.can_create', true)
+                                        ->orWhere('document_accesses.can_edit', true)
+                                        ->orWhere('document_accesses.can_delete', true);
+                                })
+                                ->where(function ($userOrRoleQ) use ($user, $userRoleIds) {
+                                    $userOrRoleQ->where('document_accesses.user_id', $user->id);
+                                    if (! empty($userRoleIds)) {
+                                        $userOrRoleQ->orWhereIn('document_accesses.role_id', $userRoleIds);
+                                    }
+                                })
+                                ->where(function ($plantQ) {
+                                    $plantQ->whereColumn('document_accesses.plant_id', 'sppb_headers.plant_id')
+                                        ->orWhereNull('document_accesses.plant_id');
+                                })
+                                ->where(function ($deptQ) {
+                                    $deptQ->whereColumn('document_accesses.department_id', 'sppb_headers.department_id')
+                                        ->orWhereNull('document_accesses.department_id');
+                                });
+                        });
                     });
+
+                if ($user->plant_id) {
+                    $q->orWhere(function ($userPlantQ) use ($user) {
+                        $userPlantQ->where('plant_id', $user->plant_id);
+                        if ($user->department_id) {
+                            $userPlantQ->where('department_id', $user->department_id);
+                        }
+                    });
+                }
             });
         });
+    }
+
+    public static function getRecordRouteBindingEloquentQuery(): Builder
+    {
+        return parent::getRecordRouteBindingEloquentQuery()
+            ->withoutGlobalScopes([
+                SoftDeletingScope::class,
+            ]);
     }
 
     public static function getPages(): array

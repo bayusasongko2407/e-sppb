@@ -117,7 +117,10 @@ class ReportExportService
         }
 
         if ($value instanceof Carbon || $value instanceof \DateTimeInterface) {
-            $value = $value->format('d/m/Y');
+            $carbon = Carbon::instance($value)->setTimezone('Asia/Jakarta');
+            $value = ($carbon->hour !== 0 || $carbon->minute !== 0 || $carbon->second !== 0)
+                ? $carbon->format('d/m/Y H:i:s')
+                : $carbon->format('d/m/Y');
         }
 
         if (is_array($value)) {

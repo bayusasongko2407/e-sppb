@@ -5,7 +5,6 @@ namespace App\Policies;
 use App\Enums\SppbStatus;
 use App\Models\SppbHeader;
 use App\Models\User;
-use Spatie\Permission\Exceptions\PermissionDoesNotExist;
 
 class SppbHeaderPolicy
 {
@@ -14,15 +13,11 @@ class SppbHeaderPolicy
      */
     public function viewAny(User $user): bool
     {
-        if ($user->hasRole(['super_admin', 'gudang'])) {
+        if ($user->hasRole('super_admin')) {
             return true;
         }
 
-        try {
-            return $user->hasPermissionTo('view_any_sppbheader');
-        } catch (PermissionDoesNotExist $e) {
-            return false;
-        }
+        return $user->hasDocumentAccess('sppb', 'view');
     }
 
     /**
@@ -30,7 +25,11 @@ class SppbHeaderPolicy
      */
     public function view(User $user, SppbHeader $sppbHeader): bool
     {
-        if ($user->hasRole(['super_admin', 'gudang'])) {
+        if ($sppbHeader->trashed()) {
+            return $user->hasRole('super_admin');
+        }
+
+        if ($user->hasRole('super_admin')) {
             return true;
         }
 
@@ -56,22 +55,7 @@ class SppbHeaderPolicy
             return true;
         }
 
-        try {
-            if (! $user->hasPermissionTo('create_sppbheader')) {
-                return false;
-            }
-        } catch (PermissionDoesNotExist $e) {
-            return false;
-        }
-
-        if ($user->hasRole('requester')) {
-            return true;
-        }
-
-        return $user->documentAccesses()
-            ->where('module', 'sppb')
-            ->where('can_create', true)
-            ->exists();
+        return $user->hasDocumentAccess('sppb', 'create');
     }
 
     /**

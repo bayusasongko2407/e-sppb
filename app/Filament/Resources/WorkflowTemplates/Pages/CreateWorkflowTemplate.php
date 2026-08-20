@@ -13,6 +13,11 @@ class CreateWorkflowTemplate extends CreateRecord
 {
     protected static string $resource = WorkflowTemplateResource::class;
 
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+
     public function mount(): void
     {
         parent::mount();

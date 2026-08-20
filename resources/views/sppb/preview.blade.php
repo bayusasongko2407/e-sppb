@@ -377,7 +377,11 @@
             <div class="header-subtitle">SURAT PERMOHONAN PENGIRIMAN BARANG</div>
             <div class="header-date">
                 @if($header->approved_at)
-                    {{ strtoupper(\Illuminate\Support\Carbon::parse($header->approved_at)->translatedFormat('d F Y')) }}
+                    {{ strtoupper(\Illuminate\Support\Carbon::parse($header->approved_at)->setTimezone('Asia/Jakarta')->translatedFormat('d F Y')) }}
+                @elseif($header->request_date)
+                    {{ strtoupper(\Illuminate\Support\Carbon::parse($header->request_date)->setTimezone('Asia/Jakarta')->translatedFormat('d F Y')) }}
+                @else
+                    {{ strtoupper(now()->setTimezone('Asia/Jakarta')->translatedFormat('d F Y')) }}
                 @endif
             </div>
         </div>
@@ -527,7 +531,7 @@
                             'name' => strtoupper($header->requester?->name ?? '-'),
                             'position' => $getPositionName($header->requester),
                             'status' => 'APPROVED',
-                            'date' => $header->submitted_at ? \Illuminate\Support\Carbon::parse($header->submitted_at)->format('d/m/Y') : null,
+                            'date' => $header->submitted_at ? \Illuminate\Support\Carbon::parse($header->submitted_at)->setTimezone('Asia/Jakarta')->format('d/m/Y H:i').' WIB' : null,
                         ];
                         
                         // Fetch workflow steps
@@ -555,7 +559,7 @@
                                     'name' => $signerUser ? strtoupper($signerUser->name) : '&mdash;',
                                     'position' => $signerUser ? $getPositionName($signerUser) : '',
                                     'status' => $step->status,
-                                    'date' => ($step->status === 'APPROVED' && $step->acted_at) ? \Illuminate\Support\Carbon::parse($step->acted_at)->format('d/m/Y') : null,
+                                    'date' => ($step->status === 'APPROVED' && $step->acted_at) ? \Illuminate\Support\Carbon::parse($step->acted_at)->setTimezone('Asia/Jakarta')->format('d/m/Y H:i').' WIB' : null,
                                 ];
                             }
                         } else {
@@ -573,7 +577,7 @@
                                 $approverUser = $actLog ? $actLog->actor : null;
                                 $approverName = $approverUser ? strtoupper($approverUser->name) : 'MANAGER';
                                 $posName = $approverUser ? $getPositionName($approverUser) : 'MANAGER';
-                                $approvedDate = $actLog ? \Illuminate\Support\Carbon::parse($actLog->logged_at)->format('d/m/Y') : null;
+                                $approvedDate = $actLog ? \Illuminate\Support\Carbon::parse($actLog->logged_at)->setTimezone('Asia/Jakarta')->format('d/m/Y H:i').' WIB' : null;
                             }
                             $signers[] = [
                                 'title' => 'Disetujui Oleh',
@@ -622,7 +626,8 @@
                             1. Dokumen ini merupakan SPPB sah yang telah diajukan dan disetujui secara digital.<br>
                             2. SPPB hanya berfungsi sebagai instruksi penyiapan barang, bukan Surat Jalan.<br>
                             3. Bukti pengiriman atau penyerahan fisik barang wajib menggunakan Surat Jalan resmi.<br>
-                            4. Scan QR Code untuk memverifikasi keaslian dan status terkini dokumen di sistem E-SPPB.
+                            4. Scan QR Code untuk memverifikasi keaslian dan status terkini dokumen di sistem E-SPPB.<br>
+                            <span style="display:inline-block; margin-top:4px; font-style:italic; color:#555;">Dicetak pada: {{ now()->setTimezone('Asia/Jakarta')->translatedFormat('d F Y H:i:s') }} WIB oleh {{ auth()->user()?->name ?? 'Sistem' }}</span>
                         </div>
                     </div>
                 </td>

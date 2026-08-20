@@ -17,8 +17,10 @@ use App\Services\Workflow\WorkflowTemplateResolver;
 use App\Services\WorkflowService;
 use Filament\Forms\Components\Select;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
+use Livewire\Livewire;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -60,10 +62,15 @@ class AppServiceProvider extends ServiceProvider
             $select->placeholder('Pilih...');
         });
 
-        Gate::before(function ($user, $ability) {
-            return $user->hasRole('super_admin') ? true : null;
+        Gate::policy(Role::class, RolePolicy::class);
+
+        Livewire::setUpdateRoute(function ($handle) {
+            return Route::post('/livewire/update', $handle)
+                ->middleware(['web']);
         });
 
-        Gate::policy(Role::class, RolePolicy::class);
+        Livewire::setScriptRoute(function ($handle) {
+            return Route::get('/livewire/livewire.js', $handle);
+        });
     }
 }

@@ -46,7 +46,7 @@ class SystemHealthController extends Controller
             'status' => 'ok',
             'success' => true,
             'service' => 'E-SPPB Backend Enterprise API',
-            'version' => '1.0.0',
+            'version' => '1.0.1',
             'environment' => config('app.env'),
             'base_url' => 'https://e-sppb.engiboard.web.id/api/v1',
             'system_status' => [

@@ -11,6 +11,7 @@ use App\Models\SppbHeader;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
+use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
 class GoodsReceiveApiTest extends TestCase
@@ -159,5 +160,44 @@ class GoodsReceiveApiTest extends TestCase
         $response->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.recipient_name', 'Authenticated User');
+    }
+
+    #[Test]
+    public function it_creates_goods_release_with_partial_custom_items_via_api(): void
+    {
+        $user = User::factory()->create();
+        Permission::firstOrCreate(['name' => 'create_goodsrelease', 'guard_name' => 'web']);
+        $user->givePermissionTo('create_goodsrelease');
+
+        $sppb = SppbHeader::factory()->create(['status' => 'APPROVED', 'requester_id' => $user->id]);
+        $detail1 = SppbDetail::factory()->create(['sppb_header_id' => $sppb->id, 'quantity' => 10]);
+        $detail2 = SppbDetail::factory()->create(['sppb_header_id' => $sppb->id, 'quantity' => 20]);
+
+        $response = $this->actingAs($user, 'sanctum')
+            ->postJson("/api/v1/sppb/{$sppb->uuid}/goods-releases", [
+                'driver_name' => 'Pak Joko Driver',
+                'vehicle_number' => 'L 9999 XX',
+                'items' => [
+                    [
+                        'sppb_detail_id' => $detail1->id,
+                        'quantity_released' => 4,
+                        'condition_on_release' => 'Baik',
+                    ],
+                ],
+            ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.driver_name', 'Pak Joko Driver');
+
+        $this->assertDatabaseHas('goods_releases', [
+            'sppb_header_id' => $sppb->id,
+            'driver_name' => 'Pak Joko Driver',
+        ]);
+
+        $this->assertDatabaseHas('goods_release_items', [
+            'sppb_detail_id' => $detail1->id,
+            'quantity_released' => 4,
+        ]);
     }
 }

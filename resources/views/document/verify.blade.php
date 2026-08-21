@@ -448,7 +448,17 @@
                         <div class="approval-list">
                             @foreach($data['approval_summary'] as $appr)
                                 <div class="approval-item">
-                                    <div class="approval-role">{{ $appr['role'] ?? 'Approver' }}</div>
+                                    <div>
+                                        <div class="approval-role">{{ $appr['role'] ?? 'Approver' }}</div>
+                                        @if(!empty($appr['approver_name']))
+                                            <div style="font-size: 11.5px; color: var(--text-secondary); margin-top: 2px;">
+                                                👤 {{ $appr['approver_name'] }}
+                                                @if(!empty($appr['approver_nik']))
+                                                    <span style="font-size: 10.5px; opacity: 0.85;">({{ $appr['approver_nik'] }})</span>
+                                                @endif
+                                            </div>
+                                        @endif
+                                    </div>
                                     <div class="approval-status">
                                         {{ $appr['status'] ?? 'DISETUJUI' }}
                                         @if(!empty($appr['approved_at']))
@@ -463,8 +473,13 @@
 
                 <!-- Security Fingerprint -->
                 <div class="security-badge">
-                    Digital Fingerprint SHA256: <code>{{ $data['fingerprint'] }}</code><br>
-                    Halaman {{ $data['page_number'] }} dari {{ $data['total_pages'] }}
+                    @if(!empty($data['fingerprint']))
+                        Digital Fingerprint SHA256: <code>{{ $data['fingerprint'] }}</code><br>
+                    @endif
+                    @if(isset($data['page_number'], $data['total_pages']))
+                        Halaman {{ $data['page_number'] }} dari {{ $data['total_pages'] }} &bull;
+                    @endif
+                    Status: <b>{{ $data['status_sppb'] ?? ($data['status_display'] ?? $status) }}</b>
                 </div>
             @endif
 

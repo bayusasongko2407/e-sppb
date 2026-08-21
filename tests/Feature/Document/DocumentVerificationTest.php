@@ -11,7 +11,10 @@ use App\Models\DocumentPage;
 use App\Models\DocumentTemplate;
 use App\Models\GoodsRelease;
 use App\Models\Plant;
+use App\Models\SppbHeader;
 use App\Models\User;
+use App\Models\WorkflowInstance;
+use App\Models\WorkflowInstanceStep;
 use App\Services\DocumentGenerationService;
 use App\Services\DocumentVerificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -388,5 +391,59 @@ class DocumentVerificationTest extends TestCase
                 'qr_decoder' => 'OPERATIONAL',
             ],
         ]);
+    }
+
+    public function test_verify_sppb_includes_approver_user_details_in_approval_summary(): void
+    {
+        $plant = Plant::factory()->create();
+        $requester = User::factory()->create(['name' => 'Pemohon SPPB', 'plant_id' => $plant->id]);
+        $approverUser = User::factory()->create([
+            'name' => 'Manager Approver',
+            'nik' => 'NIK-998877',
+            'plant_id' => $plant->id,
+        ]);
+
+        $sppb = SppbHeader::factory()->create([
+            'plant_id' => $plant->id,
+            'requester_id' => $requester->id,
+            'document_number' => 'SPPB/TEST/APP/001',
+            'status' => 'APPROVED',
+        ]);
+
+        $workflowInstance = WorkflowInstance::factory()->create([
+            'sppb_header_id' => $sppb->id,
+            'status' => 'COMPLETED',
+        ]);
+
+        WorkflowInstanceStep::factory()->create([
+            'workflow_instance_id' => $workflowInstance->id,
+            'name' => 'Department Manager',
+            'sequence' => 1,
+            'status' => 'APPROVED',
+            'acted_by_id' => $approverUser->id,
+            'acted_at' => now()->subDay(),
+        ]);
+
+        $encryptedPayload = Crypt::encryptString($sppb->document_number);
+
+        $response = $this->postJson('/api/v1/verify/document', [
+            'qr_data' => $encryptedPayload,
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('status', 'VALID');
+        $response->assertJsonPath('data.document_number', 'SPPB/TEST/APP/001');
+
+        $approvalSummary = $response->json('data.approval_summary');
+        $this->assertIsArray($approvalSummary);
+        $this->assertNotEmpty($approvalSummary);
+        $this->assertEquals('Manajer Departemen', $approvalSummary[0]['role']);
+        $this->assertEquals('DISETUJUI', $approvalSummary[0]['status']);
+        $this->assertEquals('Manager Approver', $approvalSummary[0]['approver_name']);
+        $this->assertEquals('NIK-998877', $approvalSummary[0]['approver_nik']);
+        $this->assertNotNull($approvalSummary[0]['approver']);
+        $this->assertEquals($approverUser->id, $approvalSummary[0]['approver']['id']);
+        $this->assertEquals('Manager Approver', $approvalSummary[0]['approver']['name']);
+        $this->assertEquals('NIK-998877', $approvalSummary[0]['approver']['nik']);
     }
 }

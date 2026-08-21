@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\DTOs\Workflow\ApprovalDecisionData;
 use App\Enums\ApproverStatus;
 use App\Http\Controllers\Controller;
+use App\Models\WorkflowDelegation;
 use App\Models\WorkflowInstance;
 use App\Models\WorkflowStepApprover;
 use App\Services\WorkflowService;
@@ -157,6 +158,142 @@ class WorkflowTaskController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Permintaan revisi SPPB berhasil diproses.',
+            'timestamp' => now()->toIso8601String(),
+        ]);
+    }
+
+    /**
+     * Daftar Delegasi Wewenang (Delegations).
+     */
+    public function listDelegations(Request $request)
+    {
+        $user = $request->user();
+
+        $query = WorkflowDelegation::query()
+            ->with(['delegator', 'delegate', 'plant'])
+            ->orderBy('created_at', 'desc');
+
+        if (! $user->hasRole('super_admin')) {
+            $query->where(function ($q) use ($user) {
+                $q->where('delegator_id', $user->id)
+                    ->orWhere('delegate_id', $user->id);
+            });
+        }
+
+        $delegations = $query->paginate($request->query('per_page', 15));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Daftar delegasi wewenang berhasil ditampilkan.',
+            'data' => $delegations->items(),
+            'meta' => [
+                'current_page' => $delegations->currentPage(),
+                'per_page' => $delegations->perPage(),
+                'total' => $delegations->total(),
+                'last_page' => $delegations->lastPage(),
+            ],
+            'timestamp' => now()->toIso8601String(),
+        ]);
+    }
+
+    /**
+     * Buat Delegasi Wewenang Baru.
+     */
+    public function createDelegation(Request $request)
+    {
+        $user = $request->user();
+
+        $request->validate([
+            'delegate_id' => 'required|integer|exists:users,id|different:delegator_id',
+            'plant_id' => 'nullable|integer|exists:plants,id',
+            'starts_at' => 'required|date',
+            'ends_at' => 'required|date|after_or_equal:starts_at',
+            'reason' => 'required|string|max:500',
+            'is_active' => 'nullable|boolean',
+        ]);
+
+        $delegatorId = ($user->hasRole('super_admin') && $request->filled('delegator_id'))
+            ? (int) $request->input('delegator_id')
+            : (int) $user->id;
+
+        $plantId = $request->input('plant_id') ?? $user->plant_id;
+
+        $delegation = WorkflowDelegation::create([
+            'delegator_id' => $delegatorId,
+            'delegate_id' => (int) $request->input('delegate_id'),
+            'plant_id' => $plantId,
+            'starts_at' => $request->input('starts_at'),
+            'ends_at' => $request->input('ends_at'),
+            'reason' => $request->input('reason'),
+            'is_active' => $request->boolean('is_active', true),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Delegasi wewenang berhasil dibuat.',
+            'data' => $delegation->load(['delegator', 'delegate', 'plant']),
+            'timestamp' => now()->toIso8601String(),
+        ], 201);
+    }
+
+    /**
+     * Perbarui Delegasi Wewenang.
+     */
+    public function updateDelegation(Request $request, int|string $id)
+    {
+        $user = $request->user();
+
+        $query = WorkflowDelegation::query();
+        if (! $user->hasRole('super_admin')) {
+            $query->where('delegator_id', $user->id);
+        }
+
+        $delegation = $query->where('id', $id)->firstOrFail();
+
+        $request->validate([
+            'delegate_id' => 'sometimes|integer|exists:users,id',
+            'plant_id' => 'nullable|integer|exists:plants,id',
+            'starts_at' => 'sometimes|date',
+            'ends_at' => 'sometimes|date|after_or_equal:starts_at',
+            'reason' => 'sometimes|string|max:500',
+            'is_active' => 'sometimes|boolean',
+        ]);
+
+        $delegation->update($request->only([
+            'delegate_id',
+            'plant_id',
+            'starts_at',
+            'ends_at',
+            'reason',
+            'is_active',
+        ]));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Delegasi wewenang berhasil diperbarui.',
+            'data' => $delegation->fresh(['delegator', 'delegate', 'plant']),
+            'timestamp' => now()->toIso8601String(),
+        ]);
+    }
+
+    /**
+     * Batalkan / Nonaktifkan Delegasi Wewenang.
+     */
+    public function cancelDelegation(Request $request, int|string $id)
+    {
+        $user = $request->user();
+
+        $query = WorkflowDelegation::query();
+        if (! $user->hasRole('super_admin')) {
+            $query->where('delegator_id', $user->id);
+        }
+
+        $delegation = $query->where('id', $id)->firstOrFail();
+        $delegation->update(['is_active' => false]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Delegasi wewenang berhasil dinonaktifkan.',
             'timestamp' => now()->toIso8601String(),
         ]);
     }

@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Services\DocumentVerificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 class DocumentVerificationController extends Controller
 {
@@ -18,7 +19,7 @@ class DocumentVerificationController extends Controller
      * Unified document & Goods Release (Surat Jalan) verification API handler.
      * Accepts encrypted QR payloads (Base64, JSON {iv, value, mac}), hash tokens, or document numbers.
      */
-    public function verifyDocument(Request $request, ?string $hash = null): JsonResponse
+    public function verifyDocument(Request $request, ?string $hash = null): Response
     {
         $payload = $hash
             ?? $request->input('barcode')
@@ -55,7 +56,16 @@ class DocumentVerificationController extends Controller
             default => 400,
         };
 
-        return response()->json($result, $statusCode);
+        if ($request->wantsJson() || $request->is('api/*')) {
+            return response()->json($result, $statusCode);
+        }
+
+        return response()->view('document.verify', [
+            'status' => $result['status'],
+            'validation_id' => $result['validation_id'],
+            'data' => $result['data'],
+            'sha256_token' => $result['validation_id'],
+        ], $statusCode === 422 ? 200 : $statusCode);
     }
 
     /**

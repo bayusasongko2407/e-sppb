@@ -11,6 +11,7 @@ use App\Http\Requests\Api\V1\Sppb\CreateSppbRequest;
 use App\Http\Requests\Api\V1\Sppb\SubmitSppbRequest;
 use App\Http\Requests\Api\V1\Sppb\UpdateSppbRequest;
 use App\Http\Resources\Api\V1\SppbResource;
+use App\Models\Attachment;
 use App\Models\Department;
 use App\Models\GoodsReleaseItem;
 use App\Models\Item;
@@ -24,7 +25,12 @@ use App\Models\WorkflowStepApprover;
 use App\Services\SppbService;
 use App\Services\WorkflowService;
 use Carbon\Carbon;
+use chillerlan\QRCode\QRCode;
+use chillerlan\QRCode\QROptions;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 
 class SppbController extends Controller
@@ -472,6 +478,144 @@ class SppbController extends Controller
         ]);
     }
 
+    public function listAttachments(Request $request, string $uuid)
+    {
+        $sppb = $this->findSppb($uuid);
+        $attachments = Attachment::where('sppb_header_id', $sppb->id)
+            ->with('uploader')
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function (Attachment $att) {
+                return [
+                    'id' => $att->id,
+                    'uuid' => $att->uuid,
+                    'original_name' => $att->original_name,
+                    'file_size' => $att->file_size,
+                    'file_size_formatted' => round($att->file_size / 1024, 2).' KB',
+                    'mime_type' => $att->mime_type,
+                    'extension' => $att->extension,
+                    'checksum_sha256' => $att->checksum_sha256,
+                    'uploader' => $att->uploader ? [
+                        'id' => $att->uploader->id,
+                        'name' => $att->uploader->name,
+                    ] : null,
+                    'preview_url' => URL::temporarySignedRoute(
+                        'attachments.preview',
+                        now()->addMinutes(30),
+                        ['attachment' => $att->uuid]
+                    ),
+                    'download_url' => URL::temporarySignedRoute(
+                        'attachments.download',
+                        now()->addMinutes(30),
+                        ['attachment' => $att->uuid]
+                    ),
+                    'viewer_url' => URL::temporarySignedRoute(
+                        'attachments.viewer',
+                        now()->addMinutes(30),
+                        ['attachment' => $att->uuid]
+                    ),
+                    'created_at' => $att->created_at?->toIso8601String(),
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Daftar lampiran SPPB berhasil ditampilkan.',
+            'data' => $attachments,
+            'timestamp' => now()->toIso8601String(),
+        ]);
+    }
+
+    public function uploadAttachment(Request $request, string $uuid)
+    {
+        $sppb = $this->findSppb($uuid);
+
+        $request->validate([
+            'file' => 'required|file|max:10240|mimes:pdf,png,jpg,jpeg,webp,doc,docx,xls,xlsx,csv,txt',
+        ]);
+
+        $uploadedFile = $request->file('file');
+        $originalName = $uploadedFile->getClientOriginalName();
+        $extension = $uploadedFile->getClientOriginalExtension();
+        $mimeType = $uploadedFile->getMimeType() ?? 'application/octet-stream';
+        $fileSize = $uploadedFile->getSize();
+        $checksum = hash_file('sha256', $uploadedFile->getRealPath());
+
+        $disk = config('filesystems.default', 'private');
+        $directory = 'sppb-attachments/'.$sppb->id;
+        $storedName = Str::uuid().'.'.$extension;
+        $path = $uploadedFile->storeAs($directory, $storedName, $disk);
+
+        $attachment = Attachment::create([
+            'uuid' => (string) Str::uuid(),
+            'sppb_header_id' => $sppb->id,
+            'original_name' => $originalName,
+            'stored_name' => $storedName,
+            'disk' => $disk,
+            'directory' => $directory,
+            'path' => $path,
+            'mime_type' => $mimeType,
+            'extension' => $extension,
+            'file_size' => $fileSize,
+            'checksum_sha256' => $checksum,
+            'uploader_id' => $request->user()->id,
+            'scan_status' => 'clean',
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Lampiran berhasil diunggah.',
+            'data' => [
+                'id' => $attachment->id,
+                'uuid' => $attachment->uuid,
+                'original_name' => $attachment->original_name,
+                'file_size' => $attachment->file_size,
+                'mime_type' => $attachment->mime_type,
+                'extension' => $attachment->extension,
+                'checksum_sha256' => $attachment->checksum_sha256,
+                'preview_url' => URL::temporarySignedRoute(
+                    'attachments.preview',
+                    now()->addMinutes(30),
+                    ['attachment' => $attachment->uuid]
+                ),
+                'download_url' => URL::temporarySignedRoute(
+                    'attachments.download',
+                    now()->addMinutes(30),
+                    ['attachment' => $attachment->uuid]
+                ),
+                'created_at' => $attachment->created_at?->toIso8601String(),
+            ],
+            'timestamp' => now()->toIso8601String(),
+        ], 201);
+    }
+
+    public function deleteAttachment(Request $request, string $uuid, string $attachmentUuid)
+    {
+        $sppb = $this->findSppb($uuid);
+
+        $attachment = Attachment::where('sppb_header_id', $sppb->id)
+            ->where(function ($q) use ($attachmentUuid) {
+                $q->where('uuid', $attachmentUuid);
+                if (is_numeric($attachmentUuid)) {
+                    $q->orWhere('id', (int) $attachmentUuid);
+                }
+            })
+            ->firstOrFail();
+
+        $disk = $attachment->disk ?? config('filesystems.default', 'private');
+        if ($attachment->path && Storage::disk($disk)->exists($attachment->path)) {
+            Storage::disk($disk)->delete($attachment->path);
+        }
+
+        $attachment->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Lampiran berhasil dihapus.',
+            'timestamp' => now()->toIso8601String(),
+        ]);
+    }
+
     public function statusLogs(Request $request, string $uuid)
     {
         $sppb = $this->findSppb($uuid);
@@ -667,6 +811,61 @@ class SppbController extends Controller
             'success' => true,
             'message' => 'Penolakan SPPB berhasil diproses.',
             'timestamp' => now()->toIso8601String(),
+        ]);
+    }
+
+    /**
+     * Generate QR Code untuk Dokumen SPPB.
+     *
+     * GET /api/v1/sppb/{uuid}/qr-code
+     */
+    public function qrCode(Request $request, string $uuid)
+    {
+        $sppb = $this->findSppb($uuid);
+        $format = strtolower((string) $request->query('format', 'json'));
+
+        // Payload enkripsi resmi untuk verifikasi SPPB
+        $docNumber = $sppb->document_number ?? $sppb->uuid;
+        $encryptedPayload = Crypt::encryptString($docNumber);
+
+        $qrOptions = new QROptions([
+            'eccLevel' => QRCode::ECC_L,
+            'outputType' => QRCode::OUTPUT_MARKUP_SVG,
+            'imageBase64' => false,
+            'addQuietzone' => false,
+        ]);
+        $qrCodeSvg = (new QRCode($qrOptions))->render($encryptedPayload);
+
+        if ($format === 'svg') {
+            return response($qrCodeSvg, 200, [
+                'Content-Type' => 'image/svg+xml',
+                'Content-Disposition' => 'inline; filename="sppb-qr-'.$sppb->uuid.'.svg"',
+            ]);
+        }
+
+        $base64Image = 'data:image/svg+xml;base64,'.base64_encode($qrCodeSvg);
+        $webVerifyUrl = url('/verify/document?hash='.urlencode($encryptedPayload));
+        $apiVerifyUrl = url('/api/v1/verify/document');
+        $publicVerifyUrl = url('/api/v1/public/sppb/verify/'.urlencode($sppb->document_number ?? $sppb->uuid));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'QR Code dokumen SPPB berhasil dibuat.',
+            'data' => [
+                'sppb_id' => $sppb->id,
+                'sppb_uuid' => $sppb->uuid,
+                'document_number' => $sppb->document_number,
+                'status' => $sppb->status?->value ?? (string) $sppb->status,
+                'verification_type' => 'LARAVEL_CRYPT_AES256',
+                'qr_payload' => $encryptedPayload,
+                'verification_url' => $webVerifyUrl,
+                'api_verification_url' => $apiVerifyUrl,
+                'public_verification_url' => $publicVerifyUrl,
+                'qr_image_base64' => $base64Image,
+                'generated_at' => now()->toIso8601String(),
+            ],
+            'timestamp' => now()->toIso8601String(),
+            'request_id' => $request->header('X-Request-ID', (string) Str::uuid()),
         ]);
     }
 }

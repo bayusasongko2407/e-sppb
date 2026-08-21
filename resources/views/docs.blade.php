@@ -3,12 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dokumentasi — E-SPPB Enterprise</title>
-    <meta name="description" content="Manual lengkap penggunaan aplikasi E-SPPB Enterprise: panduan per peran, alur persetujuan, status dokumen, dan pengaturan sistem.">
+    <title>Dokumentasi & API Reference — E-SPPB Enterprise</title>
+    <meta name="description" content="Portal lengkap dokumentasi E-SPPB Enterprise: Panduan Pengguna per peran, OpenAPI Live Reference, Panduan Integrasi Mobile & QR, dan Context Prompt AI Studio.">
     <meta name="robots" content="index, follow">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    {{-- Stoplight Elements (OpenAPI UI) --}}
+    <script src="https://unpkg.com/@stoplight/elements@8.4.2/web-components.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/@stoplight/elements@8.4.2/styles.min.css">
+
     <style>
         :root {
             --primary: #0ea5e9;
@@ -27,7 +32,8 @@
             --text-light: #94a3b8;
             --border: #e2e8f0;
             --border-light: #f1f5f9;
-            --code-bg: #f1f5f9;
+            --code-bg: #0d1117;
+            --code-text: #e6edf3;
             --sidebar-width: 280px;
             --header-height: 60px;
         }
@@ -68,9 +74,9 @@
             border-bottom: 1px solid var(--border);
             display: flex;
             align-items: center;
-            padding: 0 1.5rem;
-            gap: 1rem;
-            z-index: 100;
+            padding: 0 1.25rem;
+            gap: 0.875rem;
+            z-index: 200;
         }
 
         .header-logo {
@@ -101,19 +107,50 @@
             width: 1px;
             height: 24px;
             background: var(--border);
+            flex-shrink: 0;
         }
 
-        .header-title {
-            font-size: 0.875rem;
-            color: var(--text-muted);
-            font-weight: 500;
+        /* HEADER TAB SWITCHER */
+        .header-tabs {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            background: var(--border-light);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.2rem;
         }
+
+        .header-tab {
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.3125rem 0.875rem;
+            border-radius: 6px;
+            font-size: 0.8125rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+
+        .header-tab:hover { color: var(--text-main); }
+        .header-tab.active {
+            background: var(--content-bg);
+            color: var(--primary);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            font-weight: 600;
+        }
+        .header-tab .tab-icon { font-size: 0.875rem; }
 
         .header-actions {
             margin-left: auto;
             display: flex;
             align-items: center;
-            gap: 0.75rem;
+            gap: 0.625rem;
         }
 
         .btn-header {
@@ -129,6 +166,7 @@
             border: 1px solid var(--border);
             color: var(--text-main);
             background: transparent;
+            white-space: nowrap;
         }
 
         .btn-header:hover {
@@ -152,6 +190,41 @@
             cursor: pointer;
             padding: 0.25rem;
             color: var(--text-main);
+        }
+
+        /* ─── PANES ────────────────────────────────────── */
+        .doc-pane {
+            display: none;
+            width: 100%;
+        }
+        .doc-pane.active {
+            display: block;
+        }
+
+        /* PANE: OPENAPI ELEMENTS */
+        #pane-api.doc-pane.active {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - var(--header-height));
+            margin-top: var(--header-height);
+            background: #ffffff;
+        }
+        @media (prefers-color-scheme: dark) {
+            #pane-api.doc-pane.active {
+                background: #161b22;
+            }
+        }
+        #pane-api elements-api {
+            flex: 1;
+            height: 100%;
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        /* PANE: MOBILE GUIDE & AI PROMPT */
+        #pane-mobile.doc-pane.active,
+        #pane-ai.doc-pane.active {
+            margin-top: var(--header-height);
+            min-height: calc(100vh - var(--header-height));
         }
 
         /* ─── LAYOUT ─────────────────────────────────── */
@@ -665,14 +738,33 @@
     </button>
     <a href="/docs" class="header-logo">
         <div class="logo-icon">E</div>
-        E-SPPB
+        <span>{{ \App\Models\AppSetting::get('app_custom_name', 'E-SPPB') }}</span>
     </a>
     <div class="header-divider"></div>
-    <span class="header-title">Dokumentasi</span>
+
+    <div class="header-tabs">
+        <button class="header-tab active" onclick="switchDocTab('manual', this)" id="tab-btn-manual">
+            <span class="tab-icon">📘</span> <span>Panduan Pengguna</span>
+        </button>
+        <button class="header-tab" onclick="switchDocTab('api', this)" id="tab-btn-api">
+            <span class="tab-icon">⚡</span> <span>API Reference</span>
+        </button>
+        <button class="header-tab" onclick="switchDocTab('mobile', this)" id="tab-btn-mobile">
+            <span class="tab-icon">📱</span> <span>Panduan Mobile</span>
+        </button>
+        <button class="header-tab" onclick="switchDocTab('ai', this)" id="tab-btn-ai">
+            <span class="tab-icon">🤖</span> <span>AI Studio Prompt</span>
+        </button>
+    </div>
+
     <div class="header-actions">
-        <a href="{{ url('/') }}" class="btn-header secondary">
-            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
-            Beranda
+        <a href="{{ route('docs.api.md') }}" target="_blank" class="btn-header" title="Download raw markdown context">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            api.md
+        </a>
+        <a href="{{ url('/verify/document') }}" class="btn-header">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Verifikasi
         </a>
         <a href="/admin" class="btn-header primary">
             Masuk ke Aplikasi
@@ -680,13 +772,16 @@
     </div>
 </header>
 
-<!-- SIDEBAR OVERLAY -->
-<div class="sidebar-overlay" id="overlay" onclick="toggleSidebar()"></div>
+<!-- PANE 1: USER MANUAL (Panduan Pengguna) -->
+<div id="pane-manual" class="doc-pane active">
 
-<div class="layout">
+    <!-- SIDEBAR OVERLAY -->
+    <div class="sidebar-overlay" id="overlay" onclick="toggleSidebar()"></div>
 
-    <!-- SIDEBAR -->
-    <nav class="sidebar" id="sidebar" aria-label="Navigasi dokumentasi">
+    <div class="layout">
+
+        <!-- SIDEBAR -->
+        <nav class="sidebar" id="sidebar" aria-label="Navigasi dokumentasi">
 
         <div class="sidebar-section">
             <div class="sidebar-section-label">Memulai</div>
@@ -1290,7 +1385,7 @@
             <!-- STATUS SURAT JALAN -->
             <!-- ────────────────────────────── -->
             <div class="doc-section" id="status-surat-jalan">
-                <h2>Status Surat Jalan</h2>
+                <h2>Status Surat Jalan (Goods Release)</h2>
 
                 <div class="table-wrapper">
                     <table>
@@ -1298,10 +1393,12 @@
                             <tr><th>Status</th><th>Kode Internal</th><th>Keterangan</th></tr>
                         </thead>
                         <tbody>
-                            <tr><td><span class="status status-gray">Draft</span></td><td><code>DRAFT</code></td><td>Surat Jalan baru dibuat, belum dikonfirmasi untuk pengiriman.</td></tr>
-                            <tr><td><span class="status status-blue">Dikirim</span></td><td><code>RELEASED</code></td><td>Surat Jalan terbit, barang dalam perjalanan ke tujuan.</td></tr>
-                            <tr><td><span class="status status-green">Diterima</span></td><td><code>RECEIVED</code></td><td>Barang tiba di tujuan dan diterima penerima yang sah.</td></tr>
-                            <tr><td><span class="status status-red">Dibatalkan</span></td><td><code>CANCELLED</code></td><td>Dibatalkan petugas. Kuantitas dikembalikan ke sisa kuota SPPB.</td></tr>
+                            <tr><td><span class="status status-gray">Draft</span></td><td><code>DRAFT</code></td><td>Surat Jalan baru dibuat, belum diterbitkan untuk pengiriman.</td></tr>
+                            <tr><td><span class="status status-blue">Dalam Pengiriman</span></td><td><code>RELEASED</code></td><td>Surat Jalan terbit, barang telah keluar dari gudang asal.</td></tr>
+                            <tr><td><span class="status status-blue">Dalam Perjalanan</span></td><td><code>IN_TRANSIT</code></td><td>Barang sedang dalam perjalanan oleh ekspedisi/driver.</td></tr>
+                            <tr><td><span class="status status-green">Sudah Diterima</span></td><td><code>DELIVERED</code></td><td>Barang telah tiba di tujuan dan dikonfirmasi penerima di lapangan via QR scan.</td></tr>
+                            <tr><td><span class="status status-green">Diterima</span></td><td><code>RECEIVED</code></td><td>Status penerimaan resmi tercatat di sistem.</td></tr>
+                            <tr><td><span class="status status-red">Dibatalkan</span></td><td><code>CANCELLED</code></td><td>Surat jalan dibatalkan petugas. Kuantitas dikembalikan ke sisa kuota SPPB.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -1311,9 +1408,9 @@
                     <table>
                         <thead><tr><th>Status</th><th>Kode</th><th>Keterangan</th></tr></thead>
                         <tbody>
-                            <tr><td><span class="status status-gray">Belum Dikirim</span></td><td><code>PENDING</code></td><td>Belum ada rilis sama sekali untuk item ini.</td></tr>
-                            <tr><td><span class="status status-yellow">Sebagian Dikirim</span></td><td><code>PARTIALLY_DELIVERED</code></td><td>Sebagian kuantitas sudah dikirim, sisanya belum.</td></tr>
-                            <tr><td><span class="status status-green">Terkirim</span></td><td><code>DELIVERED</code></td><td>Kuantitas penuh sudah dikirim 100%.</td></tr>
+                            <tr><td><span class="status status-gray">Menunggu Pengiriman</span></td><td><code>PENDING</code></td><td>Belum ada rilis sama sekali untuk item ini.</td></tr>
+                            <tr><td><span class="status status-yellow">Sebagian Dikirim</span></td><td><code>PARTIALLY_DELIVERED</code></td><td>Sebagian kuantitas sudah dirilis dalam Surat Jalan, sisanya belum.</td></tr>
+                            <tr><td><span class="status status-green">Terkirim Penuh</span></td><td><code>DELIVERED</code></td><td>Kuantitas barang sudah dirilis 100%.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -1620,20 +1717,281 @@
     </main>
 
 </div><!-- /layout -->
+</div><!-- /#pane-manual -->
+
+<!-- PANE 2: OPENAPI REFERENCE (Stoplight Elements) -->
+<div id="pane-api" class="doc-pane">
+    <div style="flex: 1; height: 100%; position: relative;">
+        <elements-api
+            id="elements-docs"
+            apiDescriptionUrl="{{ url('/docs/api.json') }}"
+            router="hash"
+            layout="responsive"
+            hideTryIt="false"
+            tryItCredentialsPolicy="include"
+        ></elements-api>
+    </div>
+</div>
+
+<!-- PANE 3: PANDUAN MOBILE & INTEGRASI -->
+<div id="pane-mobile" class="doc-pane">
+    <div style="display: flex; max-width: 1280px; margin: 0 auto; width: 100%;">
+
+        <!-- Sidebar Mobile Guide -->
+        <nav class="sidebar" style="position: sticky; top: var(--header-height); height: calc(100vh - var(--header-height)); overflow-y: auto;">
+            <div class="sidebar-section">
+                <div class="sidebar-section-label">Pengantar Mobile</div>
+                <a href="#mob-overview" class="sidebar-link active"><span class="dot"></span>Gambaran Umum</a>
+                <a href="#mob-authentication" class="sidebar-link"><span class="dot"></span>Autentikasi</a>
+                <a href="#mob-branding" class="sidebar-link"><span class="dot"></span>Logo & Branding API</a>
+                <a href="#mob-errors" class="sidebar-link"><span class="dot"></span>Format Error</a>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-section-label">Penerimaan Lapangan</div>
+                <a href="#mob-receive-confirm" class="sidebar-link"><span class="dot"></span>Konfirmasi Terima</a>
+                <a href="#mob-receive-show" class="sidebar-link"><span class="dot"></span>Detail Surat Jalan</a>
+                <a href="#mob-flow" class="sidebar-link"><span class="dot"></span>Alur Scan QR</a>
+                <a href="#mob-signature" class="sidebar-link"><span class="dot"></span>Canvas Tanda Tangan</a>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-section-label">State Machine</div>
+                <a href="#mob-lifecycle" class="sidebar-link"><span class="dot"></span>Lifecycle Dokumen</a>
+            </div>
+        </nav>
+
+        <!-- Content Mobile Guide -->
+        <div class="content" style="max-width: 880px; padding: 2.5rem 2rem 6rem; flex: 1;">
+
+            <!-- OVERVIEW -->
+            <div class="doc-section" id="mob-overview">
+                <h1>Panduan Mobile & Integrasi API</h1>
+                <p>Panduan teknis bagi tim pengembang mobile app (Flutter / React Native / Kotlin / Swift / PWA) yang terhubung dengan backend E-SPPB Enterprise, difokuskan pada alur <strong>konfirmasi penerimaan barang di lapangan via QR Code</strong> dan <strong>sinkronisasi branding</strong>.</p>
+
+                <div class="hero">
+                    <h3 style="margin-top:0;">Base API URL</h3>
+                    <div style="background: var(--code-bg); padding: 0.75rem 1rem; border-radius: 8px; font-family: 'JetBrains Mono', monospace; color: #a5d6ff; font-size: 0.9rem; word-break: break-all;">
+                        {{ url('/api/v1') }}
+                    </div>
+                    <div class="hero-badges">
+                        <span class="badge blue">Sanctum Token Auth</span>
+                        <span class="badge green">Public QR Verification</span>
+                        <span class="badge purple">Idempotent Confirmation</span>
+                        <span class="badge orange">Visual Branding API</span>
+                    </div>
+                </div>
+
+                <h3>Format Respons Standar</h3>
+                <div style="background: var(--code-bg); border-radius: 8px; padding: 1.25rem; overflow-x: auto; margin: 1rem 0;">
+                    <pre style="font-family: 'JetBrains Mono', monospace; font-size: 0.8125rem; color: var(--code-text);">{
+  <span style="color:#79c0ff;">"success"</span>: <span style="color:#ff7b72;">true</span>,
+  <span style="color:#79c0ff;">"message"</span>: <span style="color:#a5d6ff;">"Operasi berhasil dijalankan."</span>,
+  <span style="color:#79c0ff;">"data"</span>: { ... },
+  <span style="color:#79c0ff;">"already_confirmed"</span>: <span style="color:#ff7b72;">false</span>, <span style="color:#8b949e;">// Khusus endpoint penerimaan</span>
+  <span style="color:#79c0ff;">"timestamp"</span>: <span style="color:#a5d6ff;">"2026-08-20T13:00:00+07:00"</span>
+}</pre>
+                </div>
+            </div>
+
+            <!-- AUTH -->
+            <div class="doc-section" id="mob-authentication">
+                <h2>Autentikasi Mobile</h2>
+                <p>Aplikasi mobile menggunakan <strong>Laravel Sanctum Bearer Token</strong> untuk operasi terlindungi. Kirimkan token di header setiap request:</p>
+                <div style="background: var(--code-bg); border-radius: 8px; padding: 1rem; font-family: 'JetBrains Mono', monospace; color: #a5d6ff; font-size: 0.85rem; margin-bottom: 1rem;">
+                    Authorization: Bearer {token}
+                </div>
+
+                <div class="callout info">
+                    <div class="callout-icon">ℹ️</div>
+                    <div class="callout-body">
+                        <div class="callout-title">Konfirmasi QR Publik vs Terautentikasi</div>
+                        <p class="callout-text">Endpoint <strong>konfirmasi terima surat jalan</strong> dapat dipanggil <strong>tanpa token</strong> (oleh penerima umum via QR Code) maupun <strong>dengan token</strong> (jika user driver/staf gudang login, sistem otomatis mencatat <code>received_by_id</code>).</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BRANDING API -->
+            <div class="doc-section" id="mob-branding">
+                <h2>Logo & Visual Branding API</h2>
+                <p>Mobile App dapat menyesuaikan logo, favicon, warna tema utama, dan tinggi logo sesuai preferensi perusahaan secara dinamis melalui API Branding publik:</p>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Method</th><th>Endpoint</th><th>Akses</th><th>Keterangan</th></tr></thead>
+                        <tbody>
+                            <tr><td><span class="badge blue">GET</span></td><td><code>/api/v1/branding</code></td><td>Publik</td><td>Ambil konfigurasi nama aplikasi, warna tema, logo light/dark/login/pdf, dan favicon.</td></tr>
+                            <tr><td><span class="badge purple">POST</span></td><td><code>/api/v1/settings/branding</code></td><td>Admin</td><td>Perbarui teks branding atau unggah berkas logo/favicon baru (multipart).</td></tr>
+                            <tr><td><span class="badge red" style="background:#fee2e2;color:#991b1b;">DELETE</span></td><td><code>/api/v1/settings/branding/logos/{type}</code></td><td>Admin</td><td>Hapus logo spesifik (<code>light</code>, <code>dark</code>, <code>favicon</code>, <code>login</code>, <code>pdf</code>).</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- RECEIVE CONFIRM -->
+            <div class="doc-section" id="mob-receive-confirm">
+                <h2>Konfirmasi Penerimaan Barang di Lapangan</h2>
+                <p>Endpoint utama saat penerima di plant tujuan memindai QR Code Surat Jalan:</p>
+
+                <div style="border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; background: var(--content-bg); margin: 1rem 0;">
+                    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+                        <span class="badge green" style="font-size:0.8rem; font-weight:700;">POST</span>
+                        <code style="font-size: 0.95rem;">/api/v1/goods-releases/{uuid}/receive</code>
+                    </div>
+                    <p style="font-size: 0.875rem;">Alias: <code>/api/v1/goods-releases/{uuid}/confirm-receipt</code></p>
+
+                    <h4>Payload JSON:</h4>
+                    <div style="background: var(--code-bg); border-radius: 8px; padding: 1rem; overflow-x: auto;">
+                        <pre style="font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--code-text);">{
+  <span style="color:#79c0ff;">"recipient_name"</span>: <span style="color:#a5d6ff;">"Budi Santoso"</span>,       <span style="color:#8b949e;">// Wajib (string, max:150)</span>
+  <span style="color:#79c0ff;">"recipient_signature"</span>: <span style="color:#a5d6ff;">"data:image/png;base64,..."</span>, <span style="color:#8b949e;">// Opsional (base64 image, max 5MB)</span>
+  <span style="color:#79c0ff;">"receiving_notes"</span>: <span style="color:#a5d6ff;">"Diterima lengkap dan segel utuh"</span> <span style="color:#8b949e;">// Opsional (string, max:500)</span>
+}</pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MOBILE FLOW -->
+            <div class="doc-section" id="mob-flow">
+                <h2>Alur Konfirmasi via QR Code (Diagram)</h2>
+                <div style="background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--code-text); line-height: 2;">
+1. Pengguna membuka kamera / Scanner di Aplikasi Mobile
+   │
+   ▼
+2. Scan QR Code pada fisik Surat Jalan
+   ➔ Mendapatkan URL: https://.../verify/document/{hash} atau JSON / UUID Surat Jalan
+   │
+   ▼
+3. Mobile App memanggil: GET /api/v1/goods-releases/{uuid}
+   ➔ Periksa status: jika status DELIVERED ➔ tampilkan info penerimaan sebelumnya
+   ➔ Jika status RELEASED ➔ buka Form Konfirmasi Penerimaan
+   │
+   ▼
+4. Pengguna mengisi:
+   • Nama Penerima (Wajib)
+   • Tanda Tangan di Layar Sentuh / Canvas (Opsional)
+   • Catatan Penerimaan (Opsional)
+   │
+   ▼
+5. Mobile App mengirim: POST /api/v1/goods-releases/{uuid}/receive
+   │
+   ▼
+6. Backend memproses:
+   • Mengubah status Surat Jalan menjadi DELIVERED
+   • Menghitung kuota pelepasan barang SPPB terkait (jika lunas ➔ COMPLETED)
+   • Mengirim notifikasi WhatsApp otomatis ke Pemohon & Gudang Pengirim
+   │
+   ▼
+7. Respons sukses: "Penerimaan barang berhasil dikonfirmasi."
+                </div>
+            </div>
+
+            <!-- SIGNATURE -->
+            <div class="doc-section" id="mob-signature">
+                <h2>Panduan Tanda Tangan Canvas</h2>
+                <p>Tanda tangan dikirim sebagai <code>data:image/png;base64,...</code>.</p>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Platform</th><th>Library Rekomendasi</th><th>Metode Export</th></tr></thead>
+                        <tbody>
+                            <tr><td>Flutter</td><td><code>syncfusion_flutter_signaturepad</code></td><td><code>toImage()</code> ➔ <code>base64Encode()</code></td></tr>
+                            <tr><td>React Native</td><td><code>react-native-signature-canvas</code></td><td><code>onOK = (sig) => sig</code> (Base64)</td></tr>
+                            <tr><td>Web / PWA</td><td><code>signature_pad</code></td><td><code>pad.toDataURL('image/png')</code></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div><!-- /content -->
+    </div>
+</div>
+
+<!-- PANE 4: MARKDOWN AI STUDIO PROMPT -->
+<div id="pane-ai" class="doc-pane" style="background: var(--bg); overflow-y: auto;">
+    <div style="max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem 6rem; width: 100%;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+            <div>
+                <h1 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 0.25rem;">Markdown Prompt Context — AI Studio</h1>
+                <p style="margin: 0; font-size: 0.875rem; color: var(--text-muted);">Spesifikasi lengkap RESTful API, DTO, Type Definitions & Business Rules. Siap untuk disalin dan ditempelkan ke <strong>Google AI Studio</strong>, Claude 3.7, ChatGPT o3, atau Cursor IDE.</p>
+            </div>
+            <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+                <a href="{{ route('docs.api.md') }}" target="_blank" class="btn-header" style="background: var(--content-bg);">
+                    ⬇️ Raw .md File
+                </a>
+                <button onclick="copyAllMarkdown(this)" class="btn-header primary" style="padding: 0.5rem 1.125rem; font-weight: 600; cursor: pointer;">
+                    📋 Salin Semua Context untuk AI Studio
+                </button>
+            </div>
+        </div>
+
+        <div style="background: var(--code-bg); border: 1px solid var(--border); border-radius: 12px; margin: 0; overflow: hidden;">
+            <div style="padding: 0.75rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center;">
+                <span style="color: #8b949e; font-size: 0.75rem; font-weight: 700;">MARKDOWN PROMPT / SYSTEM CONTEXT</span>
+                <span style="font-size: 0.75rem; color: #79c0ff; font-family: 'JetBrains Mono', monospace;">{{ route('docs.api.md') }}</span>
+            </div>
+            <div style="padding: 1.5rem 1.25rem; overflow-x: auto;">
+                <pre id="raw-markdown-content" style="font-family: 'JetBrains Mono', monospace; font-size: 0.8125rem; line-height: 1.8; color: var(--code-text); white-space: pre-wrap; word-break: break-word;">@include('docs-api-md')</pre>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script>
     function toggleSidebar() {
         const sidebar = document.getElementById('sidebar');
         const overlay = document.getElementById('overlay');
-        sidebar.classList.toggle('open');
-        overlay.classList.toggle('open');
+        if (sidebar) sidebar.classList.toggle('open');
+        if (overlay) overlay.classList.toggle('open');
     }
 
-    // Active link tracking on scroll
-    const sections = document.querySelectorAll('.doc-section');
-    const links = document.querySelectorAll('.sidebar-link');
+    // Tab switcher between User Manual, OpenAPI, Mobile Guide, and AI Prompt
+    function switchDocTab(tabName, btn) {
+        document.querySelectorAll('.doc-pane').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.header-tab').forEach(t => t.classList.remove('active'));
+
+        const targetPane = document.getElementById('pane-' + tabName);
+        if (targetPane) {
+            targetPane.classList.add('active');
+        }
+
+        if (btn) {
+            btn.classList.add('active');
+        } else {
+            const matchingBtn = document.getElementById('tab-btn-' + tabName);
+            if (matchingBtn) matchingBtn.classList.add('active');
+        }
+
+        // Sync URL query without full page reload
+        const url = new URL(window.location);
+        if (tabName === 'manual') {
+            url.searchParams.delete('tab');
+        } else {
+            url.searchParams.set('tab', tabName);
+        }
+        window.history.replaceState({}, '', url);
+
+        window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+
+    function copyAllMarkdown(btn) {
+        const text = document.getElementById('raw-markdown-content').innerText;
+        navigator.clipboard.writeText(text).then(() => {
+            const original = btn.innerHTML;
+            btn.innerHTML = '✅ Tersalin ke Clipboard!';
+            btn.style.background = '#22c55e';
+            btn.style.borderColor = '#22c55e';
+            setTimeout(() => {
+                btn.innerHTML = original;
+                btn.style.background = '';
+                btn.style.borderColor = '';
+            }, 3000);
+        });
+    }
+
+    // Active link tracking on scroll for manual
+    const sections = document.querySelectorAll('#pane-manual .doc-section');
+    const links = document.querySelectorAll('#pane-manual .sidebar-link');
 
     function updateActiveLink() {
+        if (!document.getElementById('pane-manual').classList.contains('active')) return;
         let currentId = '';
         const scrollY = window.scrollY + 80;
 
@@ -1653,15 +2011,46 @@
 
     window.addEventListener('scroll', updateActiveLink, { passive: true });
 
-    // Close sidebar on link click (mobile)
     links.forEach(link => {
         link.addEventListener('click', () => {
-            document.getElementById('sidebar').classList.remove('open');
-            document.getElementById('overlay').classList.remove('open');
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+            if (sidebar) sidebar.classList.remove('open');
+            if (overlay) overlay.classList.remove('open');
         });
     });
 
-    updateActiveLink();
+    // Handle initial tab on load from URL parameter or hash
+    document.addEventListener('DOMContentLoaded', () => {
+        const params = new URLSearchParams(window.location.search);
+        const tabParam = params.get('tab');
+        const hash = window.location.hash.toLowerCase();
+
+        if (tabParam === 'api' || hash === '#api' || hash.startsWith('#api-')) {
+            switchDocTab('api');
+        } else if (tabParam === 'mobile' || hash === '#mobile' || hash.startsWith('#mob-')) {
+            switchDocTab('mobile');
+        } else if (tabParam === 'ai' || tabParam === 'ai-prompt' || hash === '#ai' || hash === '#ai-prompt') {
+            switchDocTab('ai');
+        } else {
+            switchDocTab('manual');
+        }
+        updateActiveLink();
+    });
+
+    // Intercept Stoplight fetch for CSRF
+    const originalFetch = window.fetch;
+    window.fetch = (url, options) => {
+        const token = document.cookie.split(';').find(c => c.trim().startsWith('XSRF-TOKEN'))?.split('=')[1];
+        if (token) {
+            const headers = options?.headers || new Headers();
+            if (headers instanceof Headers) headers.set('X-XSRF-TOKEN', decodeURIComponent(token));
+            else if (Array.isArray(headers)) headers.push(['X-XSRF-TOKEN', decodeURIComponent(token)]);
+            else headers['X-XSRF-TOKEN'] = decodeURIComponent(token);
+            return originalFetch(url, { ...options, headers });
+        }
+        return originalFetch(url, options);
+    };
 </script>
 
 </body>

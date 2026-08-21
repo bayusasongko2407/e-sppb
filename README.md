@@ -1,4 +1,4 @@
-# 📦 E-SPPB Enterprise (v1.0.0)
+# 📦 E-SPPB Enterprise (v1.0.1)
 
 > **Elektronik Surat Permintaan & Pelepasan Barang (E-SPPB)** — Sistem enterprise modern multi-plant untuk manajemen siklus hidup pengajuan pengeluaran barang, persetujuan berjenjang (*multi-stage workflow engine*), penerbitan Surat Jalan (*Goods Release*) dengan 4 alur pengiriman, verifikasi digital publik berbasis enkripsi SHA-256, serta pelaporan enterprise komprehensif berbasis **Laravel 12** (PHP 8.3+) & **Filament v5**.
 
@@ -16,7 +16,7 @@
 9. [Microservice WhatsApp Gateway](#-microservice-whatsapp-gateway)
 10. [Panduan Instalasi & Deployment](#-panduan-instalasi--deployment)
 11. [Pengujian & Quality Gate (Test Suite)](#-pengujian--quality-gate-test-suite)
-12. [Informasi Rilis v1.0.0 & Repositori](#-informasi-rilis-v100--repositori)
+12. [Informasi Rilis v1.0.1 & Repositori](#-informasi-rilis-v101--repositori)
 
 ---
 
@@ -263,9 +263,14 @@ Duration: 64.21s
 
 ---
 
-## 🏷️ Informasi Rilis v1.0.0 & Repositori
+## 🏷️ Informasi Rilis v1.0.1 & Repositori
 
-- **Versi Rilis**: `v1.0.0` (Production Stable)
+- **Versi Rilis**: `v1.0.1` (Production Stable)
+- **Fitur Baru v1.0.1**:
+  - API Generator QR Code Dokumen SPPB (`GET /api/v1/sppb/{uuid}/qr-code`) mendukung format JSON (`data:image/svg+xml;base64`) & raw SVG (`image/svg+xml`).
+  - Integrasi multi-channel link verifikasi (`verification_url`, `api_verification_url`, `public_verification_url`).
+  - Penyertaan data lengkap user approver (`approver_name`, `approver_nik`, `approver` object) pada hasil verifikasi dokumen.
+  - Peningkatan halaman web verifikasi dokumen publik (`/verify/document`).
 - **Repository**: [bayusasongko2407/e-sppb](https://github.com/bayusasongko2407/e-sppb.git)
 - **Branch Utama**: `main`
 - **Lisensi**: Enterprise Internal Application.

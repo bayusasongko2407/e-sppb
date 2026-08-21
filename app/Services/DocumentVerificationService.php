@@ -244,8 +244,10 @@ class DocumentVerificationService
             'destinationLocation',
             'sppbDetails.item',
             'sppbDetails.unit',
-            'currentWorkflowInstance.workflowInstanceSteps',
-            'workflowInstances.workflowInstanceSteps',
+            'currentWorkflowInstance.workflowInstanceSteps.actedBy',
+            'currentWorkflowInstance.workflowInstanceSteps.stepApprovers.approver',
+            'workflowInstances.workflowInstanceSteps.actedBy',
+            'workflowInstances.workflowInstanceSteps.stepApprovers.approver',
         ])
             ->where('document_number', $target)
             ->orWhere('uuid', $target)
@@ -290,7 +292,8 @@ class DocumentVerificationService
             'documentGeneration.sppbHeader.originLocation',
             'documentGeneration.sppbHeader.destinationLocation',
             'documentGeneration.sppbHeader.sppbDetails',
-            'documentGeneration.sppbHeader.workflowInstances.workflowInstanceSteps',
+            'documentGeneration.sppbHeader.workflowInstances.workflowInstanceSteps.actedBy',
+            'documentGeneration.sppbHeader.workflowInstances.workflowInstanceSteps.stepApprovers.approver',
             'documentGeneration.goodsRelease.sppbHeader',
         ])
             ->where('verification_token_hash', $sha256Token)
@@ -343,7 +346,8 @@ class DocumentVerificationService
             'documentGeneration.sppbHeader.originLocation',
             'documentGeneration.sppbHeader.destinationLocation',
             'documentGeneration.sppbHeader.sppbDetails',
-            'documentGeneration.sppbHeader.workflowInstances.workflowInstanceSteps',
+            'documentGeneration.sppbHeader.workflowInstances.workflowInstanceSteps.actedBy',
+            'documentGeneration.sppbHeader.workflowInstances.workflowInstanceSteps.stepApprovers.approver',
             'documentGeneration.goodsRelease.sppbHeader',
         ])
             ->where('verification_uuid', $verificationUuid)
@@ -571,8 +575,10 @@ class DocumentVerificationService
                 'originLocation',
                 'destinationLocation',
                 'sppbDetails',
-                'currentWorkflowInstance.workflowInstanceSteps',
-                'workflowInstances.workflowInstanceSteps',
+                'currentWorkflowInstance.workflowInstanceSteps.actedBy',
+                'currentWorkflowInstance.workflowInstanceSteps.stepApprovers.approver',
+                'workflowInstances.workflowInstanceSteps.actedBy',
+                'workflowInstances.workflowInstanceSteps.stepApprovers.approver',
             ]);
         }
 
@@ -670,10 +676,21 @@ class DocumentVerificationService
     {
         if (isset($payload['approval_summary']) && is_array($payload['approval_summary'])) {
             return array_map(function (array $item): array {
+                $approverName = $item['approver_name'] ?? $item['approver']['name'] ?? $item['user_name'] ?? null;
+                $approverNik = $item['approver_nik'] ?? $item['approver']['nik'] ?? $item['nik'] ?? '';
+                $approverId = $item['approver_id'] ?? $item['approver']['id'] ?? null;
+
                 return [
                     'role' => $this->translateRole((string) ($item['role'] ?? 'Approver')),
                     'status' => $this->translateApprovalStatus((string) ($item['status'] ?? 'APPROVED')),
                     'approved_at' => isset($item['approved_at']) ? (string) $item['approved_at'] : null,
+                    'approver_name' => $approverName,
+                    'approver_nik' => (string) $approverNik,
+                    'approver' => $approverName ? [
+                        'id' => $approverId,
+                        'name' => $approverName,
+                        'nik' => (string) $approverNik,
+                    ] : null,
                 ];
             }, $payload['approval_summary']);
         }
@@ -690,10 +707,21 @@ class DocumentVerificationService
         $summary = [];
         foreach ($instance->workflowInstanceSteps as $step) {
             if ($step->status === 'APPROVED' || $step->status === 'REJECTED') {
+                $approverUser = $step->actedBy
+                    ?? $step->stepApprovers->where('status', 'APPROVED')->first()?->approver
+                    ?? $step->stepApprovers->first()?->approver;
+
                 $summary[] = [
                     'role' => $this->translateRole((string) ($step->name ?? 'Approver')),
                     'status' => $this->translateApprovalStatus((string) $step->status),
                     'approved_at' => $step->acted_at ? Carbon::parse($step->acted_at)->format('Y-m-d H:i') : null,
+                    'approver_name' => $approverUser?->name,
+                    'approver_nik' => $approverUser?->nik ?? '',
+                    'approver' => $approverUser ? [
+                        'id' => $approverUser->id,
+                        'name' => $approverUser->name,
+                        'nik' => $approverUser->nik ?? '',
+                    ] : null,
                 ];
             }
         }

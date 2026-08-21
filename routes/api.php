@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\BrandingSettingController;
 use App\Http\Controllers\Api\V1\DashboardMetricsController;
 use App\Http\Controllers\Api\V1\GoodsReleaseController;
 use App\Http\Controllers\Api\V1\NotificationController;
@@ -17,11 +18,12 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
-// Direct Top-Level Contract Aliases (/api/login, /api/me, /api/health)
+// Direct Top-Level Contract Aliases (/api/login, /api/me, /api/health, /api/branding)
 Route::post('login', [AuthController::class, 'login']);
 Route::post('logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
 Route::get('me', [AuthController::class, 'me'])->middleware('auth:sanctum');
 Route::get('health', [SystemHealthController::class, 'index']);
+Route::get('branding', [BrandingSettingController::class, 'show']);
 
 // Public API Auth routes (Token & Session)
 Route::prefix('v1/auth')->group(function () {
@@ -59,6 +61,9 @@ Route::prefix('v1/auth')->group(function () {
         Route::get('me', [AuthController::class, 'sessionMe']);
     });
 });
+
+// Public Branding Endpoint
+Route::get('v1/branding', [BrandingSettingController::class, 'show']);
 
 Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
     // Auth Profile & Session Endpoints
@@ -111,6 +116,9 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
             // Goods Releases & Releasable Items related to SPPB
             Route::get('releasable-items', [SppbController::class, 'releasableItems'])->middleware('permission:view_sppbheader');
             Route::post('goods-releases', [GoodsReleaseController::class, 'store'])->middleware('permission:create_goodsrelease');
+
+            // QR Code Generator
+            Route::get('qr-code', [SppbController::class, 'qrCode'])->middleware('permission:view_sppbheader');
         });
     };
 
@@ -140,6 +148,7 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
     });
 
     // Goods Releases Endpoints
+    // Goods Releases Endpoints
     Route::prefix('goods-releases')->group(function () {
         Route::get('/', [GoodsReleaseController::class, 'index'])->middleware('permission:view_any_goodsrelease');
         Route::post('/', [GoodsReleaseController::class, 'storeCompatibility'])->middleware('permission:create_goodsrelease');
@@ -148,10 +157,18 @@ Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
         Route::post('{uuid}/confirm-receipt', [GoodsReleaseController::class, 'receive']);
         Route::patch('{uuid}/status', [GoodsReleaseController::class, 'receive']);
     });
+
+    // Branding & Logo Settings (Admin)
+    Route::prefix('settings/branding')->group(function () {
+        Route::get('/', [BrandingSettingController::class, 'show']);
+        Route::post('/', [BrandingSettingController::class, 'update']);
+        Route::delete('logos/{type}', [BrandingSettingController::class, 'deleteLogo']);
+    });
 });
 
 // Public endpoints
 Route::prefix('v1/public')->group(function () {
+    Route::get('branding', [BrandingSettingController::class, 'show']);
     Route::get('sandbox-info', function () {
         $setting = ApiSetting::first();
 

@@ -1,9 +1,9 @@
 # E-SPPB Enterprise — API Documentation v1
 
-> **Versi dokumen:** 1.0.0 — Disinkronisasi dari source code aktual  
-> **Base URL:** `https://e-sppb.engiboard.web.id/api/v1`  
-> **Content-Type:** `application/json`  
-> **Interactive Docs:** https://e-sppb.engiboard.web.id/docs/api  
+> **Versi dokumen:** 1.0.1 — Disinkronisasi dari source code aktual<br>
+> **Base URL:** `https://e-sppb.engiboard.web.id/api/v1`<br>
+> **Content-Type:** `application/json`<br>
+> **Interactive Docs:** https://e-sppb.engiboard.web.id/docs/api<br>
 
 ---
 
@@ -570,6 +570,51 @@ Digunakan untuk menentukan **apakah tombol "Kirim Barang" perlu ditampilkan** da
 | `PENDING` | Belum Dikirim | `false` | Belum ada Surat Jalan |
 | `PARTIALLY_DELIVERED` | Pengiriman Sebagian | `false` | Sebagian sudah ada SJ aktif |
 | `DELIVERED` | Pengiriman Penuh | `true` | Semua sudah ada di SJ aktif |
+
+---
+
+### 2.7 Generate QR Code SPPB
+`GET /sppb/{uuid}/qr-code` *(Membutuhkan autentikasi & permission `view_sppbheader`)*
+
+Menghasilkan QR Code terenkripsi resmi untuk lembar dokumen SPPB, yang kompatibel dengan endpoint verifikasi dokumen (`/api/v1/verify/document`).
+
+**Query Parameters:**
+
+| Parameter | Tipe | Default | Keterangan |
+|-----------|------|---------|------------|
+| `format` | string | `json` | Pilihan: `json` (mengembalikan JSON payload & base64 image data URI) atau `svg` (mengembalikan stream gambar SVG mentah) |
+
+**Response 200 (JSON):**
+```json
+{
+  "success": true,
+  "message": "QR Code dokumen SPPB berhasil dibuat.",
+  "data": {
+    "sppb_id": 30,
+    "sppb_uuid": "019fef10-ba9e-70fb-9b9e-e4f24c6bb4ff",
+    "document_number": "SPPB/SJA SPJ/ENG/2026/08/00002",
+    "status": "APPROVED",
+    "verification_type": "LARAVEL_CRYPT_AES256",
+    "qr_payload": "eyJpdiI6Ilp4TlVrc2R2cTRsVGt3c2EiLCJ2YWx1ZSI6Ilk4aXBYL3Z...",
+    "verification_url": "https://e-sppb.engiboard.web.id/verify/document?hash=eyJpdiI6...",
+    "api_verification_url": "https://e-sppb.engiboard.web.id/api/v1/verify/document",
+    "public_verification_url": "https://e-sppb.engiboard.web.id/api/v1/public/sppb/verify/SPPB%2FSJA%20SPJ%2FENG%2F2026%2F08%2F00002",
+    "qr_image_base64": "data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIi...",
+    "generated_at": "2026-08-21T10:30:00+07:00"
+  },
+  "timestamp": "2026-08-21T10:30:00+07:00",
+  "request_id": "9b12a831-..."
+}
+```
+
+* **`verification_url`**: Link verifikasi web resmi (dapat langsung dibuka di browser ponsel/komputer untuk melihat sertifikat keabsahan dokumen).
+* **`api_verification_url`**: Endpoint API verifikasi (digunakan untuk request `POST` dari aplikasi Frontend/Mobile Scanner).
+* **`public_verification_url`**: Endpoint verifikasi publik instan berbasis kode SPPB.
+
+**Response 200 (SVG):**
+- Request: `GET /sppb/{uuid}/qr-code?format=svg`
+- `Content-Type: image/svg+xml`
+- Output: `<svg xmlns="http://www.w3.org/2000/svg" ...>...</svg>`
 
 ---
 

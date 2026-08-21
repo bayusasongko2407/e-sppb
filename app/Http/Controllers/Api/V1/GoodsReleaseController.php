@@ -80,6 +80,13 @@ class GoodsReleaseController extends Controller
             'expedition_name' => 'nullable|string|max:100',
             'delivery_date' => 'nullable|date',
             'notes' => 'nullable|string|max:1000',
+            'items' => 'nullable|array',
+            'items.*.sppb_detail_id' => 'nullable|integer',
+            'items.*.detail_id' => 'nullable|integer',
+            'items.*.quantity_released' => 'nullable|numeric|min:0.01',
+            'items.*.quantity' => 'nullable|numeric|min:0.01',
+            'items.*.condition_on_release' => 'nullable|string|max:255',
+            'items.*.notes' => 'nullable|string|max:500',
         ]);
 
         $driverName = $request->input('driver_name') ?? $request->input('recipient_name') ?? 'Pengemudi';
@@ -87,26 +94,42 @@ class GoodsReleaseController extends Controller
         $expeditionName = $request->input('expedition_name') ?? 'Internal';
         $deliveryDate = $request->input('delivery_date') ?? now()->toDateString();
 
-        // Auto-release all remaining quantities for the SPPB details
         $items = [];
-        foreach ($sppb->sppbDetails as $detail) {
-            $alreadyReleased = GoodsReleaseItem::where('sppb_detail_id', $detail->id)
-                ->sum('quantity_released');
-            $remaining = (float) $detail->quantity - (float) $alreadyReleased;
+        if ($request->has('items') && is_array($request->input('items')) && count($request->input('items')) > 0) {
+            foreach ($request->input('items') as $itemPayload) {
+                $detailId = (int) ($itemPayload['sppb_detail_id'] ?? $itemPayload['detail_id'] ?? 0);
+                $qty = (float) ($itemPayload['quantity_released'] ?? $itemPayload['quantity'] ?? 0);
+                if ($detailId > 0 && $qty > 0) {
+                    $items[] = new GoodsReleaseItemData(
+                        sppbDetailId: $detailId,
+                        quantityReleased: $qty,
+                        conditionOnRelease: $itemPayload['condition_on_release'] ?? 'Baik',
+                        notes: $itemPayload['notes'] ?? null
+                    );
+                }
+            }
+        } else {
+            // Auto-release all remaining quantities for the SPPB details
+            foreach ($sppb->sppbDetails as $detail) {
+                $alreadyReleased = GoodsReleaseItem::where('sppb_detail_id', $detail->id)
+                    ->whereHas('goodsRelease', fn ($q) => $q->where('status', '!=', 'CANCELLED'))
+                    ->sum('quantity_released');
+                $remaining = (float) $detail->quantity - (float) $alreadyReleased;
 
-            if ($remaining > 0) {
-                $items[] = new GoodsReleaseItemData(
-                    sppbDetailId: (int) $detail->id,
-                    quantityReleased: $remaining,
-                    conditionOnRelease: 'Baik'
-                );
+                if ($remaining > 0) {
+                    $items[] = new GoodsReleaseItemData(
+                        sppbDetailId: (int) $detail->id,
+                        quantityReleased: $remaining,
+                        conditionOnRelease: 'Baik'
+                    );
+                }
             }
         }
 
         if (empty($items)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Semua barang dalam SPPB ini sudah dilepaskan.',
+                'message' => 'Tidak ada item barang yang valid untuk dilepaskan atau semua barang sudah lunas dirilis.',
             ], 422);
         }
 
@@ -129,11 +152,16 @@ class GoodsReleaseController extends Controller
                 'message' => 'Surat jalan pelepasan barang berhasil dibuat.',
                 'data' => $release->load(['sppbHeader', 'goodsReleaseItems.sppbDetail']),
             ], 201);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal merilis barang: '.$e->getMessage(),
-            ], 500);
+            ], 422);
         }
     }
 

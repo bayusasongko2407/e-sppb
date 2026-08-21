@@ -1748,6 +1748,7 @@
             </div>
             <div class="sidebar-section">
                 <div class="sidebar-section-label">Penerimaan Lapangan</div>
+                <a href="#mob-sppb-qr" class="sidebar-link"><span class="dot"></span>QR Code SPPB (v1.0.1)</a>
                 <a href="#mob-receive-confirm" class="sidebar-link"><span class="dot"></span>Konfirmasi Terima</a>
                 <a href="#mob-receive-show" class="sidebar-link"><span class="dot"></span>Detail Surat Jalan</a>
                 <a href="#mob-flow" class="sidebar-link"><span class="dot"></span>Alur Scan QR</a>
@@ -1821,6 +1822,23 @@
                             <tr><td><span class="badge blue">GET</span></td><td><code>/api/v1/branding</code></td><td>Publik</td><td>Ambil konfigurasi nama aplikasi, warna tema, logo light/dark/login/pdf, dan favicon.</td></tr>
                             <tr><td><span class="badge purple">POST</span></td><td><code>/api/v1/settings/branding</code></td><td>Admin</td><td>Perbarui teks branding atau unggah berkas logo/favicon baru (multipart).</td></tr>
                             <tr><td><span class="badge red" style="background:#fee2e2;color:#991b1b;">DELETE</span></td><td><code>/api/v1/settings/branding/logos/{type}</code></td><td>Admin</td><td>Hapus logo spesifik (<code>light</code>, <code>dark</code>, <code>favicon</code>, <code>login</code>, <code>pdf</code>).</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- SPPB QR & VERIFIKASI -->
+            <div class="doc-section" id="mob-sppb-qr">
+                <h2>QR Code & Verifikasi Dokumen SPPB (v1.0.1)</h2>
+                <p>Mulai versi 1.0.1, sistem menyediakan API untuk membuat QR Code terenkripsi resmi lembar dokumen SPPB serta verifikasi multi-channel:</p>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Method</th><th>Endpoint</th><th>Akses</th><th>Keterangan</th></tr></thead>
+                        <tbody>
+                            <tr><td><span class="badge blue">GET</span></td><td><code>/api/v1/sppb/{uuid}/qr-code</code></td><td>Bearer Token</td><td>Generate QR Code SPPB format JSON (Base64 SVG) atau format SVG mentah (<code>?format=svg</code>).</td></tr>
+                            <tr><td><span class="badge green">POST</span></td><td><code>/api/v1/verify/document</code></td><td>Publik</td><td>Dekripsi & verifikasi keaslian dokumen SPPB / Surat Jalan via payload QR.</td></tr>
+                            <tr><td><span class="badge blue">GET</span></td><td><code>/verify/document?hash={payload}</code></td><td>Publik</td><td>Halaman web publik sertifikat keabsahan dokumen (lengkap dengan data riwayat approver).</td></tr>
                         </tbody>
                     </table>
                 </div>
